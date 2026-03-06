@@ -1,0 +1,727 @@
+---
+title: Analyzer Development
+description: Build custom automatic program analysis components for Ghidra
+---
+
+## What is an Analyzer?
+
+Analyzers perform automatic program analysis when a binary is loaded or when specific events occur. They can:
+
+- Disassemble code and identify functions
+- Parse binary format structures (ELF, PE, Mach-O)
+- Detect and apply calling conventions
+- Identify library functions
+- Create data types and structures
+- Apply markup and comments
+
+## Analyzer Interface
+
+All analyzers must implement the `Analyzer` interface and follow naming conventions:
+
+<Warning>
+**Critical**: Analyzer class names must end with `Analyzer` for automatic discovery.
+</Warning>
+
+```java
+package ghidra.app.services;
+
+public interface Analyzer extends ExtensionPoint {
+    String getName();
+    AnalyzerType getAnalysisType();
+    boolean getDefaultEnablement(Program program);
+    boolean supportsOneTimeAnalysis();
+    String getDescription();
+    AnalysisPriority getPriority();
+    boolean canAnalyze(Program program);
+    boolean added(Program program, AddressSetView set, 
+                  TaskMonitor monitor, MessageLog log) 
+                  throws CancelledException;
+    boolean removed(Program program, AddressSetView set, 
+                   TaskMonitor monitor, MessageLog log) 
+                   throws CancelledException;
+    void registerOptions(Options options, Program program);
+    void optionsChanged(Options options, Program program);
+    void analysisEnded(Program program);
+    boolean isPrototype();
+}
+```
+
+## Creating an Analyzer
+
+### Extend AbstractAnalyzer
+
+Most analyzers extend `AbstractAnalyzer` for common functionality:
+
+```java
+package com.example.analyzers;
+
+import ghidra.app.services.AbstractAnalyzer;
+import ghidra.app.services.AnalyzerType;
+import ghidra.app.util.importer.MessageLog;
+import ghidra.framework.options.Options;
+import ghidra.program.model.address.AddressSetView;
+import ghidra.program.model.listing.Program;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
+
+public class MyCustomAnalyzer extends AbstractAnalyzer {
+    
+    public MyCustomAnalyzer() {
+        super("My Custom Analyzer", 
+              "Analyzes custom binary features", 
+              AnalyzerType.BYTE_ANALYZER);
+    }
+    
+    @Override
+    public boolean getDefaultEnablement(Program program) {
+        return true;  // Enabled by default
+    }
+    
+    @Override
+    public boolean canAnalyze(Program program) {
+        // Check if this program should be analyzed
+        return true;
+    }
+    
+    @Override
+    public boolean added(Program program, AddressSetView set, 
+                        TaskMonitor monitor, MessageLog log)
+                        throws CancelledException {
+        // Perform analysis
+        monitor.setMessage("Running My Custom Analyzer");
+        // ... analysis logic ...
+        return true;
+    }
+}
+```
+
+## Analyzer Types
+
+Defined in `AnalyzerType`:
+
+- `BYTE_ANALYZER` - Analyzes bytes (default)
+- `INSTRUCTION_ANALYZER` - Analyzes instructions
+- `FUNCTION_ANALYZER` - Analyzes functions
+- `FUNCTION_MODIFIERS_ANALYZER` - Modifies function properties
+- `FUNCTION_SIGNATURES_ANALYZER` - Analyzes function signatures
+- `DATA_ANALYZER` - Analyzes data
+
+## Analysis Priorities
+
+Defined in `AnalysisPriority`:
+
+```java
+public enum AnalysisPriority {
+    FORMAT_ANALYSIS,              // -100: Parse binary format
+    BLOCK_ANALYSIS,               //  -50: Identify code blocks
+    DISASSEMBLY,                  //    0: Disassemble instructions
+    FUNCTION_ID_ANALYSIS,         //  100: Identify functions
+    FUNCTION_SIGNATURES,          //  200: Determine signatures
+    REFERENCE_ANALYSIS,           //  300: Find references
+    DATA_TYPE_PROPOGATION,        //  400: Propagate types
+    DATA_ANALYSIS,                //  500: Identify data
+    CODE_ANALYSIS                 // 1000: General code analysis
+}
+```
+
+Set priority in constructor:
+
+```java
+public MyAnalyzer() {
+    super("My Analyzer", "Description", AnalyzerType.BYTE_ANALYZER);
+    setPriority(AnalysisPriority.DATA_ANALYSIS);
+}
+```
+
+## Analysis Workflow
+
+### Basic Analysis
+
+```java
+@Override
+public boolean added(Program program, AddressSetView set, 
+                    TaskMonitor monitor, MessageLog log)
+                    throws CancelledException {
+    
+    monitor.setMessage("Analyzing " + getName());
+    monitor.initialize(set.getNumAddresses());
+    
+    int transactionID = program.startTransaction(getName());
+    boolean success = false;
+    
+    try {
+        // Iterate over addresses
+        for (AddressRange range : set) {
+            for (Address addr = range.getMinAddress(); 
+                 addr.compareTo(range.getMaxAddress()) <= 0;
+                 addr = addr.next()) {
+                
+                // Check for cancellation
+                monitor.checkCancelled();
+                monitor.incrementProgress(1);
+                
+                // Analyze at this address
+                analyzeLocation(program, addr, log);
+            }
+        }
+        success = true;
+    }
+    catch (Exception e) {
+        log.appendException(e);
+    }
+    finally {
+        program.endTransaction(transactionID, success);
+    }
+    
+    return success;
+}
+
+private void analyzeLocation(Program program, Address addr, MessageLog log) {
+    // Your analysis logic here
+}
+```
+
+### Using Program APIs
+
+```java
+import ghidra.program.model.listing.*;
+import ghidra.program.model.symbol.*;
+import ghidra.program.model.mem.*;
+import ghidra.program.model.data.*;
+
+private void analyzeData(Program program, Address addr, MessageLog log) {
+    Listing listing = program.getListing();
+    Memory memory = program.getMemory();
+    SymbolTable symbolTable = program.getSymbolTable();
+    DataTypeManager dtm = program.getDataTypeManager();
+    
+    try {
+        // Read bytes
+        byte[] bytes = new byte[4];
+        memory.getBytes(addr, bytes);
+        
+        // Create data
+        Data data = listing.createData(addr, DWordDataType.dataType);
+        
+        // Add label
+        symbolTable.createLabel(addr, "DATA_" + addr, 
+                               SourceType.ANALYSIS);
+        
+        // Add comment
+        listing.setComment(addr, CodeUnit.EOL_COMMENT, 
+                          "Found by MyAnalyzer");
+    }
+    catch (Exception e) {
+        log.appendMsg("Failed to analyze at " + addr + ": " + e.getMessage());
+    }
+}
+```
+
+## Register Options
+
+Provide user-configurable options:
+
+```java
+private static final String OPTION_THRESHOLD = "Threshold";
+private static final String OPTION_ENABLED = "Enable Feature";
+
+private int threshold = 10;
+private boolean featureEnabled = true;
+
+@Override
+public void registerOptions(Options options, Program program) {
+    options.registerOption(OPTION_THRESHOLD, threshold, null,
+        "Minimum value threshold for detection");
+    options.registerOption(OPTION_ENABLED, featureEnabled, null,
+        "Enable the custom feature");
+}
+
+@Override
+public void optionsChanged(Options options, Program program) {
+    threshold = options.getInt(OPTION_THRESHOLD, threshold);
+    featureEnabled = options.getBoolean(OPTION_ENABLED, featureEnabled);
+}
+```
+
+## Binary Format Analyzer
+
+For format-specific analysis (ELF, PE, etc.):
+
+```java
+import ghidra.app.analyzers.AbstractBinaryFormatAnalyzer;
+import ghidra.framework.cmd.BinaryAnalysisCommand;
+
+public class MyFormatAnalyzer extends AbstractBinaryFormatAnalyzer {
+    
+    public MyFormatAnalyzer() {
+        super(new MyFormatAnalysisCommand());
+    }
+    
+    private static class MyFormatAnalysisCommand extends BinaryAnalysisCommand {
+        
+        public MyFormatAnalysisCommand() {
+            super("My Format Analysis", false);
+        }
+        
+        @Override
+        public boolean canApply(Program program) {
+            // Check if program is correct format
+            String format = program.getExecutableFormat();
+            return "My Binary Format".equals(format);
+        }
+        
+        @Override
+        public boolean applyTo(DomainObject obj, TaskMonitor monitor) {
+            Program program = (Program) obj;
+            
+            try {
+                // Get binary format object
+                Options props = program.getOptions(Program.PROGRAM_INFO);
+                // Parse and analyze format
+                return true;
+            }
+            catch (Exception e) {
+                messages.appendException(e);
+                return false;
+            }
+        }
+    }
+}
+```
+
+## Real-World Example: ELF Analyzer
+
+Based on Ghidra's `ElfAnalyzer`:
+
+```java
+package ghidra.app.analyzers;
+
+import ghidra.app.cmd.formats.ElfBinaryAnalysisCommand;
+
+public class ElfAnalyzer extends AbstractBinaryFormatAnalyzer {
+    
+    public ElfAnalyzer() {
+        super(new ElfBinaryAnalysisCommand());
+    }
+}
+```
+
+The command implementation:
+
+```java
+public class ElfBinaryAnalysisCommand extends BinaryAnalysisCommand {
+    
+    @Override
+    public boolean canApply(Program program) {
+        return ElfLoader.ELF_NAME.equals(program.getExecutableFormat());
+    }
+    
+    @Override
+    public boolean applyTo(DomainObject obj, TaskMonitor monitor) {
+        Program program = (Program) obj;
+        
+        try {
+            ByteProvider provider = getProvider(program);
+            ElfHeader elf = ElfHeader.createElfHeader(
+                RethrowContinuesFactory.INSTANCE, provider);
+            elf.parse();
+            
+            // Process ELF sections
+            processSections(program, elf, monitor);
+            
+            // Process program headers
+            processProgramHeaders(program, elf, monitor);
+            
+            // Process dynamic table
+            processDynamicTable(program, elf, monitor);
+            
+            return true;
+        }
+        catch (Exception e) {
+            messages.appendException(e);
+            return false;
+        }
+    }
+}
+```
+
+## One-Time Analysis
+
+Allow manual analyzer invocation:
+
+```java
+@Override
+public boolean supportsOneTimeAnalysis() {
+    return true;  // Allow right-click "Analyze" on selection
+}
+```
+
+Users can then:
+1. Select addresses/functions
+2. Right-click → **Auto Analyze...**
+3. Select specific analyzers to run
+
+## Conditional Enablement
+
+Enable analyzer based on program properties:
+
+```java
+@Override
+public boolean canAnalyze(Program program) {
+    // Only analyze x86 programs
+    String arch = program.getLanguage().getProcessor().toString();
+    return arch.equals("x86");
+}
+
+@Override
+public boolean getDefaultEnablement(Program program) {
+    // Enable by default only for specific format
+    String format = program.getExecutableFormat();
+    return "PE".equals(format);
+}
+```
+
+## Working with Memory
+
+```java
+import ghidra.program.model.mem.*;
+
+private void scanMemory(Program program, AddressSetView set, 
+                       TaskMonitor monitor) throws CancelledException {
+    Memory memory = program.getMemory();
+    
+    for (MemoryBlock block : memory.getBlocks()) {
+        monitor.checkCancelled();
+        
+        if (!block.isInitialized()) {
+            continue;  // Skip uninitialized blocks
+        }
+        
+        Address start = block.getStart();
+        long size = block.getSize();
+        
+        byte[] bytes = new byte[(int) size];
+        try {
+            memory.getBytes(start, bytes);
+            // Analyze bytes
+        }
+        catch (MemoryAccessException e) {
+            // Handle error
+        }
+    }
+}
+```
+
+## Function Analysis
+
+```java
+import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.FunctionManager;
+import ghidra.program.model.listing.Parameter;
+
+private void analyzeFunctions(Program program, TaskMonitor monitor) 
+                             throws CancelledException {
+    FunctionManager funcMgr = program.getFunctionManager();
+    
+    for (Function func : funcMgr.getFunctions(true)) {
+        monitor.checkCancelled();
+        
+        Address entry = func.getEntryPoint();
+        String name = func.getName();
+        
+        // Analyze parameters
+        for (Parameter param : func.getParameters()) {
+            DataType type = param.getDataType();
+            // Process parameter
+        }
+        
+        // Analyze function body
+        AddressSetView body = func.getBody();
+        // ...
+    }
+}
+```
+
+## Progress Reporting
+
+```java
+@Override
+public boolean added(Program program, AddressSetView set,
+                    TaskMonitor monitor, MessageLog log)
+                    throws CancelledException {
+    
+    long totalCount = set.getNumAddresses();
+    monitor.initialize(totalCount);
+    monitor.setMessage("Analyzing custom features");
+    
+    int count = 0;
+    for (AddressRange range : set) {
+        for (Address addr = range.getMinAddress();
+             addr.compareTo(range.getMaxAddress()) <= 0;
+             addr = addr.next()) {
+            
+            monitor.checkCancelled();
+            monitor.setProgress(count++);
+            
+            if (count % 1000 == 0) {
+                monitor.setMessage("Processed " + count + " of " + totalCount);
+            }
+        }
+    }
+    
+    return true;
+}
+```
+
+## Error Handling
+
+```java
+@Override
+public boolean added(Program program, AddressSetView set,
+                    TaskMonitor monitor, MessageLog log)
+                    throws CancelledException {
+    
+    int transactionID = program.startTransaction(getName());
+    boolean success = false;
+    
+    try {
+        // Analysis logic
+        performAnalysis(program, set, monitor, log);
+        success = true;
+    }
+    catch (CancelledException e) {
+        log.appendMsg("Analysis cancelled by user");
+        throw e;
+    }
+    catch (Exception e) {
+        log.appendException(e);
+        log.setStatus("Analysis failed: " + e.getMessage());
+    }
+    finally {
+        program.endTransaction(transactionID, success);
+    }
+    
+    return success;
+}
+```
+
+## Cleanup
+
+```java
+private Map<Program, AnalysisState> stateMap = new HashMap<>();
+
+@Override
+public boolean added(Program program, AddressSetView set,
+                    TaskMonitor monitor, MessageLog log)
+                    throws CancelledException {
+    
+    // Get or create state for this program
+    AnalysisState state = stateMap.computeIfAbsent(
+        program, p -> new AnalysisState());
+    
+    // Use state during analysis
+    // ...
+    
+    return true;
+}
+
+@Override
+public void analysisEnded(Program program) {
+    // Clean up state when analysis session ends
+    stateMap.remove(program);
+}
+```
+
+## Testing Analyzers
+
+### From Eclipse
+
+1. Launch Ghidra in debug mode
+2. Import a test binary
+3. **Analysis → Auto Analyze...**
+4. Enable your analyzer
+5. Click **Analyze**
+6. Check results and debug as needed
+
+### Headless Testing
+
+```bash
+./analyzeHeadless <project_path> <project_name> \
+  -import <binary> \
+  -postScript TestAnalyzer.java
+```
+
+## Complete Example
+
+```java
+package com.example.analyzers;
+
+import ghidra.app.services.AbstractAnalyzer;
+import ghidra.app.services.AnalyzerType;
+import ghidra.app.util.importer.MessageLog;
+import ghidra.framework.options.Options;
+import ghidra.program.model.address.*;
+import ghidra.program.model.listing.*;
+import ghidra.program.model.mem.*;
+import ghidra.program.model.symbol.*;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
+
+public class StringFinderAnalyzer extends AbstractAnalyzer {
+    
+    private static final String OPTION_MIN_LENGTH = "Minimum String Length";
+    private int minLength = 4;
+    
+    public StringFinderAnalyzer() {
+        super("String Finder", 
+              "Finds ASCII strings in memory", 
+              AnalyzerType.BYTE_ANALYZER);
+        setPriority(AnalysisPriority.DATA_ANALYSIS);
+    }
+    
+    @Override
+    public boolean getDefaultEnablement(Program program) {
+        return true;
+    }
+    
+    @Override
+    public boolean canAnalyze(Program program) {
+        return true;
+    }
+    
+    @Override
+    public void registerOptions(Options options, Program program) {
+        options.registerOption(OPTION_MIN_LENGTH, minLength, null,
+            "Minimum length for string detection");
+    }
+    
+    @Override
+    public void optionsChanged(Options options, Program program) {
+        minLength = options.getInt(OPTION_MIN_LENGTH, minLength);
+    }
+    
+    @Override
+    public boolean added(Program program, AddressSetView set,
+                        TaskMonitor monitor, MessageLog log)
+                        throws CancelledException {
+        
+        monitor.setMessage("Finding strings");
+        int transactionID = program.startTransaction("String Finder");
+        boolean success = false;
+        
+        try {
+            Memory memory = program.getMemory();
+            Listing listing = program.getListing();
+            SymbolTable symbolTable = program.getSymbolTable();
+            int count = 0;
+            
+            for (MemoryBlock block : memory.getBlocks()) {
+                if (!block.isInitialized() || !block.isLoaded()) {
+                    continue;
+                }
+                
+                Address addr = block.getStart();
+                long size = block.getSize();
+                byte[] bytes = new byte[(int) size];
+                
+                memory.getBytes(addr, bytes);
+                
+                // Simple string detection
+                StringBuilder sb = new StringBuilder();
+                Address stringStart = null;
+                
+                for (int i = 0; i < bytes.length; i++) {
+                    monitor.checkCancelled();
+                    
+                    byte b = bytes[i];
+                    if (b >= 32 && b <= 126) {  // Printable ASCII
+                        if (stringStart == null) {
+                            stringStart = addr.add(i);
+                        }
+                        sb.append((char) b);
+                    }
+                    else if (stringStart != null && sb.length() >= minLength) {
+                        // Found string
+                        String str = sb.toString();
+                        createString(program, listing, symbolTable, 
+                                   stringStart, str, log);
+                        count++;
+                        stringStart = null;
+                        sb = new StringBuilder();
+                    }
+                    else {
+                        stringStart = null;
+                        sb = new StringBuilder();
+                    }
+                }
+            }
+            
+            log.appendMsg("Found " + count + " strings");
+            success = true;
+        }
+        catch (Exception e) {
+            log.appendException(e);
+        }
+        finally {
+            program.endTransaction(transactionID, success);
+        }
+        
+        return success;
+    }
+    
+    private void createString(Program program, Listing listing, 
+                             SymbolTable symbolTable, Address addr, 
+                             String str, MessageLog log) {
+        try {
+            // Create string data
+            StringDataType stringType = new StringDataType();
+            listing.createData(addr, stringType, str.length());
+            
+            // Add label
+            String label = "STR_" + addr.toString();
+            symbolTable.createLabel(addr, label, SourceType.ANALYSIS);
+            
+            // Add comment
+            listing.setComment(addr, CodeUnit.EOL_COMMENT, 
+                             "String: \"" + str + "\"");
+        }
+        catch (Exception e) {
+            log.appendMsg("Failed to create string at " + addr);
+        }
+    }
+}
+```
+
+## Best Practices
+
+<Check>**Do:**</Check>
+- Always use transactions for modifications
+- Check `monitor.checkCancelled()` frequently
+- Provide meaningful progress updates
+- Log errors to MessageLog
+- Make analyzers configurable with options
+- Document what your analyzer does
+
+<Warning>**Don't:**</Warning>
+- Modify program without transactions
+- Ignore cancellation requests
+- Assume memory is always accessible
+- Hardcode thresholds (use options)
+- Forget to clean up resources
+
+## Resources
+
+- Analyzer examples: `Ghidra/Features/Base/src/main/java/ghidra/app/analyzers/`
+- Skeleton template: `GhidraBuild/Skeleton/src/main/java/skeleton/SkeletonAnalyzer.java`
+- API docs: [Analyzer](https://ghidra.re/ghidra_docs/api/ghidra/app/services/Analyzer.html)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Loader Development" icon="file-import" href="./loaders">
+    Add support for new binary formats
+  </Card>
+  <Card title="Sleigh Language" icon="code" href="./sleigh">
+    Define processor instruction sets
+  </Card>
+</CardGroup>

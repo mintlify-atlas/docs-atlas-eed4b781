@@ -1,97 +1,87 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Ghidra Software Reverse Engineering Framework"
+description: "A comprehensive platform for analyzing compiled code across multiple architectures with powerful disassembly, decompilation, and scripting capabilities"
 ---
 
-## Setting up
+<div className="bg-[#1a1a1a] text-white py-16 px-8 -mx-8 mb-12">
+  <div className="max-w-4xl mx-auto">
+    <h1 className="text-5xl font-bold mb-6" style={{ fontFamily: 'Oswald' }}>
+      Ghidra Software Reverse Engineering Framework
+    </h1>
+    <p className="text-xl mb-8 opacity-90" style={{ fontFamily: 'Open Sans' }}>
+      A comprehensive platform for analyzing compiled code across multiple architectures with powerful disassembly, decompilation, and scripting capabilities
+    </p>
+    <div className="flex gap-4 flex-wrap">
+      <a href="/quickstart" className="inline-block bg-[#e1c8ab] text-[#1a1a1a] px-6 py-3 font-bold hover:opacity-90 transition-opacity" style={{ fontFamily: 'Oswald', borderRadius: '0px' }}>
+        Get Started
+      </a>
+      <a href="https://github.com/NationalSecurityAgency/ghidra" className="inline-block border-2 border-white text-white px-6 py-3 font-bold hover:bg-white hover:text-[#1a1a1a] transition-colors" style={{ fontFamily: 'Oswald', borderRadius: '0px' }}>
+        View on GitHub
+      </a>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## Overview
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Ghidra is a software reverse engineering (SRE) framework created and maintained by the National Security Agency Research Directorate. This framework includes a suite of full-featured, high-end software analysis tools that enable users to analyze compiled code on a variety of platforms including Windows, macOS, and Linux.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={3}>
+  <Card title="40+ Architectures" icon="microchip">
+    Support for x86, ARM, MIPS, PowerPC, SPARC, RISC-V, and many more processor architectures
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Advanced Decompiler" icon="code">
+    Industry-leading decompiler that reconstructs high-level C code from binary executables
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Collaborative Analysis" icon="users">
+    Multi-user project server for team-based reverse engineering efforts
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key Features
 
-Everything you need to create world-class documentation.
+<CardGroup cols={2}>
+  <Card title="Disassembly & Decompilation" icon="wrench" href="/guide/disassembly">
+    Convert machine code to assembly and high-level C pseudocode with interactive analysis
+  </Card>
+  <Card title="Program Analysis" icon="magnifying-glass-chart" href="/concepts/analysis">
+    Automated analyzers identify functions, strings, data types, and cross-references
+  </Card>
+  <Card title="Interactive Debugging" icon="bug" href="/features/debugger">
+    Debug live processes with support for GDB, LLDB, WinDbg, and other backends
+  </Card>
+  <Card title="BSim Function Matching" icon="chart-network" href="/features/bsim">
+    Find similar functions across binaries using behavioral similarity analysis
+  </Card>
+  <Card title="Scripting & Automation" icon="terminal" href="/scripting/overview">
+    Automate analysis with Java and Python scripts, or use PyGhidra for standalone scripting
+  </Card>
+  <Card title="Extensible Architecture" icon="puzzle-piece" href="/development/plugins">
+    Develop custom plugins, analyzers, and loaders to extend Ghidra's capabilities
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Quick Links
 
-## Need inspiration?
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Get Ghidra installed and running on your system
+  </Card>
+  <Card title="Quickstart Tutorial" icon="rocket" href="/quickstart">
+    Learn the basics of analyzing your first binary
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/program">
+    Explore the complete Ghidra API documentation
+  </Card>
+  <Card title="Contributing" icon="github" href="/community/contributing">
+    Learn how to contribute to the Ghidra project
+  </Card>
+</CardGroup>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+## Supported Platforms
+
+Ghidra runs on **Windows 10+**, **Linux**, and **macOS 10.13+** with Java 21 64-bit runtime. The framework supports analyzing binaries compiled for over 40 different processor architectures, making it one of the most versatile reverse engineering platforms available.
+
+<Note>
+  Ghidra is open source software released under the Apache License 2.0. It was publicly released by the NSA in March 2019.
+</Note>

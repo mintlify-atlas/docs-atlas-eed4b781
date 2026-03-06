@@ -1,0 +1,597 @@
+---
+title: Memory API
+description: Interface for managing program memory blocks and performing memory operations
+---
+
+The `Memory` interface provides the ability to inspect and manage the memory model for a Program. It supports conventional memory blocks, byte-mapped blocks, bit-mapped blocks, and overlay blocks.
+
+## Overview
+
+Memory operations in Ghidra include:
+
+- **Reading and writing bytes** - Access program memory
+- **Creating memory blocks** - Define initialized, uninitialized, and mapped blocks
+- **Memory block management** - Move, split, join, and remove blocks
+- **Overlay support** - Create alternate memory contexts
+- **File bytes** - Store and manage original file data
+
+<Note>
+  All memory block manipulations require exclusive access and should generally be completed prior to analysis.
+</Note>
+
+## Block Types
+
+### Initialized Blocks
+Memory blocks with specific data, initialized from FileBytes, InputStream, or set to zeros.
+
+### Uninitialized Blocks  
+Memory blocks whose data is unknown.
+
+### Byte-Mapped Blocks
+Memory blocks whose bytes map to another memory region using 1:1 or custom mapping.
+
+### Bit-Mapped Blocks
+Memory blocks where each byte corresponds to a single bit in another region.
+
+### Overlay Blocks
+Alternate content for a physical memory region, useful for different execution contexts.
+
+## Memory Size Limits
+
+<ResponseField name="MAX_BINARY_SIZE" type="long">
+  Maximum size of all memory blocks: 16 GB
+</ResponseField>
+
+<ResponseField name="MAX_BLOCK_SIZE" type="long">
+  Maximum size of a single memory block: 16 GB
+</ResponseField>
+
+## Creating Memory Blocks
+
+### Create Initialized Block
+
+<ParamField path="createInitializedBlock(String name, Address start, InputStream is, long length, TaskMonitor monitor, boolean overlay)" type="MemoryBlock">
+  Creates an initialized memory block from an InputStream.
+  
+  ```java
+  FileInputStream fis = new FileInputStream("data.bin");
+  MemoryBlock block = memory.createInitializedBlock(
+      ".text",
+      addr("00400000"),
+      fis,
+      0x1000,
+      monitor,
+      false
+  );
+  fis.close();
+  ```
+</ParamField>
+
+<ParamField path="createInitializedBlock(String name, Address start, long size, byte initialValue, TaskMonitor monitor, boolean overlay)" type="MemoryBlock">
+  Creates an initialized block with all bytes set to the specified value.
+  
+  ```java
+  // Create 4KB block initialized to zeros
+  MemoryBlock block = memory.createInitializedBlock(
+      ".bss",
+      addr("00404000"),
+      0x1000,
+      (byte) 0,
+      monitor,
+      false
+  );
+  ```
+  
+  <Note>
+    Use zero as the initial value for reduced storage.
+  </Note>
+</ParamField>
+
+<ParamField path="createInitializedBlock(String name, Address start, FileBytes fileBytes, long offset, long size, boolean overlay)" type="MemoryBlock">
+  Creates an initialized block using bytes from a FileBytes object.
+  
+  ```java
+  FileBytes fileBytes = memory.getAllFileBytes().get(0);
+  MemoryBlock block = memory.createInitializedBlock(
+      ".data",
+      addr("00405000"),
+      fileBytes,
+      0x1000,  // offset in file
+      0x800,   // size
+      false
+  );
+  ```
+</ParamField>
+
+### Create Uninitialized Block
+
+<ParamField path="createUninitializedBlock(String name, Address start, long size, boolean overlay)" type="MemoryBlock">
+  Creates an uninitialized memory block.
+  
+  ```java
+  MemoryBlock block = memory.createUninitializedBlock(
+      "EXTERNAL",
+      addr("01000000"),
+      0x10000,
+      false
+  );
+  ```
+</ParamField>
+
+### Create Mapped Blocks
+
+<ParamField path="createByteMappedBlock(String name, Address start, Address mappedAddress, long length, boolean overlay)" type="MemoryBlock">
+  Creates a byte-mapped block with 1:1 byte mapping.
+  
+  ```java
+  // Mirror memory region
+  MemoryBlock block = memory.createByteMappedBlock(
+      "mirror",
+      addr("10000000"),
+      addr("00400000"),  // source address
+      0x1000,
+      false
+  );
+  ```
+</ParamField>
+
+<ParamField path="createBitMappedBlock(String name, Address start, Address mappedAddress, long length, boolean overlay)" type="MemoryBlock">
+  Creates a bit-mapped block where each byte corresponds to a single bit.
+  
+  ```java
+  MemoryBlock block = memory.createBitMappedBlock(
+      "bitfield",
+      addr("20000000"),
+      addr("00404000"),
+      256,  // 256 bytes = 2048 bits
+      false
+  );
+  ```
+</ParamField>
+
+## Reading Memory
+
+### Read Bytes
+
+<ParamField path="getByte(Address addr)" type="byte">
+  Reads a single byte from memory.
+  
+  ```java
+  try {
+      byte b = memory.getByte(addr);
+      println("Byte at " + addr + ": 0x" + Integer.toHexString(b & 0xFF));
+  } catch (MemoryAccessException e) {
+      println("Cannot read memory at " + addr);
+  }
+  ```
+</ParamField>
+
+<ParamField path="getBytes(Address addr, byte[] dest)" type="int">
+  Reads bytes into the destination array.
+  
+  ```java
+  byte[] bytes = new byte[16];
+  int numRead = memory.getBytes(addr, bytes);
+  println("Read " + numRead + " bytes");
+  ```
+</ParamField>
+
+<ParamField path="getBytes(Address addr, byte[] dest, int destIndex, int size)" type="int">
+  Reads a specified number of bytes into the destination array at the given offset.
+  
+  ```java
+  byte[] buffer = new byte[256];
+  int numRead = memory.getBytes(addr, buffer, 0, 32);
+  ```
+</ParamField>
+
+### Read Integers
+
+<ParamField path="getShort(Address addr)" type="short">
+  Reads a short (2 bytes) using default endianness.
+  
+  ```java
+  short value = memory.getShort(addr);
+  ```
+</ParamField>
+
+<ParamField path="getShort(Address addr, boolean bigEndian)" type="short">
+  Reads a short with specified endianness.
+</ParamField>
+
+<ParamField path="getInt(Address addr)" type="int">
+  Reads an int (4 bytes) using default endianness.
+  
+  ```java
+  int value = memory.getInt(addr);
+  println("Int at " + addr + ": 0x" + Integer.toHexString(value));
+  ```
+</ParamField>
+
+<ParamField path="getInt(Address addr, boolean bigEndian)" type="int">
+  Reads an int with specified endianness.
+</ParamField>
+
+<ParamField path="getLong(Address addr)" type="long">
+  Reads a long (8 bytes) using default endianness.
+  
+  ```java
+  long value = memory.getLong(addr);
+  ```
+</ParamField>
+
+<ParamField path="getLong(Address addr, boolean bigEndian)" type="long">
+  Reads a long with specified endianness.
+</ParamField>
+
+### Read Arrays
+
+<ParamField path="getShorts(Address addr, short[] dest)" type="int">
+  Reads multiple shorts into an array.
+</ParamField>
+
+<ParamField path="getInts(Address addr, int[] dest)" type="int">
+  Reads multiple ints into an array.
+</ParamField>
+
+<ParamField path="getLongs(Address addr, long[] dest)" type="int">
+  Reads multiple longs into an array.
+</ParamField>
+
+## Writing Memory
+
+### Write Bytes
+
+<ParamField path="setByte(Address addr, byte value)" type="void">
+  Writes a single byte to memory.
+  
+  ```java
+  memory.setByte(addr, (byte) 0x90);  // Write NOP instruction
+  ```
+</ParamField>
+
+<ParamField path="setBytes(Address addr, byte[] source)" type="void">
+  Writes an array of bytes to memory.
+  
+  ```java
+  byte[] bytes = {(byte) 0x90, (byte) 0x90, (byte) 0x90};
+  memory.setBytes(addr, bytes);  // Write 3 NOPs
+  ```
+</ParamField>
+
+<ParamField path="setBytes(Address addr, byte[] source, int sIndex, int size)" type="void">
+  Writes a portion of a byte array to memory.
+  
+  ```java
+  byte[] buffer = new byte[256];
+  // ... fill buffer ...
+  memory.setBytes(addr, buffer, 10, 32);  // Write 32 bytes starting at buffer[10]
+  ```
+</ParamField>
+
+### Write Integers
+
+<ParamField path="setShort(Address addr, short value)" type="void">
+  Writes a short using default endianness.
+</ParamField>
+
+<ParamField path="setShort(Address addr, short value, boolean bigEndian)" type="void">
+  Writes a short with specified endianness.
+</ParamField>
+
+<ParamField path="setInt(Address addr, int value)" type="void">
+  Writes an int using default endianness.
+  
+  ```java
+  memory.setInt(addr, 0x12345678);
+  ```
+</ParamField>
+
+<ParamField path="setInt(Address addr, int value, boolean bigEndian)" type="void">
+  Writes an int with specified endianness.
+</ParamField>
+
+<ParamField path="setLong(Address addr, long value)" type="void">
+  Writes a long using default endianness.
+</ParamField>
+
+<ParamField path="setLong(Address addr, long value, boolean bigEndian)" type="void">
+  Writes a long with specified endianness.
+</ParamField>
+
+## Memory Block Operations
+
+### Get Blocks
+
+<ParamField path="getBlocks()" type="MemoryBlock[]">
+  Returns all memory blocks.
+  
+  ```java
+  MemoryBlock[] blocks = memory.getBlocks();
+  for (MemoryBlock block : blocks) {
+      println(block.getName() + ": " + block.getStart() + " - " + block.getEnd());
+      println("  Size: " + block.getSize());
+      println("  Initialized: " + block.isInitialized());
+      println("  Executable: " + block.isExecute());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getBlock(Address addr)" type="MemoryBlock">
+  Returns the block containing the specified address.
+  
+  ```java
+  MemoryBlock block = memory.getBlock(addr);
+  if (block != null) {
+      println("Address " + addr + " is in block: " + block.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getBlock(String blockName)" type="MemoryBlock">
+  Returns the block with the specified name.
+</ParamField>
+
+### Modify Blocks
+
+<ParamField path="moveBlock(MemoryBlock block, Address newStartAddr, TaskMonitor monitor)" type="void">
+  Moves a memory block to a new start address.
+  
+  ```java
+  MemoryBlock block = memory.getBlock(".text");
+  memory.moveBlock(block, addr("00500000"), monitor);
+  ```
+</ParamField>
+
+<ParamField path="split(MemoryBlock block, Address addr)" type="void">
+  Splits a block at the given address.
+  
+  ```java
+  MemoryBlock block = memory.getBlock(addr("00400000"));
+  memory.split(block, addr("00401000"));  // Split into two blocks
+  ```
+</ParamField>
+
+<ParamField path="join(MemoryBlock blockOne, MemoryBlock blockTwo)" type="MemoryBlock">
+  Joins two contiguous blocks into a single block.
+  
+  ```java
+  MemoryBlock block1 = memory.getBlock(".text");
+  MemoryBlock block2 = memory.getBlock(".text2");
+  MemoryBlock joined = memory.join(block1, block2);
+  ```
+  
+  <Warning>
+    After joining, both input blocks should no longer be used.
+  </Warning>
+</ParamField>
+
+<ParamField path="removeBlock(MemoryBlock block, TaskMonitor monitor)" type="void">
+  Removes a memory block.
+  
+  ```java
+  MemoryBlock block = memory.getBlock("EXTERNAL");
+  memory.removeBlock(block, monitor);
+  ```
+</ParamField>
+
+### Convert Blocks
+
+<ParamField path="convertToInitialized(MemoryBlock uninitializedBlock, byte initialValue)" type="MemoryBlock">
+  Converts an uninitialized block to initialized.
+  
+  ```java
+  MemoryBlock block = memory.getBlock(".bss");
+  MemoryBlock initialized = memory.convertToInitialized(block, (byte) 0);
+  ```
+</ParamField>
+
+<ParamField path="convertToUninitialized(MemoryBlock initializedBlock)" type="MemoryBlock">
+  Converts an initialized block to uninitialized, discarding all bytes.
+</ParamField>
+
+## Memory Properties
+
+<ParamField path="getProgram()" type="Program">
+  Returns the program that this memory belongs to.
+</ParamField>
+
+<ParamField path="getSize()" type="long">
+  Returns the total memory size in bytes.
+  
+  ```java
+  long totalSize = memory.getSize();
+  println("Total memory: " + totalSize + " bytes");
+  ```
+</ParamField>
+
+<ParamField path="isBigEndian()" type="boolean">
+  Returns true if memory is big-endian.
+  
+  ```java
+  boolean isBigEndian = memory.isBigEndian();
+  ```
+</ParamField>
+
+## Address Sets
+
+<ParamField path="getLoadedAndInitializedAddressSet()" type="AddressSetView">
+  Returns addresses of all loaded memory blocks with initialized data.
+  
+  ```java
+  AddressSetView loadedSet = memory.getLoadedAndInitializedAddressSet();
+  ```
+</ParamField>
+
+<ParamField path="getAllInitializedAddressSet()" type="AddressSetView">
+  Returns addresses of all memory blocks with initialized data, including non-loaded blocks like debug sections.
+</ParamField>
+
+<ParamField path="getExecuteSet()" type="AddressSetView">
+  Returns addresses corresponding to executable memory.
+  
+  ```java
+  AddressSetView execSet = memory.getExecuteSet();
+  ```
+</ParamField>
+
+## File Bytes Management
+
+<ParamField path="createFileBytes(String filename, long offset, long size, InputStream is, TaskMonitor monitor)" type="FileBytes">
+  Stores original file bytes for later use in memory blocks.
+  
+  ```java
+  FileInputStream fis = new FileInputStream("program.exe");
+  FileBytes fileBytes = memory.createFileBytes(
+      "program.exe",
+      0,
+      fileSize,
+      fis,
+      monitor
+  );
+  fis.close();
+  ```
+</ParamField>
+
+<ParamField path="getAllFileBytes()" type="List<FileBytes>">
+  Returns all stored file bytes objects.
+  
+  ```java
+  List<FileBytes> allFileBytes = memory.getAllFileBytes();
+  for (FileBytes fb : allFileBytes) {
+      println("File: " + fb.getFilename());
+      println("Size: " + fb.getSize());
+  }
+  ```
+</ParamField>
+
+<ParamField path="deleteFileBytes(FileBytes fileBytes)" type="boolean">
+  Deletes stored file bytes if no memory blocks reference them.
+</ParamField>
+
+## Searching Memory
+
+<ParamField path="findBytes(Address addr, byte[] bytes, byte[] masks, boolean forward, TaskMonitor monitor)" type="Address">
+  Finds a sequence of bytes in memory starting from the specified address.
+  
+  ```java
+  // Search for "MZ" signature
+  byte[] pattern = {0x4D, 0x5A};
+  Address found = memory.findBytes(
+      addr("00400000"),
+      pattern,
+      null,  // no mask
+      true,  // forward
+      monitor
+  );
+  if (found != null) {
+      println("Found at " + found);
+  }
+  ```
+</ParamField>
+
+<ParamField path="findBytes(Address startAddr, Address endAddr, byte[] bytes, byte[] masks, boolean forward, TaskMonitor monitor)" type="Address">
+  Finds bytes within a specified address range.
+  
+  ```java
+  // Search with mask for specific bits
+  byte[] pattern = {(byte) 0xFF, 0x15};
+  byte[] mask = {(byte) 0xFF, (byte) 0xFF};
+  Address found = memory.findBytes(
+      startAddr,
+      endAddr,
+      pattern,
+      mask,
+      true,
+      monitor
+  );
+  ```
+</ParamField>
+
+## Example Usage
+
+### Creating Memory Layout
+
+```java
+public void createMemoryLayout(Program program) throws Exception {
+    Memory memory = program.getMemory();
+    TaskMonitor monitor = TaskMonitor.DUMMY;
+    
+    // Create .text section (executable code)
+    MemoryBlock textBlock = memory.createInitializedBlock(
+        ".text",
+        addr("00400000"),
+        0x1000,
+        (byte) 0,
+        monitor,
+        false
+    );
+    textBlock.setExecute(true);
+    textBlock.setRead(true);
+    
+    // Create .data section
+    MemoryBlock dataBlock = memory.createInitializedBlock(
+        ".data",
+        addr("00401000"),
+        0x800,
+        (byte) 0,
+        monitor,
+        false
+    );
+    dataBlock.setRead(true);
+    dataBlock.setWrite(true);
+    
+    // Create .bss section (uninitialized)
+    MemoryBlock bssBlock = memory.createUninitializedBlock(
+        ".bss",
+        addr("00402000"),
+        0x400,
+        false
+    );
+    bssBlock.setRead(true);
+    bssBlock.setWrite(true);
+}
+```
+
+### Reading and Analyzing Memory
+
+```java
+public void analyzeMemory(Program program, Address start, int length) {
+    Memory memory = program.getMemory();
+    
+    try {
+        byte[] bytes = new byte[length];
+        int numRead = memory.getBytes(start, bytes);
+        
+        // Analyze bytes
+        println("Read " + numRead + " bytes from " + start);
+        
+        // Check for common signatures
+        if (bytes.length >= 2 && bytes[0] == 0x4D && bytes[1] == 0x5A) {
+            println("Found MZ signature (DOS header)");
+        }
+        
+        // Read as integers
+        for (int i = 0; i < Math.min(4, numRead / 4); i++) {
+            Address addr = start.add(i * 4);
+            int value = memory.getInt(addr);
+            println(String.format("  [%s] = 0x%08X", addr, value));
+        }
+        
+    } catch (MemoryAccessException e) {
+        println("Error reading memory: " + e.getMessage());
+    }
+}
+```
+
+## Package Location
+
+```
+ghidra.program.model.mem.Memory
+```
+
+## Related Interfaces
+
+- [Program API](/api/program) - Program access
+- [Listing API](/api/listing) - Code unit operations
+- [MemoryBlock](https://ghidra.re/ghidra_docs/api/ghidra/program/model/mem/MemoryBlock.html) - Block properties

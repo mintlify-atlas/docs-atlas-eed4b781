@@ -1,0 +1,548 @@
+---
+title: Java Scripts
+description: Develop GhidraScript Java scripts for custom analysis and automation
+---
+
+## Introduction
+
+Java is the primary scripting language for Ghidra, providing full access to the Ghidra API with complete type safety and IDE support. GhidraScripts extend the `GhidraScript` class, which itself extends `FlatProgramAPI`.
+
+## Creating a Java Script
+
+### Basic Template
+
+Every GhidraScript follows this structure:
+
+```java
+// Script description goes here
+//@category Examples
+
+import ghidra.app.script.GhidraScript;
+import ghidra.program.model.listing.*;
+import ghidra.program.model.address.*;
+
+public class MyScript extends GhidraScript {
+    
+    @Override
+    public void run() throws Exception {
+        // Script code here
+    }
+}
+```
+
+### Script Metadata
+
+Use special comments to provide metadata:
+
+```java
+// Description of what this script does
+//@category Analysis
+//@author Your Name
+//@keybinding F5
+//@menupath Tools.My Scripts.Run Analysis
+//@toolbar myicon.png
+```
+
+## GhidraScript Class Hierarchy
+
+```
+FlatProgramAPI
+    |
+    └── GhidraScript
+            |
+            └── YourScript
+```
+
+### FlatProgramAPI
+
+Provides simplified methods for common operations:
+- Address manipulation
+- Memory access
+- Function operations
+- Symbol management
+- Data type operations
+
+### GhidraScript
+
+Adds scripting-specific features:
+- User interaction (ask methods)
+- Output methods (print/println)
+- State variables
+- Script arguments
+
+## Core API Methods
+
+### Address Operations
+
+```java
+// Convert address string to Address object
+Address addr = toAddr(0x401000);
+Address addr2 = toAddr("0x401000");
+
+// Get program boundaries
+Address minAddr = currentProgram.getMinAddress();
+Address maxAddr = currentProgram.getMaxAddress();
+
+// Address arithmetic
+Address next = addr.add(4);
+Address prev = addr.subtract(4);
+long offset = addr.getOffset();
+```
+
+### Memory Access
+
+```java
+// Read bytes
+byte[] bytes = getBytes(addr, 16);
+
+// Read integers
+int value = getInt(addr);
+long qword = getLong(addr);
+short word = getShort(addr);
+byte b = getByte(addr);
+
+// Write data (requires transaction)
+int txId = currentProgram.startTransaction("Write Data");
+try {
+    setByte(addr, (byte)0x90);
+    setInt(addr, 0x12345678);
+    currentProgram.endTransaction(txId, true);
+} catch (Exception e) {
+    currentProgram.endTransaction(txId, false);
+}
+```
+
+### Listing Operations
+
+```java
+Listing listing = currentProgram.getListing();
+
+// Get code unit at address
+CodeUnit cu = listing.getCodeUnitAt(addr);
+
+// Iterate through instructions
+InstructionIterator iter = listing.getInstructions(addr, true);
+while (iter.hasNext() && !monitor.isCancelled()) {
+    Instruction instr = iter.next();
+    println(instr.getAddress() + ": " + instr.getMnemonicString());
+}
+
+// Get defined data
+Data data = listing.getDataAt(addr);
+if (data != null) {
+    println("Data type: " + data.getDataType().getName());
+}
+```
+
+### Function Operations
+
+```java
+// Get function at address
+Function func = getFunctionAt(addr);
+Function func2 = getFunctionContaining(addr);
+
+if (func != null) {
+    // Function properties
+    String name = func.getName();
+    Address entry = func.getEntryPoint();
+    AddressSetView body = func.getBody();
+    
+    // Function signature
+    println(func.getPrototypeString(false, false));
+    
+    // Parameters
+    Parameter[] params = func.getParameters();
+    for (Parameter param : params) {
+        println(param.getName() + ": " + param.getDataType());
+    }
+}
+
+// Create function
+int txId = currentProgram.startTransaction("Create Function");
+try {
+    createFunction(addr, "myFunction");
+    currentProgram.endTransaction(txId, true);
+} catch (Exception e) {
+    currentProgram.endTransaction(txId, false);
+}
+
+// Iterate all functions
+FunctionIterator funcIter = listing.getFunctions(true);
+while (funcIter.hasNext()) {
+    Function f = funcIter.next();
+    println(f.getName() + " @ " + f.getEntryPoint());
+}
+```
+
+### Symbol Operations
+
+```java
+SymbolTable symTable = currentProgram.getSymbolTable();
+
+// Get symbols at address
+Symbol[] symbols = symTable.getSymbols(addr);
+for (Symbol sym : symbols) {
+    println(sym.getName() + " - " + sym.getSymbolType());
+}
+
+// Get primary symbol
+Symbol primary = symTable.getPrimarySymbol(addr);
+
+// Create label
+int txId = currentProgram.startTransaction("Create Label");
+try {
+    createLabel(addr, "my_label", true);
+    currentProgram.endTransaction(txId, true);
+} catch (Exception e) {
+    currentProgram.endTransaction(txId, false);
+}
+
+// Find symbols by name
+SymbolIterator symIter = symTable.getSymbolIterator("main", true);
+while (symIter.hasNext()) {
+    Symbol sym = symIter.next();
+    println("Found: " + sym.getName() + " @ " + sym.getAddress());
+}
+```
+
+### Comments
+
+```java
+// Comment types
+CodeUnit cu = listing.getCodeUnitAt(addr);
+
+int txId = currentProgram.startTransaction("Add Comments");
+try {
+    // Set various comment types
+    cu.setComment(CodeUnit.EOL_COMMENT, "End of line comment");
+    cu.setComment(CodeUnit.PRE_COMMENT, "Pre comment");
+    cu.setComment(CodeUnit.POST_COMMENT, "Post comment");
+    cu.setComment(CodeUnit.PLATE_COMMENT, "Plate comment");
+    
+    currentProgram.endTransaction(txId, true);
+} catch (Exception e) {
+    currentProgram.endTransaction(txId, false);
+}
+
+// Read comments
+String eolComment = cu.getComment(CodeUnit.EOL_COMMENT);
+String preComment = cu.getComment(CodeUnit.PRE_COMMENT);
+```
+
+### References
+
+```java
+// Get references FROM an address
+Reference[] refs = getReferencesFrom(addr);
+for (Reference ref : refs) {
+    Address toAddr = ref.getToAddress();
+    RefType refType = ref.getReferenceType();
+    println("Ref to " + toAddr + " type: " + refType);
+}
+
+// Get references TO an address
+Reference[] refsTo = getReferencesTo(addr);
+for (Reference ref : refsTo) {
+    Address fromAddr = ref.getFromAddress();
+    println("Ref from " + fromAddr);
+}
+
+// Add reference
+int txId = currentProgram.startTransaction("Add Reference");
+try {
+    addInstructionXref(fromAddr, toAddr, 
+        RefType.UNCONDITIONAL_CALL, SourceType.USER_DEFINED);
+    currentProgram.endTransaction(txId, true);
+} catch (Exception e) {
+    currentProgram.endTransaction(txId, false);
+}
+```
+
+## User Interaction
+
+### Ask Methods
+
+GhidraScript provides numerous methods for user input:
+
+```java
+// Ask for string
+String name = askString("Input", "Enter name:");
+if (name == null) {
+    return; // User cancelled
+}
+
+// Ask for integer
+int count = askInt("Count", "Enter count:");
+
+// Ask for address
+Address addr = askAddress("Address", "Enter address:");
+
+// Ask for file
+File file = askFile("Output File", "Choose:");
+
+// Ask for directory
+File dir = askDirectory("Directory", "Choose:");
+
+// Ask yes/no
+boolean proceed = askYesNo("Confirm", "Continue processing?");
+
+// Ask choice
+String choice = askChoice("Selection", "Choose option:",
+    Arrays.asList("Option1", "Option2", "Option3"), "Option1");
+
+// Ask for program
+Program prog = askProgram("Select program to analyze");
+if (prog != null) {
+    try {
+        // Use program
+    } finally {
+        prog.release(this);
+    }
+}
+```
+
+### Output Methods
+
+```java
+// Print to console
+println("Message");
+print("No newline");
+
+// Print errors
+printerr("Error occurred!");
+
+// Format output
+printf("Address: 0x%x, Value: %d\n", addr.getOffset(), value);
+
+// Set tool status
+setToolStatusMessage("Processing complete", false);
+```
+
+## Real Script Examples
+
+### Example 1: Add Comment
+
+Source: `AddCommentToProgramScript.java`
+
+```java
+//@category Examples
+
+import ghidra.app.script.GhidraScript;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.*;
+
+public class AddCommentToProgramScript extends GhidraScript {
+
+    @Override
+    public void run() throws Exception {
+        Address minAddress = currentProgram.getMinAddress();
+        Listing listing = currentProgram.getListing();
+        CodeUnit codeUnit = listing.getCodeUnitAt(minAddress);
+        codeUnit.setComment(CodeUnit.PLATE_COMMENT,
+            "AddCommentToProgramScript - This is an added comment!");
+    }
+}
+```
+
+### Example 2: Auto Rename Labels
+
+Source: `AutoRenameLabelsScript.java`
+
+```java
+//@category Symbol
+
+import ghidra.app.cmd.label.RenameLabelCmd;
+import ghidra.app.script.GhidraScript;
+import ghidra.framework.cmd.CompoundCmd;
+import ghidra.program.model.address.*;
+import ghidra.program.model.listing.Program;
+import ghidra.program.model.symbol.*;
+
+public class AutoRenameLabelsScript extends GhidraScript {
+
+    @Override
+    public void run() throws Exception {
+        if (currentSelection == null || currentSelection.isEmpty()) {
+            println("No selection exists.");
+            return;
+        }
+
+        String baseName = askString("Auto Rename Labels", 
+            "Enter label name prefix:");
+        if (baseName == null) {
+            return;
+        }
+
+        int num = 1;
+        AddressSetView view = currentSelection;
+
+        SymbolTable symbolTable = currentProgram.getSymbolTable();
+        AddressIterator it = view.getAddresses(true);
+        CompoundCmd<Program> cmd = new CompoundCmd<>("Auto Rename Labels");
+        
+        while (it.hasNext()) {
+            Address address = it.next();
+            Symbol primary = symbolTable.getPrimarySymbol(address);
+            if (primary != null && 
+                primary.getSource() == SourceType.DEFAULT) {
+                cmd.add(new RenameLabelCmd(primary, 
+                    baseName + num++, SourceType.USER_DEFINED));
+            }
+        }
+        
+        if (cmd.size() > 0) {
+            if (!cmd.applyTo(currentProgram)) {
+                String msg = cmd.getStatusMsg();
+                if (msg != null && msg.length() > 0) {
+                    setToolStatusMessage(msg, true);
+                }
+            }
+        }
+        else {
+            println("No default labels found in selection.");
+        }
+    }
+}
+```
+
+### Example 3: Export Function Info
+
+Source: `ExportFunctionInfoScript.java`
+
+```java
+//@category Functions
+
+import java.io.File;
+import java.io.FileWriter;
+import com.google.gson.*;
+import com.google.gson.stream.JsonWriter;
+import ghidra.app.script.GhidraScript;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.*;
+
+public class ExportFunctionInfoScript extends GhidraScript {
+
+    @Override
+    public void run() throws Exception {
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
+        File outputFile = askFile("Please Select Output File", "Choose");
+        JsonWriter jsonWriter = new JsonWriter(new FileWriter(outputFile));
+        jsonWriter.beginArray();
+
+        Listing listing = currentProgram.getListing();
+        FunctionIterator iter = listing.getFunctions(true);
+        
+        while (iter.hasNext() && !monitor.isCancelled()) {
+            Function f = iter.next();
+            String name = f.getName();
+            Address entry = f.getEntryPoint();
+
+            JsonObject json = new JsonObject();
+            json.addProperty("name", name);
+            json.addProperty("entry", entry.toString());
+            gson.toJson(json, jsonWriter);
+        }
+
+        jsonWriter.endArray();
+        jsonWriter.close();
+        println("Wrote functions to " + outputFile);
+    }
+}
+```
+
+## Advanced Topics
+
+### Decompiler Integration
+
+```java
+import ghidra.app.decompiler.*;
+
+DecompInterface decompiler = new DecompInterface();
+decompiler.openProgram(currentProgram);
+
+Function func = getFunctionAt(addr);
+DecompileResults results = decompiler.decompileFunction(func, 30, monitor);
+
+if (results.decompileCompleted()) {
+    String decomp = results.getDecompiledFunction().getC();
+    println(decomp);
+}
+
+decompiler.dispose();
+```
+
+### Analysis Control
+
+```java
+import ghidra.app.plugin.core.analysis.AutoAnalysisManager;
+
+// Get analysis manager
+AutoAnalysisManager mgr = 
+    AutoAnalysisManager.getAnalysisManager(currentProgram);
+
+// Run analysis
+AnalyzeAllOpenProgramsTask task = 
+    new AnalyzeAllOpenProgramsTask(
+        state.getTool(), Collections.singletonList(currentProgram));
+task.run();
+
+// Check if analysis is complete
+boolean analyzing = mgr.isAnalyzing();
+```
+
+### Script Arguments
+
+```java
+// Get script arguments
+String[] args = getScriptArgs();
+if (args.length > 0) {
+    String arg1 = args[0];
+    println("First argument: " + arg1);
+}
+```
+
+## Debugging Scripts
+
+### Console Output
+
+Use print statements liberally:
+
+```java
+println("Processing address: " + addr);
+println("Function count: " + count);
+printerr("Warning: " + warning);
+```
+
+### Eclipse Debugging
+
+1. Set up Ghidra in Eclipse
+2. Set breakpoints in your script
+3. Run Ghidra in debug mode
+4. Execute script from Script Manager
+
+### Exception Handling
+
+```java
+try {
+    // Risky operation
+} catch (Exception e) {
+    printerr("Error: " + e.getMessage());
+    e.printStackTrace();
+    return;
+}
+```
+
+## Performance Tips
+
+1. **Use transactions wisely** - Batch changes in single transaction
+2. **Check monitor** - Allow user cancellation with `monitor.isCancelled()`
+3. **Cache lookups** - Store frequently accessed objects
+4. **Limit output** - Excessive printing slows execution
+5. **Use efficient iteration** - Prefer iterators over index-based loops
+
+## Related Topics
+
+- [Python Scripts](/scripting/python-scripts)
+- [PyGhidra](/scripting/pyghidra)
+- [Headless Analyzer](/scripting/headless)

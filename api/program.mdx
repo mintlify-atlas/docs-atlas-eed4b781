@@ -1,0 +1,291 @@
+---
+title: Program API
+description: Main entry point for accessing program data in Ghidra
+---
+
+The `Program` interface is the main entry point into an object which stores all information relating to a single program. This program model divides a program into four major parts: the memory, the symbol table, the equate table, and the listing.
+
+## Overview
+
+The Program interface provides access to all major components of a Ghidra program, including:
+
+- **Memory** - Binary data and memory organization
+- **Listing** - Code units, instructions, and data
+- **Symbol Table** - Named locations and references
+- **Functions** - Function definitions and signatures
+- **Data Types** - Type information and structures
+
+<Note>
+  Although the components are divided into separate objects, they are not independent. Any changes to one component may affect other components.
+</Note>
+
+## Core Methods
+
+### Getting Program Components
+
+<ParamField path="getListing()" type="Listing">
+  Returns the listing object for accessing code units, instructions, and data.
+  ```java
+  Listing listing = program.getListing();
+  Instruction inst = listing.getInstructionAt(address);
+  ```
+</ParamField>
+
+<ParamField path="getMemory()" type="Memory">
+  Returns the memory object for reading and writing program bytes.
+  ```java
+  Memory memory = program.getMemory();
+  byte[] bytes = new byte[4];
+  memory.getBytes(address, bytes);
+  ```
+</ParamField>
+
+<ParamField path="getSymbolTable()" type="SymbolTable">
+  Returns the symbol table for managing symbols and references.
+  ```java
+  SymbolTable symbolTable = program.getSymbolTable();
+  Symbol symbol = symbolTable.createLabel(address, "MyLabel", SourceType.USER_DEFINED);
+  ```
+</ParamField>
+
+<ParamField path="getFunctionManager()" type="FunctionManager">
+  Returns the function manager for working with functions.
+  ```java
+  FunctionManager funcMgr = program.getFunctionManager();
+  Function func = funcMgr.getFunctionAt(address);
+  ```
+</ParamField>
+
+<ParamField path="getDataTypeManager()" type="ProgramBasedDataTypeManager">
+  Returns the program's datatype manager.
+  ```java
+  DataTypeManager dtm = program.getDataTypeManager();
+  DataType dt = dtm.getDataType("/BuiltInTypes/int");
+  ```
+</ParamField>
+
+<ParamField path="getReferenceManager()" type="ReferenceManager">
+  Returns the reference manager for managing cross-references.
+  ```java
+  ReferenceManager refMgr = program.getReferenceManager();
+  Reference[] refs = refMgr.getReferencesFrom(address);
+  ```
+</ParamField>
+
+### Program Metadata
+
+<ParamField path="getName()" type="String">
+  Returns the name of the program.
+</ParamField>
+
+<ParamField path="getExecutablePath()" type="String">
+  Returns the path to the program's executable file (e.g., `/home/user/foo.exe`).
+</ParamField>
+
+<ParamField path="getExecutableFormat()" type="String">
+  Returns the original file format (e.g., "PE", "ELF").
+</ParamField>
+
+<ParamField path="getExecutableMD5()" type="String">
+  Returns the MD5 hash of the original binary file.
+</ParamField>
+
+<ParamField path="getExecutableSHA256()" type="String">
+  Returns the SHA256 hash of the original binary file.
+</ParamField>
+
+<ParamField path="getCreationDate()" type="Date">
+  Returns the creation date of this program.
+</ParamField>
+
+<ParamField path="setExecutablePath(String path)" type="void">
+  Sets the path to the program's executable file.
+</ParamField>
+
+### Language and Compiler
+
+<ParamField path="getLanguage()" type="Language">
+  Returns the language used by this program (e.g., x86:LE:64:default).
+</ParamField>
+
+<ParamField path="getCompilerSpec()" type="CompilerSpec">
+  Returns the compiler specification currently used by this program.
+</ParamField>
+
+<ParamField path="getLanguageID()" type="LanguageID">
+  Returns the language ID.
+</ParamField>
+
+<ParamField path="getCompiler()" type="String">
+  Gets the name of the compiler believed to have been used to create this program.
+</ParamField>
+
+<ParamField path="setCompiler(String compiler)" type="void">
+  Sets the name of the compiler which created this program.
+</ParamField>
+
+### Address Information
+
+<ParamField path="getMinAddress()" type="Address">
+  Returns the program's minimum address, or null if no memory blocks are defined.
+  
+  <Warning>
+    An AddressRange should generally not be formed using this and getMaxAddress() since it may span multiple AddressSpaces.
+  </Warning>
+</ParamField>
+
+<ParamField path="getMaxAddress()" type="Address">
+  Returns the program's maximum address, or null if no memory blocks are defined.
+</ParamField>
+
+<ParamField path="getImageBase()" type="Address">
+  Returns the current program image base address within default space.
+</ParamField>
+
+<ParamField path="parseAddress(String addrStr)" type="Address[]">
+  Returns an array of memory addresses that could correspond to the given string.
+  
+  Supported formats:
+  - Memory block-name based (e.g., 'MyBlk:abcd', 'MyBlk::abcd')
+  - Default memory space (e.g., 'abcd', '0xabcd')
+  - Memory space-name based (e.g., 'ram:abc')
+  
+  ```java
+  Address[] addrs = program.parseAddress("ram:00401000");
+  if (addrs.length > 0) {
+      Address addr = addrs[0];
+  }
+  ```
+</ParamField>
+
+<ParamField path="getAddressFactory()" type="AddressFactory">
+  Returns the AddressFactory for this program.
+</ParamField>
+
+### Registers
+
+<ParamField path="getRegister(String name)" type="Register">
+  Returns the register with the given name.
+  ```java
+  Register rax = program.getRegister("RAX");
+  ```
+</ParamField>
+
+<ParamField path="getRegister(Address addr)" type="Register">
+  Returns the largest register located at the specified address.
+</ParamField>
+
+<ParamField path="getRegisters(Address addr)" type="Register[]">
+  Returns all registers located at the specified address.
+</ParamField>
+
+### Namespace Management
+
+<ParamField path="getGlobalNamespace()" type="Namespace">
+  Returns the global namespace for this program.
+</ParamField>
+
+### Program Context
+
+<ParamField path="getProgramContext()" type="ProgramContext">
+  Returns the program context for managing processor context registers.
+</ParamField>
+
+<ParamField path="getDefaultPointerSize()" type="int">
+  Gets the default pointer size in bytes.
+</ParamField>
+
+## Example Usage
+
+### Basic Program Navigation
+
+```java
+import ghidra.program.model.listing.*;
+import ghidra.program.model.address.*;
+
+public class ProgramExample {
+    public void analyzeProgram(Program program) {
+        // Get program metadata
+        String name = program.getName();
+        Address imageBase = program.getImageBase();
+        String compiler = program.getCompiler();
+        
+        println("Program: " + name);
+        println("Image Base: " + imageBase);
+        println("Compiler: " + compiler);
+        
+        // Access program components
+        Listing listing = program.getListing();
+        Memory memory = program.getMemory();
+        SymbolTable symbolTable = program.getSymbolTable();
+        
+        // Iterate through functions
+        FunctionManager funcMgr = program.getFunctionManager();
+        FunctionIterator iter = funcMgr.getFunctions(true);
+        while (iter.hasNext()) {
+            Function func = iter.next();
+            println("Function: " + func.getName() + " @ " + func.getEntryPoint());
+        }
+    }
+}
+```
+
+### Reading Program Data
+
+```java
+public void readProgramData(Program program, Address address) {
+    Memory memory = program.getMemory();
+    Listing listing = program.getListing();
+    
+    try {
+        // Read bytes from memory
+        byte[] bytes = new byte[16];
+        memory.getBytes(address, bytes);
+        
+        // Get instruction at address
+        Instruction inst = listing.getInstructionAt(address);
+        if (inst != null) {
+            println("Instruction: " + inst.getMnemonicString());
+        }
+        
+        // Get data at address
+        Data data = listing.getDataAt(address);
+        if (data != null) {
+            println("Data type: " + data.getDataType().getName());
+        }
+    } catch (MemoryAccessException e) {
+        println("Error reading memory: " + e.getMessage());
+    }
+}
+```
+
+## Package Location
+
+```
+ghidra.program.model.listing.Program
+```
+
+## Related Interfaces
+
+- [Listing API](/api/listing) - Code unit access
+- [Memory API](/api/memory) - Memory operations  
+- [Symbol Table API](/api/symbol-table) - Symbol management
+- [Data Types API](/api/data-types) - Type system
+
+## Constants
+
+<ResponseField name="PROGRAM_INFO" type="String">
+  Options name for storing program information: `"Program Information"`
+</ResponseField>
+
+<ResponseField name="DATE_CREATED" type="String">
+  Property name for creation date: `"Date Created"`
+</ResponseField>
+
+<ResponseField name="ANALYZED_OPTION_NAME" type="String">
+  Boolean analyzed property name: `"Analyzed"`
+</ResponseField>
+
+<ResponseField name="MAX_OPERANDS" type="int">
+  Maximum number of operands for any assembly language: `16`
+</ResponseField>

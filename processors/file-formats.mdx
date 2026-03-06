@@ -1,0 +1,346 @@
+---
+title: File Format Support
+description: Binary file formats and loaders supported by Ghidra
+---
+
+Ghidra supports a comprehensive range of binary file formats through its loader system. Each loader is responsible for parsing the file format, identifying the appropriate processor architecture, and loading the program into Ghidra's database.
+
+## Executable Formats
+
+### ELF (Executable and Linkable Format)
+
+**Loader**: `ElfLoader.java`
+
+The ELF format is widely used on Unix-like systems including Linux, BSD, and embedded systems.
+
+- **Support**: Full ELF32 and ELF64 support
+- **Features**:
+  - Program headers and section headers
+  - Dynamic linking information
+  - Symbol tables and relocation entries
+  - GNU extensions (version info, hash tables)
+  - Debug information (DWARF)
+- **Architectures**: All supported architectures with ELF binaries
+- **Location**: `Ghidra/Features/Base/src/main/java/ghidra/app/util/opinion/`
+
+### PE (Portable Executable)
+
+**Loader**: `PeLoader.java`
+
+Windows executable format used for .exe, .dll, and .sys files.
+
+- **Support**: PE32 and PE32+ (64-bit)
+- **Features**:
+  - DOS header and stub
+  - PE optional header
+  - Section tables
+  - Import/export tables
+  - Resource directories
+  - Exception directories
+  - Debug directories (CodeView, PDB references)
+  - .NET metadata
+- **Related Loaders**:
+  - `NeLoader.java` - Windows NE (16-bit)
+  - `MzLoader.java` - DOS MZ executables
+- **Architectures**: x86, x86-64, ARM, AARCH64
+
+### Mach-O (Mach Object)
+
+**Loader**: `MachoLoader.java`
+
+Apple's executable format for macOS, iOS, and other Apple platforms.
+
+- **Support**: Mach-O 32-bit and 64-bit
+- **Features**:
+  - Fat/Universal binaries (multiple architectures)
+  - Load commands
+  - Segments and sections
+  - Dynamic loader information
+  - Symbol tables and string tables
+  - Code signatures
+  - DYLD shared cache support
+- **Related Loaders**:
+  - `MachoFileSetExtractLoader.java` - File set extraction
+  - `DyldCacheLoader.java` - DYLD shared library cache
+  - `DyldCacheExtractLoader.java` - Cache extraction
+- **Architectures**: x86, x86-64, ARM, AARCH64, PowerPC
+
+### COFF (Common Object File Format)
+
+**Loader**: `CoffLoader.java`, `MSCoffLoader.java`
+
+Object file format used by various Unix systems and as a component of PE files.
+
+- **Support**: Standard COFF and Microsoft COFF variants
+- **Features**:
+  - File headers
+  - Section headers
+  - Symbol tables
+  - Relocation entries
+  - Optional headers
+- **Architectures**: x86, MIPS, ARM, and others
+
+## Mobile Platform Formats
+
+### Android Formats
+
+**APK (Android Package)**
+- **Loader**: `ApkLoader.java`
+- **Features**: ZIP-based package extraction, manifest parsing, DEX extraction
+
+**DEX (Dalvik Executable)**
+- **Loader**: `DexLoader.java`
+- **Support**: DEX versions from KitKat through Android 12
+- **Features**:
+  - Class definitions
+  - Method bytecode
+  - String pools
+  - Type descriptors
+
+**CDEX (Compact DEX)**
+- **Loader**: `CDexLoader.java`
+- **Features**: Compact DEX format introduced in Android P
+
+**ODEX (Optimized DEX)**
+- **Support**: Through Dalvik processor specifications
+- **Features**: Pre-optimized DEX files
+
+### iOS Formats
+
+Supported through Mach-O loaders with iOS-specific extensions:
+- DYLD shared cache parsing
+- File set extraction
+- Code signature verification
+- Objective-C metadata
+
+## Archive and Container Formats
+
+Ghidra can extract and analyze files from various container formats:
+
+### Compression Formats
+
+- **GZIP** - `ghidra/file/formats/gzip/`
+- **ZLIB** - `ghidra/file/formats/zlib/`
+- **LZSS** - `ghidra/file/formats/lzss/`
+- **LZFSE** - Apple LZFSE compression
+- **ZSTD** - Zstandard compression
+- **COMPLZSS** - Compressed LZSS variant
+- **7-Zip** - `ghidra/file/formats/sevenzip/`
+
+### Archive Formats
+
+- **ZIP** - `ghidra/file/formats/zip/`
+- **TAR** - `ghidra/file/formats/tar/`
+- **CPIO** - `ghidra/file/formats/cpio/`
+- **XAR** - eXtensible ARchive format
+
+### Property Lists
+
+- **Binary Property List (BPLIST)** - `ghidra/file/formats/bplist/`
+  - Apple binary property list format
+  - XML property list support
+
+## Filesystem Formats
+
+Ghidra can parse and extract files from various filesystem images:
+
+### Linux/Unix Filesystems
+
+- **EXT4** - `ghidra/file/formats/ext4/`
+  - Linux Extended Filesystem version 4
+  - Inode parsing
+  - Directory structures
+  - Extended attributes
+
+- **SquashFS** - `ghidra/file/formats/squashfs/`
+  - Read-only compressed filesystem
+  - Common in embedded Linux systems
+
+- **CramFS** - `ghidra/file/formats/cramfs/`
+  - Compressed ROM filesystem
+  - Embedded systems support
+
+- **YAFFS2** - `ghidra/file/formats/yaffs2/`
+  - Yet Another Flash File System v2
+  - NAND flash filesystem
+
+- **ISO 9660** - `ghidra/file/formats/iso9660/`
+  - CD-ROM filesystem
+
+### Flash Filesystems
+
+- **UBI** - `ghidra/file/formats/ubi/`
+  - Unsorted Block Images
+  - MTD/NAND flash management
+
+### Apple Filesystems
+
+- **Sparse Image** - `ghidra/file/formats/sparseimage/`
+  - Apple sparse disk images
+
+## Firmware and Embedded Formats
+
+### Device Tree
+
+- **DTB (Device Tree Blob)** - `ghidra/file/formats/dtb/`
+  - Flattened Device Tree format
+  - Hardware description for embedded systems
+  - Common in ARM/embedded Linux
+
+### Cartridge Formats
+
+- **CART** - `ghidra/file/formats/cart/`
+  - Game cartridge ROM formats
+  - Multiple console formats
+
+### Memory Dumps
+
+- **Dump Files** - `ghidra/file/formats/dump/`
+  - Various memory dump formats
+  - Crash dumps
+  - Process dumps
+
+## Object File Formats
+
+### OMF (Object Module Format)
+
+- **OMF** - `OmfLoader.java`
+  - Intel/Microsoft OMF
+  - Used by older compilers and assemblers
+
+- **OMF-51** - `Omf51Loader.java`
+  - Intel 8051 OMF variant
+
+### Other Object Formats
+
+- **PEF** - `PefLoader.java`
+  - Preferred Executable Format (classic Mac OS)
+
+- **SOM** - `SomLoader.java`
+  - HP-UX System Object Module
+
+- **a.out** - `UnixAoutLoader.java`
+  - Classic Unix executable format
+
+## Development Formats
+
+### Debug Formats
+
+- **DBG** - `DbgLoader.java`
+  - Debug symbol files
+
+- **MAP** - `MapLoader.java`
+  - Linker map files
+  - Symbol address mappings
+
+### Decompiler Formats
+
+- **Decompile Debug XML** - `DecompileDebugXmlLoader.java`
+  - Ghidra decompiler debug output
+
+### Definition Formats
+
+- **DEF** - `DefLoader.java`
+  - Module definition files
+  - Export definitions
+
+- **GDT** - `GdtLoader.java`
+  - Ghidra Data Type archive
+
+## Text-Based Formats
+
+### Hex Formats
+
+- **Intel HEX** - `IntelHexLoader.java`
+  - Intel HEX format
+  - Common for microcontroller programming
+
+- **Motorola S-Record** - `MotorolaHexLoader.java`
+  - Motorola SREC format
+  - Embedded system firmware
+
+### Other Formats
+
+- **XML** - `XmlLoader.java`
+  - XML program definitions
+
+- **Binary** - `BinaryLoader.java`
+  - Raw binary files
+  - Manual processor/address space configuration
+
+- **GZF** - `GzfLoader.java`
+  - Ghidra Zip File format
+
+## Loader Architecture
+
+### Opinion System
+
+Ghidra uses an "opinion" system for format detection:
+
+- Each loader provides an opinion on whether it can load a file
+- Opinions are ranked by confidence (primary, secondary, etc.)
+- Users can override automatic detection
+- `.opinion` files define processor preferences for specific formats
+
+### Loader Tiers
+
+Loaders are organized into tiers:
+
+1. **Primary loaders**: High confidence in format detection
+2. **Secondary loaders**: Fallback options
+3. **Tertiary loaders**: Low confidence or generic formats
+
+### Custom Loaders
+
+Ghidra's loader architecture is extensible:
+
+- Extend `AbstractProgramLoader` or `AbstractLibrarySupportLoader`
+- Implement format detection logic
+- Parse headers and sections
+- Create memory blocks
+- Define entry points and symbols
+- Set up relocations
+
+## Format-Specific Features
+
+### Import/Export Tables
+
+- Automatic symbol creation from import/export tables
+- External library references
+- Ordinal-based imports (Windows DLLs)
+
+### Relocations
+
+- Relocation table processing
+- Base address adjustments
+- Position-independent code support
+
+### Debug Information
+
+- DWARF debug info (ELF)
+- PDB integration (PE)
+- Symbol table parsing
+- Source line mapping
+
+### Resources
+
+- PE resource directory parsing
+- Mach-O resource forks
+- Icon and version extraction
+
+## File Format Detection
+
+Ghidra automatically detects file formats using:
+
+- **Magic numbers**: File signature detection
+- **Header analysis**: Structure validation
+- **Loader opinions**: Confidence-based selection
+- **File extensions**: Secondary hints
+- **Content analysis**: Deep inspection when needed
+
+## Related Documentation
+
+- [Supported Architectures](/processors/supported-architectures) - Processor support
+- [Sleigh Language](/processors/sleigh-language) - Processor specification language
+- Ghidra Loader API documentation
+- Binary file format specifications

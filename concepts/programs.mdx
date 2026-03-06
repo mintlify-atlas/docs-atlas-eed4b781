@@ -1,0 +1,620 @@
+---
+title: Programs
+description: The program model, memory management, address spaces, and program structure in Ghidra
+---
+
+## Program Model
+
+The `Program` interface is the central abstraction for representing executable binaries in Ghidra. It extends `DomainObject` and provides access to all aspects of a program's structure.
+
+```java
+// From ghidra/program/model/listing/Program.java:40-53
+public interface Program extends DataTypeManagerDomainObject, ProgramArchitecture {
+    Listing getListing();
+    Memory getMemory();
+    SymbolTable getSymbolTable();
+    FunctionManager getFunctionManager();
+    ReferenceManager getReferenceManager();
+    BookmarkManager getBookmarkManager();
+    EquateTable getEquateTable();
+    ExternalManager getExternalManager();
+    RelocationTable getRelocationTable();
+    ProgramBasedDataTypeManager getDataTypeManager();
+}
+```
+
+## Program Components
+
+A program is divided into several major subsystems, each managed by a dedicated interface.
+
+### Memory
+
+The memory subsystem manages the program's address space and byte storage.
+
+```java
+// From ghidra/program/model/mem/Memory.java:30-79
+public interface Memory extends AddressSetView {
+    Program getProgram();
+    
+    // Address set queries
+    AddressSetView getLoadedAndInitializedAddressSet();
+    AddressSetView getAllInitializedAddressSet();
+    AddressSetView getExecuteSet();
+    
+    // Block management
+    MemoryBlock[] getBlocks();
+    MemoryBlock getBlock(Address addr);
+    MemoryBlock getBlock(String blockName);
+    
+    // Byte access
+    byte getByte(Address addr);
+    void setByte(Address addr, byte value);
+    int getBytes(Address addr, byte[] dest);
+    void setBytes(Address addr, byte[] source);
+}
+```
+
+### Memory Blocks
+
+Memory is organized into contiguous blocks:
+
+```java
+public interface MemoryBlock extends Comparable<MemoryBlock> {
+    String getName();
+    Address getStart();
+    Address getEnd();
+    long getSize();
+    
+    boolean isRead();
+    boolean isWrite();
+    boolean isExecute();
+    boolean isVolatile();
+    
+    boolean isInitialized();
+    boolean isMapped();
+    boolean isLoaded();
+    boolean isOverlay();
+}
+```
+
+**Block Types:**
+
+<CardGroup cols={2}>
+  <Card title="Initialized" icon="file-binary">
+    Contains specific data loaded from the binary file
+  </Card>
+  <Card title="Uninitialized" icon="file-dashed">
+    Defines a region but content is unknown (e.g., BSS)
+  </Card>
+  <Card title="Byte-Mapped" icon="arrows-left-right">
+    Maps to another region with byte-level mapping
+  </Card>
+  <Card title="Bit-Mapped" icon="microscope">
+    Maps to bits in another region (1 byte = 1 bit)
+  </Card>
+</CardGroup>
+
+From `ghidra/program/model/mem/Memory.java:43-56`
+
+### Creating Memory Blocks
+
+```java
+// Initialized block from byte array
+MemoryBlock block = memory.createInitializedBlock(
+    ".text",              // Block name
+    addr(0x401000),       // Start address
+    bytes,                // Initial data
+    false                 // Overlay?
+);
+
+// Uninitialized block
+MemoryBlock bss = memory.createUninitializedBlock(
+    ".bss",
+    addr(0x500000),
+    0x1000,               // Size
+    false
+);
+
+// Byte-mapped block (mirror another region)
+MemoryBlock mapped = memory.createByteMappedBlock(
+    "mirror",
+    addr(0x600000),
+    addr(0x401000),       // Maps to .text
+    0x1000
+);
+```
+
+<Note>
+  All block operations require exclusive access and should be performed within
+  a transaction.
+</Note>
+
+### Overlay Blocks
+
+Overlay address spaces provide alternate contexts for memory:
+
+```java
+// Create overlay space
+MemoryBlock overlay = memory.createInitializedBlock(
+    "overlay_1",
+    addr("overlay_1::0x401000"),  // Note address space prefix
+    bytes,
+    true                           // Overlay = true
+);
+```
+
+**Use Cases:**
+
+- Multiple executable contexts (RTOS tasks)
+- Paged memory architectures  
+- Bank-switched memory
+- Alternate code paths
+
+<Warning>
+  Overlays have limitations during analysis. References between overlay and
+  base memory may not be discovered automatically.
+</Warning>
+
+## Address Spaces
+
+Ghidra supports multiple address spaces within a single program.
+
+### Address Interface
+
+```java
+// From ghidra/program/model/address/Address.java:23-30
+public interface Address extends Comparable<Address> {
+    AddressSpace getAddressSpace();
+    long getOffset();
+    
+    Address add(long displacement);
+    Address subtract(long displacement);
+    long subtract(Address addr);
+    
+    boolean isMemoryAddress();
+    boolean isExternalAddress();
+}
+```
+
+### AddressSpace Types
+
+From `ghidra/program/model/address/AddressSpace.java:28-89`
+
+```java
+public interface AddressSpace extends Comparable<AddressSpace> {
+    // Physical memory (loaded into RAM)
+    public static final int TYPE_RAM = 1;
+    
+    // Processor registers
+    public static final int TYPE_REGISTER = 4;
+    
+    // Stack-relative (signed offsets)
+    public static final int TYPE_STACK = 5;
+    
+    // Non-loaded data (file headers, debug sections)
+    public static final int TYPE_OTHER = 7;
+    
+    // External library references
+    public static final int TYPE_EXTERNAL = 10;
+    
+    String getName();
+    int getSpaceID();
+    int getSize();                    // Address width in bits
+    int getAddressableUnitSize();     // Bytes per address unit
+}
+```
+
+**Common Address Spaces:**
+
+| Space | Type | Description |
+|-------|------|-------------|
+| `ram` | RAM | Physical memory |
+| `register` | REGISTER | CPU registers |
+| `stack` | STACK | Stack-relative addressing |
+| `EXTERNAL` | EXTERNAL | External symbols |
+| `OTHER` | OTHER | Non-loaded data |
+| `const` | CONSTANT | Analysis constants |
+| `unique` | UNIQUE | Temporary values |
+
+### Address Arithmetic
+
+```java
+Address addr = program.getAddressFactory().getAddress("ram:0x401000");
+
+// Add offset
+Address next = addr.add(4);           // ram:0x401004
+
+// Subtract addresses
+long diff = next.subtract(addr);      // 4
+
+// Address comparison
+if (addr.compareTo(next) < 0) {
+    // addr comes before next
+}
+```
+
+<Tip>
+  Use `AddressSet` and `AddressRange` for efficient representation of
+  address collections:
+  
+  ```java
+  AddressSet set = new AddressSet();
+  set.add(new AddressRangeImpl(start, end));
+  set.add(anotherAddress);
+  
+  if (set.contains(addr)) {
+      // Address is in set
+  }
+  ```
+</Tip>
+
+## Listing
+
+The listing provides access to code units, instructions, and data:
+
+```java
+public interface Listing {
+    CodeUnit getCodeUnitAt(Address addr);
+    CodeUnit getCodeUnitContaining(Address addr);
+    CodeUnit getCodeUnitAfter(Address addr);
+    CodeUnit getCodeUnitBefore(Address addr);
+    
+    Instruction getInstructionAt(Address addr);
+    Instruction getInstructionContaining(Address addr);
+    
+    Data getDataAt(Address addr);
+    Data getDefinedDataAt(Address addr);
+    Data createData(Address addr, DataType dataType);
+}
+```
+
+### Code Units
+
+Code units are the atomic elements of the listing:
+
+```java
+public interface CodeUnit {
+    Address getAddress();
+    Address getMinAddress();
+    Address getMaxAddress();
+    int getLength();
+    byte[] getBytes();
+    
+    String getLabel();
+    String getComment(int commentType);
+    void setComment(int commentType, String comment);
+}
+```
+
+**Code Unit Types:**
+
+- **Instruction** - Disassembled processor instruction
+- **Data** - Defined data with a specific type
+- **Undefined** - Unanalyzed bytes
+
+### Instructions
+
+```java
+public interface Instruction extends CodeUnit {
+    String getMnemonicString();
+    int getNumOperands();
+    Object[] getOpObjects(int opIndex);
+    Address[] getReferencesFrom();
+    FlowType getFlowType();
+    boolean isFallthrough();
+    Address getFallThrough();
+}
+```
+
+### Data
+
+```java
+public interface Data extends CodeUnit {
+    DataType getDataType();
+    boolean isDefined();
+    int getNumComponents();
+    Data getComponent(int index);
+    Object getValue();
+}
+```
+
+## Symbol Table
+
+The symbol table manages labels, functions, and namespaces:
+
+```java
+public interface SymbolTable {
+    Symbol getPrimarySymbol(Address addr);
+    Symbol[] getSymbols(Address addr);
+    Symbol getSymbol(String name, Namespace namespace);
+    
+    Symbol createLabel(Address addr, String name, Namespace namespace, 
+                      SourceType source);
+    
+    SymbolIterator getSymbols(String name);
+    SymbolIterator getSymbols(Namespace namespace);
+    SymbolIterator getAllSymbols(boolean includeDynamicSymbols);
+}
+```
+
+### Symbols
+
+```java
+public interface Symbol {
+    String getName();
+    Address getAddress();
+    Namespace getParentNamespace();
+    SymbolType getSymbolType();
+    SourceType getSource();
+    boolean isPrimary();
+    boolean isDynamic();
+    boolean isExternal();
+}
+```
+
+**Symbol Types:**
+
+- `FUNCTION` - Function entry point
+- `LABEL` - Address label
+- `NAMESPACE` - Namespace container
+- `CLASS` - Class namespace
+- `PARAMETER` - Function parameter
+- `LOCAL_VAR` - Local variable
+- `GLOBAL_VAR` - Global variable
+
+### Namespaces
+
+```java
+public interface Namespace {
+    String getName();
+    String getName(boolean includeNamespacePath);
+    Namespace getParentNamespace();
+    Symbol getSymbol();
+}
+```
+
+Namespaces organize symbols hierarchically:
+
+```
+Global
+  └─ MyClass
+      ├─ method1
+      └─ method2
+  └─ AnotherClass
+      └─ function
+```
+
+## Function Manager
+
+Manages functions and their properties:
+
+```java
+public interface FunctionManager {
+    Function getFunctionAt(Address entryPoint);
+    Function getFunctionContaining(Address addr);
+    
+    Function createFunction(String name, Address entryPoint, 
+                           AddressSetView body, SourceType source);
+    
+    FunctionIterator getFunctions(boolean forward);
+    FunctionIterator getFunctions(AddressSetView asv, boolean forward);
+    int getFunctionCount();
+}
+```
+
+### Functions
+
+```java
+public interface Function extends Namespace {
+    Address getEntryPoint();
+    AddressSetView getBody();
+    
+    Parameter[] getParameters();
+    Parameter getReturn();
+    Variable[] getLocalVariables();
+    
+    String getPrototypeString(boolean includeName, boolean includeReturn);
+    void setCustomVariableStorage(boolean hasCustomVariableStorage);
+}
+```
+
+## Reference Manager
+
+Tracks all memory references and cross-references:
+
+```java
+public interface ReferenceManager {
+    Reference addMemoryReference(Address fromAddr, Address toAddr, 
+                                RefType type, SourceType sourceType, 
+                                int opIndex);
+    
+    Reference[] getReferencesFrom(Address addr);
+    Reference[] getReferencesTo(Address addr);
+    ReferenceIterator getReferencesTo(Address addr);
+    
+    void delete(Reference ref);
+}
+```
+
+**Reference Types:**
+
+- `READ` - Data read
+- `WRITE` - Data write
+- `UNCONDITIONAL_JUMP` - Direct jump
+- `CONDITIONAL_JUMP` - Conditional branch
+- `UNCONDITIONAL_CALL` - Function call
+- `FALL_THROUGH` - Sequential flow
+- `EXTERNAL_REF` - Reference to external symbol
+
+## Data Types
+
+Programs have an associated data type manager:
+
+```java
+public interface ProgramBasedDataTypeManager extends DataTypeManager {
+    DataType resolve(DataType dataType, DataTypeConflictHandler handler);
+    Category getCategory(CategoryPath path);
+    DataType getDataType(String dataTypePath);
+    void addDataTypeManagerListener(DataTypeManagerChangeListener listener);
+}
+```
+
+### Built-in Data Types
+
+- Primitives: `byte`, `word`, `dword`, `qword`
+- Signed: `sbyte`, `short`, `int`, `long`
+- Floating: `float`, `double`
+- Text: `string`, `unicode`
+- Pointers: `pointer`, `pointer32`, `pointer64`
+
+### Custom Data Types
+
+```java
+// Structure
+Structure struct = new StructureDataType("MyStruct", 0);
+struct.add(IntegerDataType.dataType, "field1", null);
+struct.add(PointerDataType.dataType, "field2", null);
+
+// Array
+Array arr = new ArrayDataType(IntegerDataType.dataType, 10, 4);
+
+// Typedef
+Typedef td = new TypedefDataType("DWORD", IntegerDataType.dataType);
+```
+
+## Program Properties
+
+Programs store metadata in property lists:
+
+```java
+Options options = program.getOptions(Program.PROGRAM_INFO);
+options.setString("Compiler", "gcc");
+options.setString("Executable Format", "ELF");
+
+boolean analyzed = options.getBoolean(Program.ANALYZED_OPTION_NAME, false);
+```
+
+From `ghidra/program/model/listing/Program.java:54-64`
+
+## Language and Architecture
+
+```java
+public interface Program extends ProgramArchitecture {
+    Language getLanguage();
+    CompilerSpec getCompilerSpec();
+    int getDefaultPointerSize();
+    String getCompiler();
+    void setCompiler(String compiler);
+}
+```
+
+### Language Definition
+
+- Processor instruction set
+- Register definitions
+- P-code semantics
+- Calling conventions
+- Memory model
+
+## Transaction Model
+
+All program modifications must occur within transactions:
+
+```java
+// Explicit transaction
+int txId = program.startTransaction("Make changes");
+try {
+    // Modify program
+    memory.setByte(addr, (byte)0x90);
+    program.endTransaction(txId, true);
+} catch (Exception e) {
+    program.endTransaction(txId, false);  // Rollback
+}
+
+// Try-with-resources
+try (Transaction tx = program.openTransaction("Make changes")) {
+    memory.setByte(addr, (byte)0x90);
+    // Automatically commits on success
+}
+```
+
+<Warning>
+  Forgetting to start a transaction will result in an exception when
+  attempting to modify the program.
+</Warning>
+
+## Program Events
+
+Programs generate events for changes:
+
+```java
+program.addListener(new DomainObjectListener() {
+    @Override
+    public void domainObjectChanged(DomainObjectChangedEvent ev) {
+        for (DomainObjectChangeRecord rec : ev) {
+            EventType type = rec.getEventType();
+            if (type == ProgramEvent.MEMORY_BLOCK_ADDED) {
+                Address start = (Address) rec.getObject();
+                // Handle new memory block
+            }
+        }
+    }
+});
+```
+
+**Common Program Events:**
+
+- `MEMORY_BLOCK_ADDED` / `REMOVED`
+- `CODE_ADDED` / `REMOVED`
+- `FUNCTION_ADDED` / `REMOVED`
+- `SYMBOL_ADDED` / `RENAMED` / `REMOVED`
+- `DATA_TYPE_ADDED` / `CHANGED`
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Memory Management">
+    - Create memory blocks before analysis
+    - Use meaningful block names
+    - Set proper permissions (R/W/X)
+    - Consider using overlays for alternate contexts
+  </Accordion>
+  
+  <Accordion title="Symbol Management">
+    - Use descriptive symbol names
+    - Organize with namespaces
+    - Mark important symbols as primary
+    - Document symbol sources
+  </Accordion>
+  
+  <Accordion title="Data Types">
+    - Define structures for complex data
+    - Share data types via archives
+    - Apply types consistently
+    - Use categories to organize types
+  </Accordion>
+  
+  <Accordion title="Transactions">
+    - Keep transactions focused and small
+    - Use descriptive transaction names
+    - Always commit or rollback explicitly
+    - Avoid long-running transactions
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Analysis" icon="microscope" href="/concepts/analysis">
+    Learn about program analysis
+  </Card>
+  <Card title="Projects" icon="folder-tree" href="/concepts/projects">
+    Understand project organization
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Explore framework architecture
+  </Card>
+  <Card title="Overview" icon="book" href="/concepts/overview">
+    Return to framework overview
+  </Card>
+</CardGroup>

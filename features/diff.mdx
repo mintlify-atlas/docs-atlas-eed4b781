@@ -1,0 +1,597 @@
+---
+title: 'Program Diff'
+description: 'Side-by-side comparison of programs with difference highlighting'
+icon: 'not-equal'
+---
+
+## Overview
+
+**Program Diff** extends the CodeBrowser to display two programs side-by-side, computing and visualizing differences between them. Unlike Version Tracking which focuses on transferring analysis, Program Diff emphasizes **interactive comparison and selective markup application**.
+
+<Info>
+Program Diff allows you to compare any two compatible programs and selectively apply differences from one program to another.
+</Info>
+
+## Core Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Side-by-Side View" icon="columns">
+    Synchronized dual-panel display of programs
+  </Card>
+  <Card title="Difference Highlighting" icon="highlighter">
+    Visual marking of all differences between programs
+  </Card>
+  <Card title="Selective Application" icon="hand-pointer">
+    Apply specific differences to the target program
+  </Card>
+  <Card title="Detail View" icon="microscope">
+    Examine detailed differences at cursor location
+  </Card>
+</CardGroup>
+
+## Getting Started
+
+### Opening a Second Program
+
+<Steps>
+  <Step title="Open First Program">
+    Open your primary program in the CodeBrowser.
+  </Step>
+  
+  <Step title="Select Second Program">
+    Click **Tools → Program Diff → Open/Close Second Program**.
+  </Step>
+  
+  <Step title="Choose Program">
+    Select from:
+    - Currently open programs in the tool
+    - Programs from project repository
+    - Versioned programs from Ghidra Server
+  </Step>
+  
+  <Step title="View Opens">
+    Second program displays in right panel with synchronized scrolling.
+  </Step>
+</Steps>
+
+<Warning>
+The two programs must have **similar architectures** and compatible memory layouts. Programs with completely different architectures cannot be compared.
+</Warning>
+
+### Program Compatibility
+
+Programs are compatible when:
+
+- Same processor architecture (language)
+- Similar memory organization
+- Overlapping address spaces
+
+```java
+// Source: ProgramDiffPlugin.java:1591-1599
+// Programs are checked for similarity using:
+// ProgramMemoryComparator.similarPrograms(prog1, prog2)
+// which compares language IDs and basic structure
+```
+
+## Computing Differences
+
+### Execute Diff Dialog
+
+<Steps>
+  <Step title="Open Execute Diff">
+    Click **Tools → Program Diff → Execute Diff** or press the diff icon.
+  </Step>
+  
+  <Step title="Configure Filters">
+    Select which difference types to compute:
+    - Bytes
+    - Instructions  
+    - Comments
+    - Labels
+    - Functions
+    - References
+    - And more...
+  </Step>
+  
+  <Step title="Set Scope">
+    Choose comparison scope:
+    - Entire program
+    - Current selection
+    - Specific address ranges
+  </Step>
+  
+  <Step title="Execute">
+    Click **OK** to compute differences.
+  </Step>
+</Steps>
+
+### Difference Types
+
+Program Diff can detect differences in:
+
+<Tabs>
+  <Tab title="Code">
+    - **Bytes**: Raw byte differences
+    - **Instructions**: Disassembly differences
+    - **Mnemonics**: Instruction mnemonics only
+    - **Operands**: Instruction operands
+  </Tab>
+  
+  <Tab title="Symbols">
+    - **Labels**: Address labels and symbols
+    - **Function Names**: Function symbol names
+    - **Namespaces**: Symbol namespace organization
+  </Tab>
+  
+  <Tab title="Annotations">
+    - **Plate Comments**: Header comments
+    - **Pre Comments**: Comments before addresses
+    - **Post Comments**: Comments after addresses  
+    - **EOL Comments**: End-of-line comments
+    - **Repeatable Comments**: Propagated comments
+  </Tab>
+  
+  <Tab title="Structure">
+    - **Functions**: Function boundaries and signatures
+    - **Data Types**: Applied data types
+    - **References**: Code and data references
+    - **Equates**: Symbolic constants
+    - **Properties**: Address properties
+  </Tab>
+</Tabs>
+
+### Diff Filters
+
+Customize which differences to display:
+
+```java
+// Source: ProgramDiffPlugin.java:628
+// ProgramDiffFilter controls which difference types
+// are computed and highlighted
+
+// Common filter configurations:
+// - ALL_DIFFS: Show everything
+// - CODE_DIFFS: Only code differences  
+// - USER_DEFINED: Only user markup
+```
+
+<ParamField path="filterType" type="enum">
+  **Options**: All Diffs, Code Diffs Only, User-Defined Only, Custom
+</ParamField>
+
+## Viewing Differences
+
+### Difference Highlighting
+
+Differences are highlighted in both program views:
+
+- **Background color**: Marks addresses with differences
+- **Margin markers**: Overview of diff locations
+- **Navigation**: Jump between difference locations
+
+<Tip>
+The highlight color can be customized via **Edit → Tool Options → Browser Fields → Difference Color**.
+</Tip>
+
+### Navigation Actions
+
+<CardGroup cols={2}>
+  <Card title="Next Difference" icon="forward">
+    Navigate to the next highlighted difference
+  </Card>
+  <Card title="Previous Difference" icon="backward">
+    Navigate to the previous highlighted difference
+  </Card>
+  <Card title="Go to Address" icon="location-dot">
+    Jump to specific address in both programs
+  </Card>
+  <Card title="Select All Diffs" icon="check-double">
+    Select all difference addresses in view
+  </Card>
+</CardGroup>
+
+### Synchronized Views
+
+Both program panels remain synchronized:
+
+- **Cursor location**: Both views track the same address
+- **Scrolling**: Synchronized scroll positions
+- **Selection**: Selections span both programs
+- **Field focus**: Same field types visible
+
+```java
+// Source: ProgramDiffPlugin.java:175-236
+// programLocationChanged() handler keeps cursors
+// synchronized between primary and secondary programs
+```
+
+## Difference Details
+
+### Details Window
+
+View detailed information about differences at current location:
+
+<Steps>
+  <Step title="Show Details">
+    **Window → Diff Details** to open the details panel.
+  </Step>
+  
+  <Step title="Navigate to Location">
+    Position cursor on address with differences.
+  </Step>
+  
+  <Step title="Review Details">
+    Panel shows:
+    - Specific differences at location
+    - Original vs. new values
+    - Difference categories
+  </Step>
+</Steps>
+
+Details include:
+
+- **Byte values**: Hexadecimal comparison
+- **Disassembly**: Instruction differences
+- **Markup**: Comment and label differences  
+- **Type information**: Data type differences
+
+<Info>
+Difference details update automatically as you navigate through the program.
+</Info>
+
+## Applying Differences
+
+### Apply Settings
+
+Configure which differences to apply:
+
+<Steps>
+  <Step title="Open Settings">
+    **Window → Diff Apply Settings** to open configuration panel.
+  </Step>
+  
+  <Step title="Select Categories">
+    Choose which difference types to apply:
+    - **Replace**: Overwrite with second program's value
+    - **Merge**: Combine both values (where applicable)
+    - **Ignore**: Don't apply this type
+  </Step>
+  
+  <Step title="Configure Options">
+    Set options like:
+    - Primary symbol handling
+    - Reference behavior
+    - Comment merging
+  </Step>
+</Steps>
+
+### Applying Changes
+
+<Tabs>
+  <Tab title="Apply Current">
+    Apply differences at current cursor location:
+    
+    1. Position cursor on difference
+    2. Click **Apply** in Diff Apply Settings
+    3. Changes applied to primary program
+  </Tab>
+  
+  <Tab title="Apply Selection">
+    Apply all differences in selection:
+    
+    1. Select address range with differences
+    2. Click **Apply** button
+    3. All selected differences applied
+  </Tab>
+  
+  <Tab title="Apply and Next">
+    Apply current and move to next difference:
+    
+    1. Click **Apply and Go to Next Diff**
+    2. Current location applied
+    3. Cursor moves to next difference
+  </Tab>
+</Tabs>
+
+<Warning>
+Applying differences **modifies the primary program**. Use undo or save carefully.
+</Warning>
+
+### Apply Filters
+
+Control which categories are applied:
+
+| Category | Replace | Merge | Ignore |
+|----------|---------|-------|--------|
+| **Bytes** | Overwrite bytes | N/A | Skip |
+| **Instructions** | Replace instruction | N/A | Skip |
+| **Comments** | Replace comment | Append both | Skip |
+| **Labels** | Replace label | Add alternate | Skip |
+| **Functions** | Replace signature | Combine params | Skip |
+| **References** | Replace refs | Add refs | Skip |
+
+```java
+// Source: DiffApplySettingsProvider.java
+// ProgramMergeFilter configured via Apply Settings dialog
+// controls which markup types are applied and how
+```
+
+## Selection Management
+
+### Making Selections
+
+Selections work across both programs:
+
+- **Click and drag**: Select range in either panel
+- **Shift+Click**: Extend selection
+- **Ctrl+Click**: Add to selection
+- **Select All Diffs**: Select all highlighted differences
+
+### Selection Actions
+
+<AccordionGroup>
+  <Accordion title="Set P1 Selection on P2">
+    Transfer primary program's selection to secondary program view.
+    
+    **Use**: Focus on same code in both programs
+  </Accordion>
+  
+  <Accordion title="Ignore Selection">
+    Mark selected differences to be ignored (not highlighted).
+    
+    **Use**: Hide unimportant differences
+  </Accordion>
+  
+  <Accordion title="Apply Selection">
+    Apply all differences within selection to primary program.
+    
+    **Use**: Bulk apply related changes
+  </Accordion>
+</AccordionGroup>
+
+### Ignore Functionality
+
+Temporarily hide specific differences:
+
+<Steps>
+  <Step title="Select Differences">
+    Select address range containing differences to ignore.
+  </Step>
+  
+  <Step title="Ignore">
+    Click **Ignore Selection and Goto Next Difference**.
+  </Step>
+  
+  <Step title="Result">
+    Selected addresses no longer highlighted as differences.
+  </Step>
+</Steps>
+
+<Tip>
+Ignored differences are not permanently removed—re-run Execute Diff to restore them.
+</Tip>
+
+## Advanced Features
+
+### Program Context
+
+Diff can operate in different program contexts:
+
+- **Same context**: Compare identical address ranges
+- **Different context**: Handle memory layout differences
+- **Overlay support**: Compare overlay address spaces
+
+```java
+// Source: ProgramDiffPlugin.java:196-206  
+// Overlay space handling converts addresses between
+// programs when address spaces don't match exactly
+```
+
+### Address Mapping
+
+Program Diff handles address translation:
+
+- **Compatible addresses**: Direct mapping between programs
+- **Overlay conversion**: Map overlay spaces appropriately  
+- **Only in P1**: Addresses existing only in first program
+- **Only in P2**: Addresses existing only in second program
+
+<Info>
+Addresses that exist in only one program are specially marked and handled during diff operations.
+</Info>
+
+### Diff History
+
+Program Diff maintains history:
+
+- **Previous location**: Track last cursor position
+- **Navigation stack**: Return to previous locations
+- **Undo/Redo**: Revert applied changes
+
+## Tool Configuration
+
+### Options
+
+Configure Diff behavior via **Edit → Tool Options**:
+
+<ParamField path="Difference Color" type="color">
+  Background color for highlighting differences
+</ParamField>
+
+<ParamField path="Cursor Sync" type="boolean" default={true}>
+  Keep cursors synchronized between programs
+</ParamField>
+
+<ParamField path="Auto Apply" type="boolean" default={false}>
+  Automatically apply when navigating to next diff
+</ParamField>
+
+### Window Layout
+
+Customize panel arrangement:
+
+- Resize second program panel
+- Dock/undock details window
+- Show/hide apply settings
+- Configure field visibility
+
+## Comparison with Version Tracking
+
+| Feature | Program Diff | Version Tracking |
+|---------|--------------|------------------|
+| **Purpose** | Interactive comparison | Analysis transfer |
+| **Workflow** | Immediate visual diff | Multi-step correlation |
+| **Scope** | Address-by-address | Function/data matching |
+| **Application** | Selective manual apply | Bulk automated apply |
+| **Best For** | Quick comparisons | Version migration |
+
+<Tip>
+**Use Program Diff when**:
+- Comparing similar programs quickly
+- Applying specific targeted changes
+- Reviewing byte-level differences
+
+**Use Version Tracking when**:
+- Migrating to new software version  
+- Transferring comprehensive analysis
+- Handling major code refactoring
+</Tip>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Patch Analysis" icon="bandage">
+    Compare original and patched executables to find fixes
+  </Card>
+  <Card title="Malware Variants" icon="viruses">
+    Identify differences between malware samples
+  </Card>
+  <Card title="Build Comparison" icon="gears">
+    Compare debug vs. release builds
+  </Card>
+  <Card title="Binary Auditing" icon="shield-halved">
+    Verify compiled binary matches expected source
+  </Card>
+  <Card title="Obfuscation Analysis" icon="masks-theater">
+    Compare obfuscated and clean versions
+  </Card>
+  <Card title="Optimization Review" icon="gauge-high">
+    Analyze compiler optimization effects
+  </Card>
+</CardGroup>
+
+## Limitations and Considerations
+
+<Warning>
+**Important Limitations**:
+
+- Only one diff session per program at a time
+- Second program must be compatible architecture
+- Large programs may have slow diff computation
+- Memory-intensive for large address ranges
+- No automatic conflict resolution
+</Warning>
+
+### Performance Tips
+
+<Tip>
+**For Better Performance**:
+- Limit diff scope to specific selections
+- Use targeted diff filters
+- Close unused tool windows
+- Apply differences incrementally
+- Consider Version Tracking for large-scale changes
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't Open Second Program">
+    **Checks**:
+    - Verify programs have similar languages
+    - Check if another diff is already open
+    - Ensure program is in accessible project
+    - Confirm memory compatibility
+  </Accordion>
+  
+  <Accordion title="No Differences Shown">
+    **Causes**:
+    - Diff filter too restrictive
+    - Programs are identical in selected categories
+    - Comparison scope excludes differences
+    
+    **Solution**: Adjust filters and scope, re-execute diff
+  </Accordion>
+  
+  <Accordion title="Apply Doesn't Work">
+    **Checks**:
+    - Verify apply settings configured (not all "Ignore")
+    - Ensure selection includes differences
+    - Check for transaction conflicts
+    - Confirm program is not read-only
+  </Accordion>
+  
+  <Accordion title="Slow Diff Performance">
+    **Solutions**:
+    - Reduce diff scope to selection
+    - Disable some diff filters
+    - Use faster system or more memory
+    - Consider splitting into multiple sessions
+  </Accordion>
+</AccordionGroup>
+
+## Keyboard Shortcuts
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Next Diff | **Ctrl+N** | Navigate to next difference |
+| Previous Diff | **Ctrl+P** | Navigate to previous difference |
+| Apply and Next | **Ctrl+Shift+N** | Apply current and go to next |
+| Select All Diffs | **Ctrl+A** | Select all differences in view |
+| Show Details | **Ctrl+D** | Toggle Diff Details window |
+
+<Info>
+Shortcuts can be customized via **Edit → Tool Options → Key Bindings**.
+</Info>
+
+## Source Code References
+
+```bash
+# Main plugin implementation
+~/workspace/source/Ghidra/Features/ProgramDiff/src/main/java/ghidra/app/plugin/core/diff/
+
+# Key files:
+- ProgramDiffPlugin.java         # Main diff plugin
+- DiffController.java            # Difference navigation
+- ApplyDiffCommand.java          # Apply logic
+- DiffApplySettingsProvider.java # Settings UI
+- DiffDetailsProvider.java       # Details panel
+```
+
+## Menu Reference
+
+### Tools → Program Diff Menu
+
+- **Open/Close Second Program**: Select program to compare
+- **Execute Diff**: Compute differences with filters
+- **Next Difference**: Navigate forward
+- **Previous Difference**: Navigate backward  
+- **Apply Differences**: Apply at cursor or selection
+- **Ignore Selection and Goto Next**: Skip differences
+- **Select All Differences**: Select all diffs in view
+
+### Window Menu
+
+- **Diff Details**: Show/hide detailed differences
+- **Diff Apply Settings**: Configure apply behavior
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Version Tracking" icon="code-compare" href="/features/version-tracking">
+    Advanced version comparison and analysis transfer
+  </Card>
+  <Card title="Graph Visualization" icon="diagram-project" href="/features/graphing">
+    Visualize program structure and relationships
+  </Card>
+</CardGroup>

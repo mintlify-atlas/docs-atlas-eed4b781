@@ -1,0 +1,359 @@
+---
+title: GhidraScript API
+description: Complete reference for writing Ghidra scripts in Java
+---
+
+## Overview
+
+The `GhidraScript` class is the foundation for writing custom scripts in Ghidra. It extends `FlatProgramAPI` and provides access to program analysis, manipulation, and user interaction capabilities.
+
+## Creating a Script
+
+All Ghidra scripts must:
+1. Be written in Java
+2. Extend `ghidra.app.script.GhidraScript`
+3. Implement the `run()` method
+4. Include a description comment at the top (lines starting with `//`)
+
+### Basic Template
+
+```java
+// TODO write a description for this script
+// @category Examples
+
+import ghidra.app.script.GhidraScript;
+
+public class MyScript extends GhidraScript {
+    @Override
+    public void run() throws Exception {
+        // Your script code here
+    }
+}
+```
+
+## Script State Variables
+
+Ghidra automatically provides these instance variables when a script runs:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `currentProgram` | `Program` | The active program being analyzed |
+| `currentAddress` | `Address` | The current cursor location in the tool |
+| `currentLocation` | `ProgramLocation` | The current program location (may be null) |
+| `currentSelection` | `ProgramSelection` | The current selection (may be null) |
+| `currentHighlight` | `ProgramSelection` | The current highlight (may be null) |
+| `monitor` | `TaskMonitor` | Task monitor for tracking progress |
+
+## Core Methods
+
+### Abstract Methods
+
+<CodeGroup>
+```java run()
+protected abstract void run() throws Exception
+```
+</CodeGroup>
+
+The main entry point for your script. This is where you implement your script logic.
+
+### Output Methods
+
+<CodeGroup>
+```java println()
+public void println(String message)
+```
+</CodeGroup>
+
+Prints a message to the console and Ghidra's log.
+
+```java
+println("Processing function at: " + currentAddress);
+```
+
+<CodeGroup>
+```java print()
+public void print(String message)
+```
+</CodeGroup>
+
+Prints a message without a newline.
+
+<CodeGroup>
+```java printf()
+public void printf(String message, Object... args)
+```
+</CodeGroup>
+
+Prints a formatted message using C-style printf formatting.
+
+```java
+printf("Found %d functions in range\n", functionCount);
+```
+
+<CodeGroup>
+```java printerr()
+public void printerr(String message)
+```
+</CodeGroup>
+
+Prints an error message to stderr and Ghidra's error log.
+
+### User Input Methods
+
+GhidraScript provides numerous `ask*` methods for user input:
+
+<CodeGroup>
+```java askInt()
+public int askInt(String title, String message)
+```
+</CodeGroup>
+
+Prompts the user to enter an integer value.
+
+```java
+int count = askInt("Count", "How many iterations?");
+```
+
+<CodeGroup>
+```java askAddress()
+public Address askAddress(String title, String message)
+```
+</CodeGroup>
+
+Prompts the user to enter an address.
+
+```java
+Address start = askAddress("Start Address", "Enter start address:");
+```
+
+<CodeGroup>
+```java askString()
+public String askString(String title, String message)
+public String askString(String title, String message, String defaultValue)
+```
+</CodeGroup>
+
+Prompts the user to enter a string.
+
+```java
+String name = askString("Function Name", "Enter function name:", "myFunction");
+```
+
+<CodeGroup>
+```java askYesNo()
+public boolean askYesNo(String title, String message)
+```
+</CodeGroup>
+
+Prompts the user with a yes/no question.
+
+```java
+boolean proceed = askYesNo("Confirm", "Continue with analysis?");
+```
+
+<CodeGroup>
+```java askChoice()
+public <T> T askChoice(String title, String message, List<T> choices, T defaultChoice)
+```
+</CodeGroup>
+
+Prompts the user to select from a list of choices.
+
+```java
+String dwarf = askChoice("Choice", "Pick one:",
+    Arrays.asList("grumpy", "dopey", "sleepy"), "sleepy");
+```
+
+<CodeGroup>
+```java askFile()
+public File askFile(String title, String approveButtonText)
+```
+</CodeGroup>
+
+Prompts the user to select a file.
+
+```java
+File file = askFile("Input File", "Choose file:");
+```
+
+<CodeGroup>
+```java askDirectory()
+public File askDirectory(String title, String approveButtonText)
+```
+</CodeGroup>
+
+Prompts the user to select a directory.
+
+### Running Other Scripts
+
+<CodeGroup>
+```java runScript()
+public void runScript(String scriptName) throws Exception
+public void runScript(String scriptName, String[] scriptArguments) throws Exception
+```
+</CodeGroup>
+
+Runs another script by name. The called script shares the same GhidraState.
+
+```java
+runScript("AnalyzeFunction.java");
+runScript("ProcessData.java", new String[]{"arg1", "arg2"});
+```
+
+<CodeGroup>
+```java runScriptPreserveMyState()
+public GhidraState runScriptPreserveMyState(String scriptName) throws Exception
+```
+</CodeGroup>
+
+Runs a script without allowing it to modify this script's state.
+
+### Analysis Control
+
+<CodeGroup>
+```java getScriptAnalysisMode()
+public AnalysisMode getScriptAnalysisMode()
+```
+</CodeGroup>
+
+Returns the analysis mode for this script. Override to control auto-analysis behavior.
+
+**Analysis Modes:**
+- `AnalysisMode.ENABLED` - Script runs normally with auto-analysis responding to changes
+- `AnalysisMode.DISABLED` - Auto-analysis is disabled during script execution
+- `AnalysisMode.SUSPENDED` - Analysis is suspended and will run after script completes
+
+```java
+@Override
+public AnalysisMode getScriptAnalysisMode() {
+    return AnalysisMode.SUSPENDED;
+}
+```
+
+### Utility Methods
+
+<CodeGroup>
+```java isRunningHeadless()
+public final boolean isRunningHeadless()
+```
+</CodeGroup>
+
+Returns true if the script is running in headless (non-GUI) mode.
+
+```java
+if (isRunningHeadless()) {
+    println("Running in headless mode");
+}
+```
+
+<CodeGroup>
+```java getScriptName()
+public final String getScriptName()
+```
+</CodeGroup>
+
+Returns the name of the current script.
+
+<CodeGroup>
+```java getScriptArgs()
+public String[] getScriptArgs()
+```
+</CodeGroup>
+
+Returns script-specific arguments passed to the script.
+
+<CodeGroup>
+```java setScriptArgs()
+public void setScriptArgs(String[] scriptArgs)
+```
+</CodeGroup>
+
+Sets script-specific arguments.
+
+## Complete Example
+
+```java
+// Demonstrates various GhidraScript capabilities
+// @category Examples
+
+import ghidra.app.script.GhidraScript;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.*;
+
+public class ExampleScript extends GhidraScript {
+
+    @Override
+    public void run() throws Exception {
+        // Get user input
+        Address start = askAddress("Start Address", "Enter start address:");
+        int count = askInt("Count", "How many functions to process?");
+        
+        // Print information
+        println("Processing " + count + " functions from " + start);
+        
+        // Access current program
+        FunctionManager funcMgr = currentProgram.getFunctionManager();
+        Function func = funcMgr.getFunctionContaining(start);
+        
+        if (func != null) {
+            printf("Function: %s at %s\n", func.getName(), func.getEntryPoint());
+        } else {
+            printerr("No function found at " + start);
+        }
+        
+        // Check if running headless
+        if (isRunningHeadless()) {
+            println("Running in headless mode");
+        }
+    }
+}
+```
+
+## Properties Files
+
+Scripts can use `.properties` files to pre-populate values for `ask*` methods:
+
+1. Create a file named `MyScript.properties` in the same directory as `MyScript.java`
+2. Add key-value pairs for default values
+3. In GUI mode, these values pre-populate input fields
+4. In headless mode, these values are used automatically
+
+**Example: AskScript.properties**
+```properties
+FILE=/path/to/default/file
+Directory=/path/to/default/directory
+integer_1=42
+string=default value
+```
+
+## Script Arguments
+
+Scripts can accept command-line arguments when run in headless mode:
+
+```bash
+analyzeHeadless /path/to/project ProjectName -process binary.exe \
+    -postScript MyScript.java arg1 arg2 arg3
+```
+
+Access arguments in your script:
+
+```java
+String[] args = getScriptArgs();
+if (args.length > 0) {
+    println("First argument: " + args[0]);
+}
+```
+
+## Best Practices
+
+1. **Always check for null** - State variables like `currentProgram` may be null
+2. **Use monitor.checkCancelled()** - Allow users to cancel long-running operations
+3. **Handle exceptions** - Wrap risky operations in try-catch blocks
+4. **Clean up resources** - Override `cleanup(boolean success)` to release resources
+5. **Provide meaningful output** - Use `println()` to keep users informed of progress
+6. **Use transactions** - When modifying the program, changes are automatically wrapped in transactions
+
+## See Also
+
+- [FlatProgramAPI](/api/flat-api) - Inherited methods for program manipulation
+- [PyGhidra](/api/pyghidra) - Python scripting with PyGhidra

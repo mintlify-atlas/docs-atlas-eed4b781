@@ -1,0 +1,151 @@
+---
+title: Contributing to Ghidra
+description: Learn how to contribute to the Ghidra open source project
+---
+
+Ghidra is an open source project maintained by the National Security Agency Research Directorate. We welcome contributions from the community in many forms.
+
+## Ways to Contribute
+
+There are many ways you can contribute to Ghidra:
+
+- Submit a bug report
+- Suggest a new feature
+- Provide feedback by commenting on feature requests/proposals
+- Propose a patch by submitting a pull request
+- Suggest or submit documentation improvements
+- Review outstanding pull requests
+- Answer questions from other users
+- Share the software with other users who are interested
+- Teach others to use the software
+- Package and distribute the software in a downstream community (such as your preferred Linux distribution)
+
+## Bugs and Feature Requests
+
+If you believe that you have found a bug or wish to propose a new feature:
+
+1. Search the existing [issues](https://github.com/NationalSecurityAgency/ghidra/issues) to see if it has already been reported
+2. If you cannot find an existing issue, use one of the provided templates to create a new issue
+3. Provide as many details as possible to assist in reproducing the bug or explaining your proposed feature
+
+## Submitting Pull Requests
+
+Patches should be submitted in the form of Pull Requests to the Ghidra [repository](https://github.com/NationalSecurityAgency/ghidra/) on GitHub.
+
+### Submission Guidelines
+
+<Tip>
+Before submitting, please squash your commits using a message that starts with the issue number and a description of the changes.
+</Tip>
+
+**Ensure Quality**
+- Ensure that the patch compiles and runs in at least the development environment, and ideally the full build too
+- Even the most trivial change done in the GitHub editor has a chance to cause problems in the full development environment
+- If using AI to assist in development, please apply extra scrutiny to its suggestions
+
+**Keep Changes Focused**
+- Limit your patches to the smallest reasonable change to achieve your intended goal
+- Consider the reviewer's perspective when structuring your changes
+- Isolate multiple patches from each other - submit separate, smaller pull requests that can be reviewed more easily
+
+**Avoid Unnecessary Changes**
+- Unless previously authorized by the Ghidra team, repackaging, renaming, and other refactoring should not be part of any pull request
+- These types of changes are difficult to review and pollute the git history
+- Avoid "find and replace" changes in your pull request
+- While it may be tempting to globally replace calls to deprecated methods or change code style, these changes have likely not been performed for good reason
+
+**Focus on Real Needs**
+- Focus patches on bug fixes discovered through real-world usage and testing
+- Focus on improvements that clearly satisfy a need in Ghidra's functionality
+- Consider opening a dialogue with the Ghidra team before implementing to ensure alignment with project goals
+
+**Third-Party Libraries**
+- Unless it addresses a critical security update, avoid pull requests that update jars or other 3rd party libraries
+- These changes are preferred to be made internally by the team
+- If you need an updated library, please submit an issue instead of a pull request
+
+**Binary Files**
+- Avoid submitting self-generated binary files as part of your pull request
+- Our policy forbids accepting them because we cannot effectively review and validate their content
+
+## Code Review Process
+
+### Review Expectations
+
+- We welcome code reviews from anyone, though a committer is required to formally accept and merge changes
+- Reviewers will be looking for:
+  - Threading issues
+  - Performance implications
+  - API design
+  - Duplication of existing functionality
+  - Readability and code style
+  - Avoidance of bloat (scope-creep)
+
+### Reviewer Feedback
+
+- **MUST** means that the change is required
+- **SHOULD** means that the change is suggested, further discussion may be required
+- **COULD** means that the change is optional
+
+<Note>
+Be prepared to answer questions from reviewers. They may have further questions before accepting your patch, and may even propose changes. Please accept this feedback constructively, and not as a rejection of your proposed change.
+</Note>
+
+## Timeline and Expectations
+
+**Be Patient and Understanding**
+- Developers may need time to review your submissions before they can take action or respond
+- This does not mean your contribution is not valued
+- If your contribution has not received a response in a reasonable time, consider commenting with a polite inquiry for an update
+
+**Initial Priorities**
+- Small bug fixes and code that addresses potential vulnerabilities will be prioritized
+- Improvements for processor language specifications will be prioritized
+- These require a reasonable amount of effort to evaluate and help exercise the contribution process
+
+**Quality Assurance**
+- We are committed to maintaining the integrity and security of our code base
+- Careful review is given to code contributions to ensure they don't introduce new bugs or vulnerabilities
+- We are identifying best practices such as style guides and requirements for tests and documentation
+- As a result, it may take a long time for some contributions to be accepted - this does not mean we are ignoring them
+
+**Integration with Development Workflow**
+- We are committed to integrating this GitHub project with our team's regular development workflow
+- This may affect our responsiveness and ability to accept pull requests quickly
+- This does not mean we are ignoring them
+
+**Alternative Contributions**
+- Not all innovative ideas need to be accepted as pull requests into this GitHub project to be valuable to the community
+- There may be times when we recommend that you share your code for enhancements from your own repository
+- As we identify extensions of general interest to the reverse engineering community, we may seek to incorporate them into our baseline
+
+## Legal Requirements
+
+<Warning>
+This is an open source project. Contributions you make to this public U.S. Government ("USG") repository are completely voluntary.
+</Warning>
+
+Consistent with Section D.6. of the GitHub Terms of Service and Section 5. of the Apache License, Version 2.0:
+
+- When you submit a pull request to this repository (inbound), you are agreeing to license your contribution under the same terms as specified in the [LICENSE](https://github.com/NationalSecurityAgency/ghidra/blob/master/LICENSE) (outbound)
+- This follows the inbound=outbound model
+
+When you submit an issue, bug report, question, enhancement, or pull request:
+- You are offering your contribution without expectation of payment
+- You expressly waive any future pay claims against the USG related to your contribution
+- You acknowledge that this does not create an obligation on the part of the USG of any kind
+- Your contributing to this project does not create an employer-employee relationship between the U.S. Government and the contributor
+
+## Getting Started
+
+Before contributing code, please set up your development environment:
+
+1. See the [Development Setup](/community/development-setup) guide for instructions
+2. Review the [Building Ghidra](/community/building) guide to ensure you can build successfully
+3. Familiarize yourself with the codebase structure
+
+## Questions?
+
+If you have questions about contributing, feel free to:
+- Open a [discussion](https://github.com/NationalSecurityAgency/ghidra/discussions) on GitHub
+- Submit a [question issue](https://github.com/NationalSecurityAgency/ghidra/issues/new/choose) using the provided template

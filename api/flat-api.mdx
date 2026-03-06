@@ -1,0 +1,784 @@
+---
+title: FlatProgramAPI
+description: Simplified API for program analysis and manipulation in Ghidra
+---
+
+## Overview
+
+The `FlatProgramAPI` class provides a flattened, simplified interface to Ghidra's Program API. It is the parent class of `GhidraScript` and provides hundreds of convenience methods for common program analysis tasks.
+
+<Warning>
+**Stability Guarantee**: Methods in this class should never be removed or have their signatures changed, as doing so would break existing user scripts.
+</Warning>
+
+## Construction
+
+```java
+// Usually accessed via GhidraScript inheritance
+public class MyScript extends GhidraScript {
+    // FlatProgramAPI methods are available directly
+}
+
+// Direct instantiation
+FlatProgramAPI api = new FlatProgramAPI(program);
+FlatProgramAPI api = new FlatProgramAPI(program, monitor);
+```
+
+## Core Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `currentProgram` | `Program` | The program being analyzed |
+| `monitor` | `TaskMonitor` | Monitor for tracking progress and cancellation |
+
+## Memory Operations
+
+### Creating Memory Blocks
+
+<CodeGroup>
+```java createMemoryBlock()
+public MemoryBlock createMemoryBlock(String name, Address start, 
+    InputStream input, long length, boolean overlay) throws Exception
+```
+</CodeGroup>
+
+Creates a new memory block. If input is null, creates an uninitialized block.
+
+```java
+// Create initialized block
+byteInputStream = new ByteArrayInputStream(bytes);
+MemoryBlock block = createMemoryBlock(".text", addr("0x1000"), 
+    byteInputStream, 0x1000, false);
+
+// Create uninitialized block
+MemoryBlock uninit = createMemoryBlock(".bss", addr("0x2000"), 
+    null, 0x500, false);
+```
+
+<CodeGroup>
+```java createMemoryBlock() - with bytes
+public MemoryBlock createMemoryBlock(String name, Address start, 
+    byte[] bytes, boolean overlay) throws Exception
+```
+</CodeGroup>
+
+Creates a memory block from a byte array.
+
+```java
+byte[] data = {0x55, 0x48, (byte)0x89, (byte)0xe5};
+MemoryBlock block = createMemoryBlock(".text", addr("0x1000"), data, false);
+```
+
+### Accessing Memory Blocks
+
+<CodeGroup>
+```java getMemoryBlock()
+public MemoryBlock getMemoryBlock(String name)
+public MemoryBlock getMemoryBlock(Address address)
+```
+</CodeGroup>
+
+Returns a memory block by name or containing the specified address.
+
+```java
+MemoryBlock textBlock = getMemoryBlock(".text");
+MemoryBlock block = getMemoryBlock(currentAddress);
+```
+
+<CodeGroup>
+```java getMemoryBlocks()
+public MemoryBlock[] getMemoryBlocks()
+```
+</CodeGroup>
+
+Returns all memory blocks in the program.
+
+```java
+for (MemoryBlock block : getMemoryBlocks()) {
+    println(block.getName() + ": " + block.getStart() + " - " + block.getEnd());
+}
+```
+
+<CodeGroup>
+```java removeMemoryBlock()
+public void removeMemoryBlock(MemoryBlock block) throws Exception
+```
+</CodeGroup>
+
+<Warning>
+Removing a memory block deletes ALL annotations (disassembly, comments, etc.) in that block.
+</Warning>
+
+## Symbol and Label Operations
+
+### Creating Labels
+
+<CodeGroup>
+```java createLabel()
+public Symbol createLabel(Address address, String name, boolean makePrimary) 
+    throws Exception
+
+public Symbol createLabel(Address address, String name, boolean makePrimary,
+    SourceType sourceType) throws Exception
+    
+public Symbol createLabel(Address address, String name, Namespace namespace,
+    boolean makePrimary, SourceType sourceType) throws Exception
+```
+</CodeGroup>
+
+Creates a label at the specified address.
+
+```java
+// Create a simple label
+createLabel(addr("0x1000"), "main", true);
+
+// Create with source type
+createLabel(addr("0x1000"), "main", true, SourceType.USER_DEFINED);
+
+// Create in namespace
+Namespace ns = getNamespace(null, "MyNamespace");
+createLabel(addr("0x2000"), "helper", ns, true, SourceType.USER_DEFINED);
+```
+
+<CodeGroup>
+```java removeSymbol()
+public boolean removeSymbol(Address address, String name)
+```
+</CodeGroup>
+
+Deletes a symbol with the specified name at the specified address.
+
+```java
+removeSymbol(addr("0x1000"), "old_name");
+```
+
+### Symbol Lookup
+
+<CodeGroup>
+```java getSymbolAt()
+public Symbol getSymbolAt(Address address)
+public Symbol getSymbolAt(Address address, String name, Namespace namespace)
+```
+</CodeGroup>
+
+Returns the primary symbol at an address, or a specific symbol by name and namespace.
+
+```java
+Symbol sym = getSymbolAt(currentAddress);
+if (sym != null) {
+    println("Symbol: " + sym.getName());
+}
+```
+
+<CodeGroup>
+```java getSymbols()
+public List<Symbol> getSymbols(String name, Namespace namespace)
+```
+</CodeGroup>
+
+Returns all symbols with the given name in the specified namespace.
+
+```java
+List<Symbol> symbols = getSymbols("init", null); // global namespace
+for (Symbol s : symbols) {
+    println(s.getAddress().toString());
+}
+```
+
+<CodeGroup>
+```java getSymbolAfter(), getSymbolBefore()
+public Symbol getSymbolAfter(Address address)
+public Symbol getSymbolBefore(Address address)
+```
+</CodeGroup>
+
+Returns the next/previous non-default primary symbol.
+
+## Entry Points
+
+<CodeGroup>
+```java addEntryPoint()
+public void addEntryPoint(Address address)
+```
+</CodeGroup>
+
+Adds an entry point at the specified address.
+
+```java
+addEntryPoint(addr("0x1000"));
+```
+
+<CodeGroup>
+```java removeEntryPoint()
+public void removeEntryPoint(Address address)
+```
+</CodeGroup>
+
+Removes the entry point at the specified address.
+
+## Comments
+
+### Setting Comments
+
+<CodeGroup>
+```java Comment Methods
+public boolean setPlateComment(Address address, String comment)
+public boolean setPreComment(Address address, String comment)
+public boolean setPostComment(Address address, String comment)
+public boolean setEOLComment(Address address, String comment)
+public boolean setRepeatableComment(Address address, String comment)
+```
+</CodeGroup>
+
+Sets different types of comments at the specified address.
+
+```java
+setPlateComment(addr("0x1000"), "Main entry point");
+setPreComment(addr("0x1000"), "Initialize stack frame");
+setEOLComment(addr("0x1004"), "Save base pointer");
+setRepeatableComment(addr("0x1008"), "Common initialization");
+```
+
+### Getting Comments
+
+<CodeGroup>
+```java Comment Getters
+public String getPlateComment(Address address)
+public String getPreComment(Address address)
+public String getPostComment(Address address)
+public String getEOLComment(Address address)
+public String getRepeatableComment(Address address)
+```
+</CodeGroup>
+
+Retrieves the raw text of comments. Returns null if no comment exists.
+
+```java
+String comment = getEOLComment(currentAddress);
+if (comment != null) {
+    println("Comment: " + comment);
+}
+```
+
+## Disassembly and Code
+
+### Disassembly
+
+<CodeGroup>
+```java disassemble()
+public boolean disassemble(Address address)
+```
+</CodeGroup>
+
+Starts disassembling at the specified address. The disassembler follows code flows.
+
+```java
+if (disassemble(addr("0x1000"))) {
+    println("Successfully disassembled at 0x1000");
+}
+```
+
+### Clearing Code
+
+<CodeGroup>
+```java clearListing()
+public void clearListing(Address address) throws CancelledException
+public void clearListing(Address start, Address end) throws CancelledException
+public void clearListing(AddressSetView set) throws CancelledException
+```
+</CodeGroup>
+
+Clears code units (instructions or data) at the specified location.
+
+```java
+clearListing(addr("0x1000"));
+clearListing(addr("0x1000"), addr("0x1100"));
+```
+
+<CodeGroup>
+```java clearListing() - Advanced
+public boolean clearListing(AddressSetView set, boolean code, boolean symbols,
+    boolean comments, boolean properties, boolean functions, boolean registers,
+    boolean equates, boolean userReferences, boolean analysisReferences,
+    boolean importReferences, boolean defaultReferences, boolean bookmarks)
+```
+</CodeGroup>
+
+Selectively clears specific types of information from an address set.
+
+## Instruction Operations
+
+### Accessing Instructions
+
+<CodeGroup>
+```java Instruction Access
+public Instruction getFirstInstruction()
+public Instruction getLastInstruction()
+public Instruction getFirstInstruction(Function function)
+public Instruction getInstructionAt(Address address)
+public Instruction getInstructionContaining(Address address)
+public Instruction getInstructionBefore(Address address)
+public Instruction getInstructionAfter(Address address)
+```
+</CodeGroup>
+
+Accesses instructions in the program.
+
+```java
+Instruction instr = getInstructionAt(currentAddress);
+if (instr != null) {
+    println("Mnemonic: " + instr.getMnemonicString());
+    println("Operands: " + instr.getDefaultOperandRepresentation(0));
+}
+
+// Iterate through instructions
+Instruction current = getFirstInstruction();
+while (current != null && !monitor.isCancelled()) {
+    println(current.getAddress() + ": " + current.toString());
+    current = getInstructionAfter(current.getMaxAddress());
+}
+```
+
+## Data Operations
+
+### Accessing Data
+
+<CodeGroup>
+```java Data Access
+public Data getFirstData()
+public Data getLastData()
+public Data getDataAt(Address address)
+public Data getDataContaining(Address address)
+public Data getDataBefore(Address address)
+public Data getDataAfter(Address address)
+```
+</CodeGroup>
+
+Accesses defined data in the program.
+
+### Creating Data
+
+<CodeGroup>
+```java createData()
+public Data createData(Address address, DataType datatype)
+    throws CodeUnitInsertionException
+```
+</CodeGroup>
+
+Creates a new data object at the specified address.
+
+```java
+DataType dt = new DWordDataType();
+Data data = createData(addr("0x2000"), dt);
+```
+
+### Convenience Data Creation Methods
+
+<CodeGroup>
+```java Data Type Methods
+public Data createByte(Address address) throws Exception
+public Data createWord(Address address) throws Exception
+public Data createDWord(Address address) throws Exception
+public Data createQWord(Address address) throws Exception
+public Data createFloat(Address address) throws Exception
+public Data createDouble(Address address) throws Exception
+public Data createChar(Address address) throws Exception
+```
+</CodeGroup>
+
+Quickly create common data types.
+
+```java
+createDWord(addr("0x2000"));
+createQWord(addr("0x2004"));
+createFloat(addr("0x200C"));
+```
+
+<CodeGroup>
+```java createDwords()
+public void createDwords(Address start, int count) throws Exception
+```
+</CodeGroup>
+
+Creates multiple dwords starting at an address.
+
+```java
+createDwords(addr("0x3000"), 10); // Create 10 dwords
+```
+
+## Function Operations
+
+### Creating Functions
+
+<CodeGroup>
+```java createFunction()
+public Function createFunction(Address entryPoint, String name)
+```
+</CodeGroup>
+
+Creates a function at the entry point with the specified name.
+
+```java
+Function func = createFunction(addr("0x1000"), "myFunction");
+if (func != null) {
+    println("Created function: " + func.getName());
+}
+```
+
+### Accessing Functions
+
+<CodeGroup>
+```java Function Access
+public Function getFirstFunction()
+public Function getLastFunction()
+public Function getFunctionAt(Address entryPoint)
+public Function getFunctionContaining(Address address)
+public Function getFunctionBefore(Address address)
+public Function getFunctionAfter(Address address)
+public List<Function> getGlobalFunctions(String name)
+```
+</CodeGroup>
+
+Accesses functions in the program.
+
+```java
+Function func = getFunctionContaining(currentAddress);
+if (func != null) {
+    println("Current function: " + func.getName());
+    println("Entry point: " + func.getEntryPoint());
+}
+
+// Find all functions named "init"
+List<Function> initFuncs = getGlobalFunctions("init");
+for (Function f : initFuncs) {
+    println(f.getEntryPoint().toString());
+}
+```
+
+### Removing Functions
+
+<CodeGroup>
+```java removeFunction()
+public void removeFunction(Function function)
+public void removeFunctionAt(Address entryPoint)
+```
+</CodeGroup>
+
+Removes a function from the program.
+
+```java
+removeFunctionAt(addr("0x1000"));
+```
+
+## Search Operations
+
+### Byte Pattern Search
+
+<CodeGroup>
+```java find()
+public Address find(Address start, byte value)
+public Address find(Address start, byte[] values)
+```
+</CodeGroup>
+
+Finds the first occurrence of a byte or byte sequence.
+
+```java
+// Find single byte
+Address found = find(addr("0x1000"), (byte)0x55);
+
+// Find byte sequence
+byte[] pattern = {0x55, 0x48, (byte)0x89, (byte)0xe5};
+Address found = find(addr("0x1000"), pattern);
+```
+
+<CodeGroup>
+```java findBytes()
+public Address findBytes(Address start, String byteString)
+public Address[] findBytes(Address start, String byteString, int matchLimit)
+public Address[] findBytes(Address start, String byteString, int matchLimit, int alignment)
+```
+</CodeGroup>
+
+Finds byte patterns using regular expressions.
+
+```java
+// Simple search
+Address addr = findBytes(addr("0x1000"), "\\x55\\x48");
+
+// Regex search: 0x50 followed by 0-10 bytes, then 0x55
+Address[] matches = findBytes(addr("0x1000"), "\\x50.{0,10}\\x55", 10);
+
+// Search with alignment (only match on even addresses)
+Address[] aligned = findBytes(addr("0x1000"), "\\xC3", 50, 2);
+```
+
+<CodeGroup>
+```java findBytes() - in AddressSet
+public Address[] findBytes(AddressSetView set, String byteString, 
+    int matchLimit, int alignment)
+```
+</CodeGroup>
+
+Searches for byte patterns within a specific address set.
+
+### String Search
+
+<CodeGroup>
+```java find()
+public Address find(String text)
+```
+</CodeGroup>
+
+Searches for text in the program listing (comments, labels, mnemonics, operands).
+
+```java
+Address result = find("main");
+if (result != null) {
+    println("Found 'main' at: " + result);
+}
+```
+
+<CodeGroup>
+```java findStrings()
+public List<FoundString> findStrings(AddressSetView addressSet, 
+    int minimumStringLength, int alignment, boolean requireNullTermination,
+    boolean includeAllCharWidths)
+```
+</CodeGroup>
+
+Searches for ASCII strings in program memory.
+
+```java
+List<FoundString> strings = findStrings(null, 5, 1, true, false);
+for (FoundString fs : strings) {
+    println(fs.getAddress() + ": " + fs.getString(currentProgram.getMemory()));
+}
+```
+
+<CodeGroup>
+```java findPascalStrings()
+public List<FoundString> findPascalStrings(AddressSetView addressSet,
+    int minimumStringLength, int alignment, boolean includePascalUnicode)
+```
+</CodeGroup>
+
+Searches for Pascal-style strings (length-prefixed).
+
+## Analysis Operations
+
+<CodeGroup>
+```java analyzeAll()
+public void analyzeAll(Program program)
+```
+</CodeGroup>
+
+Performs complete analysis of the entire program. This method blocks until analysis completes.
+
+```java
+analyzeAll(currentProgram);
+```
+
+<CodeGroup>
+```java analyzeChanges()
+public void analyzeChanges(Program program)
+```
+</CodeGroup>
+
+Analyzes only pending changes to the program. This method blocks until analysis completes.
+
+```java
+// Make changes to program
+createFunction(addr("0x1000"), "newFunc");
+
+// Analyze the changes
+analyzeChanges(currentProgram);
+```
+
+## Namespace Operations
+
+<CodeGroup>
+```java getNamespace()
+public Namespace getNamespace(Namespace parent, String namespaceName)
+```
+</CodeGroup>
+
+Returns a namespace with the given name.
+
+<CodeGroup>
+```java createNamespace()
+public Namespace createNamespace(Namespace parent, String namespaceName)
+    throws DuplicateNameException, InvalidInputException
+```
+</CodeGroup>
+
+Creates a new namespace.
+
+```java
+Namespace ns = createNamespace(null, "MyNamespace");
+createLabel(addr("0x1000"), "func", ns, true, SourceType.USER_DEFINED);
+```
+
+<CodeGroup>
+```java createClass()
+public GhidraClass createClass(Namespace parent, String className)
+    throws DuplicateNameException, InvalidInputException
+```
+</CodeGroup>
+
+Creates a new class (special type of namespace).
+
+## Data Type Operations
+
+<CodeGroup>
+```java getDataTypes()
+public DataType[] getDataTypes(String name)
+```
+</CodeGroup>
+
+Searches for data types by name.
+
+```java
+DataType[] types = getDataTypes("IMAGE_DOS_HEADER");
+if (types.length > 0) {
+    createData(addr("0x400000"), types[0]);
+}
+```
+
+## Address Operations
+
+<CodeGroup>
+```java createAddressSet()
+public AddressSet createAddressSet()
+```
+</CodeGroup>
+
+Creates a new mutable address set.
+
+```java
+AddressSet set = createAddressSet();
+set.add(addr("0x1000"), addr("0x2000"));
+set.add(addr("0x3000"), addr("0x4000"));
+```
+
+<CodeGroup>
+```java getAddressFactory()
+public AddressFactory getAddressFactory()
+```
+</CodeGroup>
+
+Returns the address factory for the current program.
+
+## Transaction Management
+
+<CodeGroup>
+```java Transaction Methods
+protected void start()
+protected void end(boolean commit)
+```
+</CodeGroup>
+
+Manages transactions on the current program.
+
+<Note>
+When using `GhidraScript`, transactions are automatically managed. Only use these methods when working directly with `FlatProgramAPI`.
+</Note>
+
+```java
+FlatProgramAPI api = new FlatProgramAPI(program);
+api.start();
+try {
+    api.createLabel(addr("0x1000"), "test", true);
+    api.end(true); // commit
+} catch (Exception e) {
+    api.end(false); // rollback
+}
+```
+
+## Utility Methods
+
+<CodeGroup>
+```java getProgramFile()
+public File getProgramFile()
+```
+</CodeGroup>
+
+Returns the File that the program was originally imported from.
+
+```java
+File file = getProgramFile();
+println("Program imported from: " + file.getAbsolutePath());
+```
+
+<CodeGroup>
+```java getCurrentProgram()
+public Program getCurrentProgram()
+```
+</CodeGroup>
+
+Returns the current program.
+
+<CodeGroup>
+```java getMonitor()
+public TaskMonitor getMonitor()
+```
+</CodeGroup>
+
+Returns the current task monitor.
+
+## Constants
+
+```java
+public static final int MAX_REFERENCES_TO = 0x1000;
+```
+
+Maximum number of references to process.
+
+## Complete Example
+
+```java
+// Complete script demonstrating FlatProgramAPI usage
+// @category Examples
+
+import ghidra.app.script.GhidraScript;
+import ghidra.program.model.listing.*;
+import ghidra.program.model.symbol.*;
+import ghidra.program.model.address.*;
+
+public class FlatAPIExample extends GhidraScript {
+
+    @Override
+    public void run() throws Exception {
+        // Memory operations
+        for (MemoryBlock block : getMemoryBlocks()) {
+            println("Block: " + block.getName());
+        }
+        
+        // Find byte patterns
+        byte[] pattern = {0x55, 0x48, (byte)0x89, (byte)0xe5};
+        Address found = find(null, pattern);
+        if (found != null) {
+            println("Found pattern at: " + found);
+            disassemble(found);
+        }
+        
+        // Create function
+        Function func = createFunction(found, "discovered_func");
+        if (func != null) {
+            setPlateComment(found, "Automatically discovered function");
+        }
+        
+        // Find strings
+        List<FoundString> strings = findStrings(null, 5, 1, true, false);
+        println("Found " + strings.size() + " strings");
+        
+        // Analyze changes
+        analyzeChanges(currentProgram);
+    }
+}
+```
+
+## See Also
+
+- [GhidraScript](/api/ghidra-script) - Full scripting capabilities
+- [PyGhidra](/api/pyghidra) - Python interface to Ghidra

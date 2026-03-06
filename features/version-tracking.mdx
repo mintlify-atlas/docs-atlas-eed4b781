@@ -1,0 +1,582 @@
+---
+title: 'Version Tracking'
+description: 'Compare program versions and propagate analysis across releases'
+icon: 'code-compare'
+---
+
+## Overview
+
+**Version Tracking** enables you to compare two versions of a program and automatically or manually propagate analysis from a previously analyzed "source" program to a newer "destination" program. This is essential when tracking software updates, patches, or different builds.
+
+<Info>
+Version Tracking helps preserve your reverse engineering work when analyzing updated versions of software by transferring function names, comments, data types, and other markup.
+</Info>
+
+## Core Concepts
+
+### Version Tracking Session
+
+A Version Tracking session contains:
+
+- **Source Program**: Previously analyzed version with existing markup
+- **Destination Program**: New version to receive analysis
+- **Matches**: Corresponding code/data between programs
+- **Markup Items**: Individual pieces of analysis to transfer
+
+<Note>
+Sessions are saved to the Ghidra Project and can be shared via Ghidra Server with **exclusive checkout** (merge conflicts are not supported).
+</Note>
+
+### Workflow Components
+
+<Steps>
+  <Step title="Create Session">
+    Select source and destination programs, run precondition checks
+  </Step>
+  
+  <Step title="Run Correlators">
+    Apply correlation algorithms to find matches between programs
+  </Step>
+  
+  <Step title="Review Matches">
+    Examine proposed matches in the Matches Table
+  </Step>
+  
+  <Step title="Accept Matches">
+    Accept high-confidence matches to enable markup transfer
+  </Step>
+  
+  <Step title="Apply Markup">
+    Transfer analysis (names, comments, etc.) to destination program
+  </Step>
+</Steps>
+
+## Version Tracking Tool
+
+The Version Tracking Tool consists of:
+
+### Primary Components
+
+<CardGroup cols={2}>
+  <Card title="Matches Table" icon="table">
+    Primary view showing all correlation matches with scores and status
+  </Card>
+  <Card title="Markup Items Table" icon="list-check">
+    Details of individual markup items for selected matches
+  </Card>
+  <Card title="Source Tool" icon="file-code">
+    CodeBrowser for the source program
+  </Card>
+  <Card title="Destination Tool" icon="file-import">
+    CodeBrowser for the destination program with apply capabilities
+  </Card>
+</CardGroup>
+
+### Toolbar Actions
+
+<AccordionGroup>
+  <Accordion title="Create Session" icon="plus">
+    Launch the Version Tracking Wizard to create a new session with two programs.
+  </Accordion>
+  
+  <Accordion title="Add to Session" icon="circle-plus">
+    Run additional correlators on an existing session to find more matches.
+  </Accordion>
+  
+  <Accordion title="Automatic Version Tracking" icon="wand-magic-sparkles">
+    Automatically create and accept the most likely matches based on confidence scores.
+  </Accordion>
+</AccordionGroup>
+
+## Creating a Session
+
+### Version Tracking Wizard
+
+<Steps>
+  <Step title="Launch Wizard">
+    Drag two programs onto the Version Tracking tool or click **Create Session**.
+  </Step>
+  
+  <Step title="Specify Programs">
+    Select source (analyzed) and destination (new) programs. Use swap button if reversed.
+    
+    ```bash
+    Source: myapp_v1.0 (contains your analysis)
+    Destination: myapp_v2.0 (new version to analyze)
+    ```
+  </Step>
+  
+  <Step title="Run Preconditions">
+    Execute validators to check for potential problems:
+    - Large differences in function counts
+    - Missing analysis in source program
+    - Architecture mismatches
+  </Step>
+  
+  <Step title="Select Correlators">
+    Choose which correlation algorithms to run initially.
+  </Step>
+  
+  <Step title="Review Summary">
+    Verify settings and click **Finish** to create the session.
+  </Step>
+</Steps>
+
+<Warning>
+If source and destination are swapped, transferred markup will go the wrong direction. Always verify the swap button is used correctly.
+</Warning>
+
+## Correlation Algorithms
+
+Correlators find matches between source and destination programs:
+
+### Exact Match Correlators
+
+<Tabs>
+  <Tab title="Exact Function Bytes">
+    Matches functions with identical bytes. Very high confidence.
+    
+    **Use**: First correlator to run—provides definitive matches
+  </Tab>
+  
+  <Tab title="Exact Function Instructions">
+    Matches based on instruction mnemonics, ignoring operand values.
+    
+    **Use**: Finds functions compiled with same instructions but different addresses
+  </Tab>
+  
+  <Tab title="Exact Function Mnemonics">
+    Matches instruction patterns regardless of operands.
+  </Tab>
+</Tabs>
+
+### Symbol-Based Correlators
+
+<Tabs>
+  <Tab title="Exact Symbol Name">
+    Matches functions/data with identical symbol names.
+    
+    **Use**: Works well with non-stripped binaries
+  </Tab>
+  
+  <Tab title="Symbol Name">
+    Fuzzy symbol name matching with substring comparisons.
+  </Tab>
+</Tabs>
+
+### Structure-Based Correlators
+
+<Tabs>
+  <Tab title="Combined Function and Data">
+    Considers multiple factors: structure, references, and code patterns.
+    
+    **Use**: Comprehensive matching for moderate changes
+  </Tab>
+  
+  <Tab title="Data Reference">
+    Matches based on data reference patterns.
+  </Tab>
+  
+  <Tab title="Function Reference">
+    Matches based on function call patterns.
+  </Tab>
+</Tabs>
+
+### Advanced Correlators
+
+<AccordionGroup>
+  <Accordion title="Duplicate Function Instructions">
+    Handles multiple functions with same instruction patterns.
+  </Accordion>
+  
+  <Accordion title="Manual Match">
+    Create matches manually by selecting functions in both programs.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+**Recommended Workflow**: 
+1. Start with Exact Function Bytes
+2. Run Exact Symbol Name
+3. Apply Combined Function and Data  
+4. Use Manual Match for remaining important functions
+</Tip>
+
+## Working with Matches
+
+### Matches Table Columns
+
+| Column | Description |
+|--------|-------------|
+| **Score** | Correlation confidence (0.0 - 1.0) |
+| **Source** | Address/name in source program |
+| **Destination** | Address/name in destination program |
+| **Length** | Function/data size |
+| **Type** | Match type (Function, Data, Label) |
+| **Status** | Available, Accepted, Rejected, Blocked |
+| **Algorithm** | Correlator that found the match |
+
+### Match Actions
+
+<CardGroup cols={2}>
+  <Card title="Accept Match" icon="check">
+    Confirm the match is correct, enabling markup transfer
+  </Card>
+  <Card title="Reject Match" icon="xmark">
+    Mark match as incorrect, preventing it from being used
+  </Card>
+  <Card title="Clear Match" icon="eraser">
+    Reset match status back to Available
+  </Card>
+  <Card title="Apply Markup" icon="arrow-right">
+    Transfer selected markup items to destination
+  </Card>
+</CardGroup>
+
+### Filtering Matches
+
+Filter matches by:
+
+- **Score threshold**: Hide low-confidence matches
+- **Status**: Show only accepted, available, or rejected
+- **Algorithm**: View matches from specific correlators
+- **Match type**: Filter by function, data, or label matches
+
+```java
+// Source: VT_Tool.html:27-32
+// The Matches Table is the primary view for reviewing
+// and managing correlation results
+```
+
+## Markup Items
+
+Markup items represent individual pieces of analysis to transfer:
+
+### Markup Types
+
+<Tabs>
+  <Tab title="Function Names">
+    User-defined and imported function names
+  </Tab>
+  
+  <Tab title="Labels">
+    Address labels and symbols
+  </Tab>
+  
+  <Tab title="Comments">
+    Plate, Pre, Post, EOL, and Repeatable comments
+  </Tab>
+  
+  <Tab title="Data Types">
+    Applied data types and structures
+  </Tab>
+  
+  <Tab title="Function Signatures">
+    Parameter types and return types
+  </Tab>
+  
+  <Tab title="References">
+    Code and data references
+  </Tab>
+</Tabs>
+
+### Applying Markup
+
+<Steps>
+  <Step title="Select Match">
+    Click on an accepted match in the Matches Table.
+  </Step>
+  
+  <Step title="Review Markup Items">
+    Examine individual items in the Markup Items Table:
+    - Green checkmark: Can be applied
+    - Red X: Conflict exists
+    - Gray: Already applied or not applicable
+  </Step>
+  
+  <Step title="Select Items">
+    Choose which markup items to apply (or select all).
+  </Step>
+  
+  <Step title="Apply">
+    Click **Apply** to transfer markup to destination program.
+  </Step>
+</Steps>
+
+<Info>
+Markup Items are only available after a match has been **accepted**. Available matches cannot transfer markup until accepted.
+</Info>
+
+## Auto Version Tracking
+
+Automatic Version Tracking attempts to automatically create and accept matches:
+
+### How It Works
+
+1. Runs a predetermined sequence of correlators
+2. Accepts matches above confidence threshold
+3. Applies markup for accepted matches
+4. Iterates until convergence or limits reached
+
+### Configuration
+
+<ParamField path="scoreThreshold" type="number" default="0.95">
+  Minimum score to auto-accept matches
+</ParamField>
+
+<ParamField path="confidenceThreshold" type="number" default="10.0">
+  Minimum confidence score for acceptance
+</ParamField>
+
+<ParamField path="maxIterations" type="number" default="5">
+  Maximum correlator iterations
+</ParamField>
+
+<Warning>
+Auto Version Tracking works best when programs are very similar. Review results carefully, especially for heavily modified programs.
+</Warning>
+
+## Manual Matching
+
+Create matches manually when correlators don't find them:
+
+### From Sub-Tools
+
+<Steps>
+  <Step title="Position Cursors">
+    Place cursor on function in Source Tool and corresponding function in Destination Tool.
+  </Step>
+  
+  <Step title="Right-Click">
+    In either tool, right-click to open context menu.
+  </Step>
+  
+  <Step title="Create Match">
+    Select one of:
+    - **Create Manual Match**: Add to matches table
+    - **Create and Accept Match**: Add and accept immediately
+    - **Create and Apply Match**: Add, accept, and apply markup
+  </Step>
+</Steps>
+
+<Tip>
+Manual matching is essential for:
+- Heavily refactored code
+- Renamed functions without symbolic information
+- Code moved to different locations
+- Custom correlation scenarios
+</Tip>
+
+## Session Management
+
+### Opening Sessions
+
+<Tabs>
+  <Tab title="From Project">
+    Double-click session file (start-here icon) in Project Window.
+  </Tab>
+  
+  <Tab title="Drag and Drop">
+    Drag session onto running Version Tracking Tool.
+  </Tab>
+  
+  <Tab title="File Menu">
+    **File → Open Session** and select from project.
+  </Tab>
+</Tabs>
+
+### Version Control
+
+Sessions can be versioned using Ghidra Server repositories:
+
+<Steps>
+  <Step title="Add to Version Control">
+    Right-click session in Project Window → **Add to Version Control**.
+  </Step>
+  
+  <Step title="Exclusive Checkout">
+    Always use **exclusive checkout** for sessions (merge not supported).
+  </Step>
+  
+  <Step title="Check In">
+    Save changes and check in when complete.
+  </Step>
+</Steps>
+
+<Warning>
+**Important Session Requirements**:
+- Sessions require **exclusive checkout** (not shared checkout)
+- Source and destination programs must be in version control first
+- Session and both programs must reside in the **same project**
+- Only sessions in the active project can be opened (not viewed projects)
+</Warning>
+
+## Address Ranges and Filtering
+
+### Limiting Correlation Scope
+
+When adding correlators to a session:
+
+<AccordionGroup>
+  <Accordion title="Exclude Accepted Matches">
+    Skip functions/data already matched to speed up correlation.
+    
+    **Benefit**: Greatly improves performance on large programs
+  </Accordion>
+  
+  <Accordion title="Limit Address Ranges">
+    Restrict correlation to specific memory regions:
+    - Use entire program
+    - Use current tool selection  
+    - Specify custom address ranges
+    
+    **Use case**: Correlate specific modules or sections
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Features
+
+### Precondition Validators
+
+Validators check for potential issues before correlation:
+
+- **Function Count Validator**: Warns if function counts differ significantly
+- **Data Type Validator**: Checks for missing data type analysis
+- **Reference Validator**: Verifies reference analysis quality
+- **Memory Validator**: Compares memory layouts
+
+```bash
+# Run preconditions from wizard
+# Click "Run Precondition checks" and review results
+```
+
+### Diff Details
+
+View detailed differences for specific matches:
+
+1. Select match in Matches Table
+2. View side-by-side comparison in Source/Destination Tools
+3. Examine byte-level differences
+4. Review decompiler output comparison
+
+### Undo/Redo
+
+Version Tracking supports full undo/redo:
+
+- Accepting matches
+- Applying markup
+- Creating manual matches
+- Rejecting matches
+
+<Tip>
+Use **Edit → Undo** to revert recent actions during session review.
+</Tip>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Analyze Source First" icon="microscope">
+    Ensure source program is fully analyzed before creating session
+  </Card>
+  <Card title="Run Correlators Incrementally" icon="stairs">
+    Start with exact matches, gradually add fuzzy correlators
+  </Card>
+  <Card title="Review Before Applying" icon="eye">
+    Always review markup items before bulk application
+  </Card>
+  <Card title="Use Preconditions" icon="shield-check">
+    Run validators to catch issues early
+  </Card>
+  <Card title="Save Frequently" icon="floppy-disk">
+    Save session regularly during analysis
+  </Card>
+  <Card title="Exclude Accepted" icon="forward-fast">
+    Enable exclude option for faster subsequent correlations
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Few Matches Found">
+    **Solutions**:
+    - Verify both programs are analyzed
+    - Try additional correlator algorithms
+    - Check for code obfuscation or heavy refactoring
+    - Use manual matching for key functions
+  </Accordion>
+  
+  <Accordion title="Markup Won't Apply">
+    **Causes**:
+    - Match not accepted
+    - Conflicts with existing destination markup
+    - Incompatible data types
+    
+    **Solution**: Accept match first, resolve conflicts in Markup Items Table
+  </Accordion>
+  
+  <Accordion title="Session Won't Open">
+    **Checks**:
+    - Verify exclusive checkout
+    - Ensure session is in active project
+    - Check that source/destination programs are available
+    - Confirm project repository access
+  </Accordion>
+  
+  <Accordion title="Slow Correlation">
+    **Optimizations**:
+    - Enable "Exclude accepted matches"
+    - Limit address ranges to relevant sections
+    - Run correlators incrementally
+    - Close unnecessary tools/windows
+  </Accordion>
+</AccordionGroup>
+
+## Source Code References
+
+```bash
+# Main implementation
+~/workspace/source/Ghidra/Features/VersionTracking/
+
+# Help documentation
+VersionTracking/src/main/help/help/topics/VersionTrackingPlugin/
+
+# Scripts
+VersionTracking/ghidra_scripts/
+```
+
+## Menu Reference
+
+### File Menu
+
+- **New Session**: Create new version tracking session
+- **Add to Session**: Run additional correlators
+- **Auto Version Track**: Run automatic matching
+- **Open Session**: Open existing session
+- **Close Session**: Close current session
+- **Save Session**: Save changes to session
+
+### Edit Menu
+
+- **Undo/Redo**: Revert or reapply actions
+- **Tool Options**: Configure tool settings
+- **Reset Source and Destination Tools**: Restore default tool layouts
+
+### Window Menu
+
+Show/hide component windows:
+- Matches Table
+- Markup Items Table  
+- Function Associations
+- And other available views
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Program Diff" icon="not-equal" href="/features/diff">
+    Compare programs side-by-side without version tracking
+  </Card>
+  <Card title="Ghidra Server" icon="server" href="/features/server">
+    Share sessions with team via collaborative server
+  </Card>
+</CardGroup>

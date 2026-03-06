@@ -1,0 +1,240 @@
+---
+title: Framework Overview
+description: Introduction to Ghidra's core concepts and architectural foundations
+---
+
+## What is Ghidra?
+
+Ghidra is a software reverse engineering (SRE) framework created by the National Security Agency Research Directorate. It provides a comprehensive suite of tools for analyzing compiled code across multiple platforms including Windows, macOS, and Linux.
+
+## Core Framework Philosophy
+
+Ghidra's architecture is built around several key principles:
+
+<CardGroup cols={2}>
+  <Card title="Extensibility" icon="puzzle-piece">
+    Plugin-based architecture allows custom analyzers, processors, and tools
+  </Card>
+  <Card title="Scalability" icon="arrows-maximize">
+    Built to handle large-scale reverse engineering efforts with collaborative features
+  </Card>
+  <Card title="Multi-Platform" icon="desktop">
+    Supports diverse processor instruction sets and executable formats
+  </Card>
+  <Card title="Automation" icon="robot">
+    Runs in both user-interactive and automated modes with scripting support
+  </Card>
+</CardGroup>
+
+## Framework Components
+
+The Ghidra framework is organized into several major subsystems:
+
+### Framework Layer
+
+The foundation provides core services and infrastructure:
+
+- **Project Management** - Handles project lifecycle, workspaces, and tool management
+- **Domain Objects** - Base abstraction for persistent data with transaction support
+- **Database Layer** - Custom file-based database for efficient storage and versioning
+- **GUI Framework** - Docking window system for building extensible interfaces
+
+### Software Modeling Layer
+
+Provides the program model and analysis infrastructure:
+
+- **Program Model** - Represents executable binaries with memory, symbols, and code
+- **Address Spaces** - Multi-space architecture for memory, registers, and special contexts
+- **Language Definitions** - Processor specifications using SLEIGH language
+- **Analysis Services** - Plugin architecture for automated program analysis
+
+### Features Layer
+
+Higher-level functionality built on the framework:
+
+- **CodeBrowser** - Primary interactive analysis tool
+- **Decompiler** - High-level C-like representation of machine code
+- **Version Tracking** - Compare and merge program versions
+- **Debugger** - Runtime debugging integration
+
+## Key Abstractions
+
+### DomainObject
+
+```java
+public interface DomainObject {
+    boolean isChanged();
+    void save(String comment, TaskMonitor monitor);
+    Transaction openTransaction(String description);
+    void addListener(DomainObjectListener dol);
+    // ... transaction and event management
+}
+```
+
+The `DomainObject` interface is the foundation for all persistent data in Ghidra. It provides:
+
+- **Transaction Management** - All changes must occur within transactions
+- **Event Notification** - Observers receive change notifications
+- **Undo/Redo** - Full transaction history with rollback capabilities
+- **Versioning** - Save with version comments and history tracking
+
+From `ghidra/framework/model/DomainObject.java:34-55`
+
+### Project
+
+```java
+public interface Project extends AutoCloseable, Iterable<DomainFile> {
+    String getName();
+    ProjectData getProjectData();
+    ToolManager getToolManager();
+    RepositoryAdapter getRepository();
+    ProjectData addProjectView(URL projectURL, boolean visible);
+    // ... project lifecycle and views
+}
+```
+
+Projects serve as containers for organizing analysis work:
+
+- Manage collections of domain files and folders
+- Coordinate tools and their state
+- Support project views for multi-project workflows
+- Optional repository integration for collaboration
+
+From `ghidra/framework/model/Project.java:26-33`
+
+## Transaction Model
+
+All modifications to domain objects must occur within transactions:
+
+<Steps>
+  <Step title="Start Transaction">
+    Begin a transaction with a descriptive name
+    
+    ```java
+    int txId = program.startTransaction("Add function");
+    ```
+  </Step>
+  
+  <Step title="Make Changes">
+    Perform modifications to the domain object
+    
+    ```java
+    Function func = createFunction(program, addr, "myFunction");
+    ```
+  </Step>
+  
+  <Step title="End Transaction">
+    Commit or rollback the transaction
+    
+    ```java
+    program.endTransaction(txId, true); // true = commit
+    ```
+  </Step>
+</Steps>
+
+Or use the convenient try-with-resources pattern:
+
+```java
+try (Transaction tx = program.openTransaction("Add function")) {
+    Function func = createFunction(program, addr, "myFunction");
+}
+```
+
+From `ghidra/framework/model/DomainObject.java:395-407`
+
+## Event System
+
+Ghidra uses an event-driven architecture for propagating changes:
+
+- **Domain Object Events** - Notify listeners of program changes
+- **Plugin Events** - Tool-level communication between plugins
+- **Event Buffering** - Batches rapid changes for efficiency
+- **Private Queues** - Isolated event streams for specific listeners
+
+```java
+program.addListener(new DomainObjectListener() {
+    @Override
+    public void domainObjectChanged(DomainObjectChangedEvent ev) {
+        for (DomainObjectChangeRecord record : ev) {
+            if (record.getEventType() == DomainObjectEvent.RESTORED) {
+                // Handle program restoration
+            }
+        }
+    }
+});
+```
+
+From `ghidra/framework/model/DomainObject.java:177-227`
+
+## Plugin Architecture
+
+Ghidra's extensibility is built on a plugin system:
+
+```java
+@PluginInfo(
+    status = PluginStatus.RELEASED,
+    packageName = CorePluginPackage.NAME,
+    category = PluginCategoryNames.COMMON,
+    description = "Provides program analysis services",
+    servicesProvided = { AnalysisService.class }
+)
+public class MyAnalyzerPlugin extends Plugin {
+    // Plugin implementation
+}
+```
+
+Plugins can:
+- Provide services to other plugins
+- Consume services from other plugins  
+- Respond to tool and domain object events
+- Contribute UI components and actions
+
+## Module Organization
+
+The Ghidra codebase is organized into functional modules:
+
+<Accordion title="Framework Modules">
+  - **DB** - Custom database implementation
+  - **Docking** - Window management system
+  - **Emulation** - Processor emulation infrastructure
+  - **Generic** - Utility classes and helpers
+  - **Graph** - Graph visualization support
+  - **Project** - Project and tool management
+  - **SoftwareModeling** - Program model and analysis
+</Accordion>
+
+<Accordion title="Feature Modules">
+  - **Base** - Core analysis features and CodeBrowser
+  - **Decompiler** - High-level code representation
+  - **BytePatterns** - Pattern matching and search
+  - **FileFormats** - Binary format parsers
+  - **VersionTracking** - Program comparison and merging
+  - **PDB** - Windows debugging symbols support
+</Accordion>
+
+## Design Patterns
+
+Ghidra employs several design patterns throughout:
+
+- **Manager Pattern** - Coordinate related functionality (SymbolTable, FunctionManager)
+- **Adapter Pattern** - Abstract database storage details
+- **Observer Pattern** - Event notification system
+- **Command Pattern** - Encapsulate operations for undo/redo
+- **Factory Pattern** - Create domain objects and addresses
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Explore the layered architecture and module structure
+  </Card>
+  <Card title="Projects" icon="folder-tree" href="/concepts/projects">
+    Learn about project organization and repositories
+  </Card>
+  <Card title="Programs" icon="microchip" href="/concepts/programs">
+    Understand the program model and memory management
+  </Card>
+  <Card title="Analysis" icon="microscope" href="/concepts/analysis">
+    Discover the analysis pipeline and auto-analysis
+  </Card>
+</CardGroup>

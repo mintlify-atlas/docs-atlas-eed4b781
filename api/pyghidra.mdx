@@ -1,0 +1,599 @@
+---
+title: PyGhidra Python API
+description: Write Ghidra scripts in native Python 3 using PyGhidra
+---
+
+## Overview
+
+PyGhidra enables you to write Ghidra scripts in native CPython 3, providing seamless integration between Python and Ghidra's Java API through JPype. This allows you to leverage Python's ecosystem while accessing all of Ghidra's powerful reverse engineering capabilities.
+
+## Features
+
+- **Native CPython 3** support
+- **Full Java interoperability** via JPype
+- **Pythonic interfaces** to Java objects
+- **Virtual environment** support
+- **Interactive console** within Ghidra
+- **Script provider** for running Python GhidraScripts
+
+## Installation
+
+PyGhidra is included with Ghidra as a feature module. It handles:
+- Virtual environment creation and management
+- Externally managed environment support
+- Automatic dependency installation
+
+## Script Structure
+
+PyGhidra scripts follow the same structure as Java scripts but use Python syntax:
+
+```python
+## ###
+# IP: GHIDRA
+# ...
+##
+# Description of what this script does
+# @category: Examples.Python
+# @runtime PyGhidra
+
+import typing
+if typing.TYPE_CHECKING:
+    from ghidra.ghidra_builtins import *
+
+# Your script code here
+```
+
+### Script Metadata
+
+- `@category:` - Organizes scripts in the Script Manager
+- `@runtime PyGhidra` - Declares this script requires PyGhidra runtime
+
+## Type Checking Support
+
+PyGhidra provides type hints through the `ghidra_builtins` module:
+
+```python
+import typing
+if typing.TYPE_CHECKING:
+    from ghidra.ghidra_builtins import *
+```
+
+This import is only evaluated by type checkers (like mypy or PyCharm) and provides autocomplete and type checking for Ghidra's injected variables like `currentProgram`, `currentAddress`, etc.
+
+## Java Interoperability
+
+### Importing Java Classes
+
+Import Java classes as if they were Python modules:
+
+```python
+# Import Java standard library
+from java.util import LinkedList, ArrayList
+
+# Import Ghidra classes
+from ghidra.program.flatapi import FlatProgramAPI
+from ghidra.program.model.listing import CodeUnit
+from ghidra.program.model.symbol import SourceType
+```
+
+### Using Java Objects
+
+Java objects work like Python objects with added convenience features:
+
+```python
+from java.util import LinkedList
+
+# Create Java object with Python list
+java_list = LinkedList([1, 2, 3])
+
+# Python-style indexing
+first = java_list[0]  # Gets first element
+
+# Python-style slicing
+first_two = java_list[0:2]  # Gets first two elements
+
+# Iteration
+for item in java_list:
+    print(item)
+
+# List comprehension
+doubled = [i * 2 for i in java_list]
+```
+
+### Automatic Getter/Setter Access
+
+Java bean properties can be accessed as Python attributes:
+
+```python
+# Instead of: currentProgram.getName()
+name = currentProgram.name
+
+# Instead of: block.getStart()
+start_addr = block.start
+
+# Instead of: func.getEntryPoint()
+entry = func.entryPoint
+```
+
+### Java Arrays
+
+Many Ghidra methods require Java arrays. JPype provides helpers:
+
+```python
+import jpype
+
+# Create a Java byte array (verbose)
+byte_array_maker = jpype.JArray(jpype.JByte)
+byte_array = byte_array_maker(10)
+
+# Shortcut syntax
+byte_array = jpype.JByte[10]
+
+# Use with Ghidra methods
+block = currentProgram.memory.getBlock('.text')
+if block:
+    byte_array = jpype.JByte[10]
+    block.getBytes(block.start, byte_array)
+    
+    # Access bytes (note: Java bytes are signed)
+    hex_bytes = ['%#x' % ((b+256)%256) for b in byte_array]
+    print(f"First 10 bytes: {hex_bytes}")
+```
+
+### Passing Python Bytes
+
+For read-only operations, Python bytes objects work directly:
+
+```python
+data = b"Hello, Ghidra!"
+block = currentProgram.memory.getBlock('.text')
+if block:
+    clearListing(block.start, block.start.add(len(data) - 1))
+    block.putBytes(block.start, data)
+```
+
+## Accessing Ghidra Script Variables
+
+PyGhidra scripts automatically have access to the same state variables as Java scripts:
+
+```python
+# These are automatically available:
+print(f"Program: {currentProgram.name}")
+print(f"Current address: {currentAddress}")
+
+if currentSelection:
+    print(f"Selection: {currentSelection}")
+
+if currentLocation:
+    print(f"Location: {currentLocation}")
+```
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `currentProgram` | `Program` | The active program |
+| `currentAddress` | `Address` | Current cursor location |
+| `currentLocation` | `ProgramLocation` | Current program location |
+| `currentSelection` | `ProgramSelection` | Current selection |
+| `currentHighlight` | `ProgramSelection` | Current highlight |
+| `monitor` | `TaskMonitor` | Task monitor |
+
+## Using FlatProgramAPI
+
+All `FlatProgramAPI` methods are available directly in PyGhidra scripts:
+
+```python
+# Create labels
+createLabel(addr("0x401000"), "main", True)
+
+# Create functions
+func = createFunction(addr("0x401000"), "main")
+
+# Set comments
+setEOLComment(addr("0x401000"), "Program entry point")
+
+# Disassemble
+if disassemble(addr("0x401000")):
+    print("Disassembly successful")
+
+# Find bytes
+pattern_addr = find(addr("0x400000"), bytes([0x55, 0x48, 0x89, 0xe5]))
+if pattern_addr:
+    print(f"Found pattern at: {pattern_addr}")
+
+# Search for strings
+strings = findStrings(None, 5, 1, True, False)
+for found_string in strings:
+    print(f"{found_string.getAddress()}: {found_string.getString(currentProgram.memory)}")
+```
+
+## Working with Memory
+
+```python
+# Iterate through memory blocks
+for block in currentProgram.memory.blocks:
+    print(f"Block: {block.name}")
+    print(f"  Start: {block.start}")
+    print(f"  End: {block.end}")
+    print(f"  Size: {block.size}")
+    print(f"  Initialized: {block.initialized}")
+
+# Read bytes from memory
+block = currentProgram.memory.getBlock('.text')
+if block:
+    byte_array = jpype.JByte[100]
+    block.getBytes(block.start, byte_array)
+    print(f"First byte: {byte_array[0]:02x}")
+```
+
+## Working with Functions
+
+```python
+from ghidra.program.model.symbol import SourceType
+
+# Get function manager
+func_mgr = currentProgram.functionManager
+
+# Iterate all functions
+for func in func_mgr.getFunctions(True):  # True = forward
+    print(f"Function: {func.name} at {func.entryPoint}")
+    print(f"  Parameters: {func.parameterCount}")
+    print(f"  Body: {func.body}")
+
+# Get specific function
+func = getFunctionAt(addr("0x401000"))
+if func:
+    print(f"Function signature: {func.signature}")
+    
+    # Iterate instructions in function
+    listing = currentProgram.listing
+    instructions = listing.getInstructions(func.body, True)
+    for instr in instructions:
+        print(f"  {instr.address}: {instr}")
+```
+
+## Working with Instructions
+
+```python
+# Get instruction at address
+instr = getInstructionAt(currentAddress)
+if instr:
+    print(f"Mnemonic: {instr.mnemonicString}")
+    print(f"Operands: {instr.numOperands}")
+    
+    for i in range(instr.numOperands):
+        print(f"  Operand {i}: {instr.getDefaultOperandRepresentation(i)}")
+    
+    # Get references
+    for ref in instr.getReferencesFrom():
+        print(f"  Reference to: {ref.toAddress}")
+```
+
+## Working with Data
+
+```python
+from ghidra.program.model.data import *
+
+# Create data types
+createDWord(addr("0x402000"))
+createQWord(addr("0x402004"))
+
+# Create custom data
+dt_mgr = currentProgram.dataTypeManager
+image_dos_header = dt_mgr.getDataType("/PE/IMAGE_DOS_HEADER")
+if image_dos_header:
+    createData(addr("0x400000"), image_dos_header)
+
+# Get data at address
+data = getDataAt(addr("0x402000"))
+if data:
+    print(f"Data type: {data.dataType.name}")
+    print(f"Value: {data.value}")
+```
+
+## Working with Symbols
+
+```python
+from ghidra.program.model.symbol import SourceType
+
+# Create symbols
+sym = createLabel(addr("0x401000"), "my_function", True, SourceType.USER_DEFINED)
+
+# Get symbols
+sym_table = currentProgram.symbolTable
+for symbol in sym_table.getAllSymbols(True):
+    if not symbol.external:
+        print(f"{symbol.name} at {symbol.address}")
+
+# Search for symbols
+symbols = getSymbols("init", None)  # None = global namespace
+for sym in symbols:
+    print(f"Found {sym.name} at {sym.address}")
+```
+
+## User Interaction
+
+PyGhidra scripts support all the same user interaction methods:
+
+```python
+# Get user input
+address = askAddress("Enter Address", "Please enter a start address:")
+count = askInt("Count", "How many items to process?")
+name = askString("Name", "Enter function name:", "default_name")
+
+# Yes/No dialog
+if askYesNo("Confirm", "Proceed with analysis?"):
+    analyzeAll(currentProgram)
+
+# Choice dialog
+choice = askChoice("Select", "Choose an option:",
+                  ["Option 1", "Option 2", "Option 3"], "Option 1")
+print(f"Selected: {choice}")
+```
+
+## Output
+
+```python
+# Print to console
+println("Processing started...")
+print(f"Found {count} items")
+
+# Formatted output
+printf("Address: %s, Value: 0x%x\n", addr, value)
+
+# Error output
+printerr("Error: Could not process item")
+```
+
+## Exception Handling
+
+```python
+try:
+    func = createFunction(addr("0x401000"), "main")
+    if func is None:
+        raise Exception("Failed to create function")
+except Exception as e:
+    printerr(f"Error: {e}")
+```
+
+## Complete Examples
+
+### Example 1: Basic PyGhidra Script
+
+```python
+## ###
+# IP: GHIDRA
+# ...
+##
+# Demonstrates PyGhidra basics
+# @category: Examples.Python
+# @runtime PyGhidra
+
+import typing
+if typing.TYPE_CHECKING:
+    from ghidra.ghidra_builtins import *
+
+from ghidra.program.flatapi import FlatProgramAPI
+
+# Access constants
+print(f"Max references: {FlatProgramAPI.MAX_REFERENCES_TO}")
+
+# Work with memory blocks
+print("Memory blocks:")
+for block in currentProgram.memory.blocks:
+    print(f"  {block.name}: {block.start} - {block.end}")
+
+# Pythonic property access
+print(f"Program name: {currentProgram.name}")
+print(f"Current address: {currentAddress}")
+```
+
+### Example 2: Function Analysis
+
+```python
+## ###
+# Analyze all functions in the program
+# @category: Analysis.Python  
+# @runtime PyGhidra
+
+import typing
+if typing.TYPE_CHECKING:
+    from ghidra.ghidra_builtins import *
+
+# Get function manager
+func_mgr = currentProgram.functionManager
+
+# Statistics
+total_funcs = 0
+total_instructions = 0
+
+println("Analyzing functions...")
+
+for func in func_mgr.getFunctions(True):
+    total_funcs += 1
+    
+    # Count instructions
+    instr_count = 0
+    listing = currentProgram.listing
+    instructions = listing.getInstructions(func.body, True)
+    
+    for instr in instructions:
+        instr_count += 1
+    
+    total_instructions += instr_count
+    
+    printf("%s at %s: %d instructions\n", 
+           func.name, func.entryPoint, instr_count)
+
+print(f"\nTotal: {total_funcs} functions, {total_instructions} instructions")
+print(f"Average: {total_instructions/total_funcs:.2f} instructions per function")
+```
+
+### Example 3: String Analysis
+
+```python
+## ###
+# Find and analyze strings in the program
+# @category: Analysis.Python
+# @runtime PyGhidra
+
+import typing
+if typing.TYPE_CHECKING:
+    from ghidra.ghidra_builtins import *
+
+import re
+
+# Find all strings (min length 5, null-terminated)
+strings = findStrings(None, 5, 1, True, False)
+
+println(f"Found {len(strings)} strings\n")
+
+# Categorize strings
+url_pattern = re.compile(r'https?://')
+email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+
+urls = []
+emails = []
+
+for found_string in strings:
+    addr = found_string.getAddress()
+    string_val = found_string.getString(currentProgram.memory)
+    
+    if url_pattern.search(string_val):
+        urls.append((addr, string_val))
+    elif email_pattern.search(string_val):
+        emails.append((addr, string_val))
+
+println("URLs found:")
+for addr, url in urls:
+    println(f"  {addr}: {url}")
+
+println(f"\nEmails found:")
+for addr, email in emails:
+    println(f"  {addr}: {email}")
+```
+
+### Example 4: Binary Pattern Search
+
+```python
+## ###
+# Search for common function prologue patterns
+# @category: Search.Python
+# @runtime PyGhidra
+
+import typing
+if typing.TYPE_CHECKING:
+    from ghidra.ghidra_builtins import *
+
+import jpype
+
+# Common x64 function prologue: push rbp; mov rbp, rsp
+pattern = bytes([0x55, 0x48, 0x89, 0xe5])
+
+println("Searching for function prologues...")
+
+start_addr = currentProgram.minAddress
+found_count = 0
+
+while True:
+    addr = find(start_addr, pattern)
+    if addr is None:
+        break
+    
+    println(f"Found prologue at {addr}")
+    
+    # Try to create function if one doesn't exist
+    func = getFunctionAt(addr)
+    if func is None:
+        func = createFunction(addr, None)  # Auto-generate name
+        if func:
+            println(f"  Created function: {func.name}")
+            found_count += 1
+    
+    # Continue searching after this match
+    start_addr = addr.add(1)
+
+println(f"\nCreated {found_count} new functions")
+```
+
+## JPype Reference
+
+PyGhidra uses JPype for Java interoperability. Key concepts:
+
+### Type Conversions
+
+| Python Type | Java Type | Notes |
+|-------------|-----------|-------|
+| `int` | `int`, `long` | Automatic |
+| `float` | `double`, `float` | Automatic |
+| `str` | `String` | Automatic |
+| `bytes` | `byte[]` | For read-only |
+| `list` | `List`, `ArrayList` | Auto-conversion |
+| `dict` | `Map`, `HashMap` | Auto-conversion |
+
+### Creating Java Arrays
+
+```python
+import jpype
+
+# Different primitive types
+byte_array = jpype.JByte[10]
+short_array = jpype.JShort[10]
+int_array = jpype.JInt[10]
+long_array = jpype.JLong[10]
+
+# Initialize with values
+values = jpype.JInt[5]
+for i in range(5):
+    values[i] = i * 2
+```
+
+### Calling Methods
+
+```python
+# Java method overloads are handled automatically
+result1 = obj.method(1, 2)        # Calls method(int, int)
+result2 = obj.method(1.0, 2.0)    # Calls method(double, double)
+result3 = obj.method("a", "b")    # Calls method(String, String)
+```
+
+## Best Practices
+
+1. **Use type hints** - Import `ghidra_builtins` for better IDE support
+2. **Check for None** - Java methods can return null
+3. **Handle signed bytes** - Java bytes are signed (-128 to 127)
+4. **Use monitor.isCancelled()** - Allow users to cancel long operations
+5. **Prefer Python idioms** - Use list comprehensions, slicing, etc.
+6. **Leverage existing Python libraries** - NumPy, regex, etc.
+
+## Troubleshooting
+
+### Common Issues
+
+**Problem:** "Cannot find Java class"
+```python
+# Solution: Verify import path
+from ghidra.program.model.listing import Function  # Correct
+```
+
+**Problem:** Signed byte values
+```python
+# Java bytes are signed, convert to unsigned:
+unsigned_byte = (signed_byte + 256) % 256
+```
+
+**Problem:** Java array out of bounds
+```python
+# Create correctly sized array:
+byte_array = jpype.JByte[correct_size]
+```
+
+## Resources
+
+- [JPype Documentation](https://jpype.readthedocs.io/) - Detailed Java-Python interop guide
+- [Ghidra JavaDoc](https://ghidra.re/ghidra_docs/api/) - Complete API reference
+- PyGhidra source: `Ghidra/Features/PyGhidra/`
+
+## See Also
+
+- [GhidraScript API](/api/ghidra-script) - Java scripting reference
+- [FlatProgramAPI](/api/flat-api) - Simplified program API

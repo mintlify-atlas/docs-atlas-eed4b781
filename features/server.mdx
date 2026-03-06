@@ -1,0 +1,585 @@
+---
+title: 'Ghidra Server'
+description: 'Multi-user collaborative reverse engineering server'
+icon: 'server'
+---
+
+## Overview
+
+The Ghidra Server enables **multi-user collaborative reverse engineering** by providing centralized repository management, version control, and concurrent access to Ghidra projects. It utilizes the YAJSW Java service wrapper and provides OS-specific scripts for running as a system service.
+
+<Warning>
+Only a **single server instance** should run against any given repositories directory. Running concurrent instances may lead to data corruption.
+</Warning>
+
+## Architecture
+
+The Ghidra Server is incorporated into the standard Ghidra distribution:
+
+- Unpack Ghidra distribution
+- Configure server settings
+- Perform OS-specific installation
+- Start the service
+
+```bash
+# Server directory structure
+Ghidra/
+├── server/
+│   ├── server.conf       # Main configuration
+│   ├── ghidraSvr         # Service control script
+│   ├── svrInstall        # Installation script
+│   ├── svrUninstall      # Removal script  
+│   └── svrAdmin          # Administration tool
+```
+
+## Server Configuration
+
+### Editing server.conf
+
+Before installation, modify `server/server.conf` to configure:
+
+<Steps>
+  <Step title="Repositories Directory">
+    Specify an absolute path outside the Ghidra installation:
+    ```bash
+    wrapper.app.parameter.1=-d
+    wrapper.app.parameter.2=/data/ghidra-repos
+    ```
+  </Step>
+  
+  <Step title="Authentication Mode">
+    Choose your authentication method (see [User Authentication](#user-authentication))
+  </Step>
+  
+  <Step title="Network Settings">
+    Configure IP addresses and ports if needed
+  </Step>
+  
+  <Step title="Memory Allocation">
+    Adjust `wrapper.java.maxmemory` based on your repository size
+  </Step>
+</Steps>
+
+<Tip>
+Use a repositories directory on **locally attached storage** for best performance. The server requires filesystem watcher support which may not work on remotely-mounted filesystems.
+</Tip>
+
+### Memory Considerations
+
+The server maintains in-memory state for all repositories. Calculate memory requirements:
+
+```bash
+# Formula:
+maxmemory = 16 + (32 * FileCount/10000) + (2 * ClientCount)
+
+# Example: 100,000 files and 25 clients
+maxmemory = 16 + (32 * 100000/10000) + (2 * 25) = 386
+
+# Recommended setting (double the calculated value):
+wrapper.java.maxmemory=772
+```
+
+<Warning>
+There are **no safeguards** when insufficient memory is available. Out of memory errors can cause severe server failure.
+</Warning>
+
+## User Authentication
+
+Ghidra Server supports multiple authentication modes:
+
+### Authentication Modes
+
+<Tabs>
+  <Tab title="No Authentication">
+    Any added user can connect without password.
+    
+    ```bash
+    # No special configuration needed
+    # Not recommended for production
+    ```
+  </Tab>
+  
+  <Tab title="Local Password (-a0)">
+    Passwords maintained in `users` file within repositories directory.
+    
+    ```bash
+    wrapper.app.parameter.3=-a0
+    ```
+    
+    - Default password: `changeme`
+    - Must be changed within 24 hours (configurable via `-e` option)
+  </Tab>
+  
+  <Tab title="Active Directory (-a1)">
+    Kerberos authentication against Active Directory.
+    
+    ```bash
+    wrapper.app.parameter.3=-a1
+    wrapper.app.parameter.4=-dmydomain.com
+    ```
+  </Tab>
+  
+  <Tab title="PKI Certificates (-a2)">
+    Authentication using PKI user certificates.
+    
+    ```bash
+    wrapper.app.parameter.3=-a2
+    wrapper.app.parameter.4=-ghidra.cacerts=/path/to/cacerts
+    ```
+    
+    Each user's distinguished name (DN) must be associated with their User ID.
+  </Tab>
+  
+  <Tab title="JAAS (-a4)">
+    Java Authentication and Authorization Service.
+    
+    ```bash
+    wrapper.app.parameter.3=-a4
+    wrapper.app.parameter.4=-jaas
+    wrapper.app.parameter.5=jaas.conf
+    ```
+    
+    Supports LDAP, PAM, external programs, and more.
+  </Tab>
+</Tabs>
+
+### SSH Authentication
+
+When using `-a0` mode with `-ssh` option, headless analyzers can authenticate via SSH keys:
+
+```bash
+# Generate SSH key pair (PEM format required)
+ssh-keygen -m pem -t rsa -b 2048
+
+# Copy public key to server
+cp id_rsa.pub repositories/~ssh/<username>.pub
+```
+
+<Note>
+Ghidra Server does **not** support OpenSSH key format or ecdsa/ed25519 key types. Use RSA with PEM format.
+</Note>
+
+## Server Options
+
+### Networking Options
+
+<ParamField path="-ip" type="hostname">
+  Remote access hostname or IPv4 address for client connections
+</ParamField>
+
+<ParamField path="-i" type="IP address">
+  Bind server to specific IPv4 interface
+</ParamField>
+
+<ParamField path="-p" type="port" default="13100">
+  Base TCP port (server uses 3 consecutive ports)
+</ParamField>
+
+<ParamField path="-n" type="flag">
+  Enable reverse DNS lookup for IP addresses when logging
+</ParamField>
+
+### Authentication Options
+
+<ParamField path="-a" type="number">
+  Authentication mode: 0 (password), 1 (AD), 2 (PKI), 4 (JAAS)
+</ParamField>
+
+<ParamField path="-d" type="domain">
+  Active Directory domain name (e.g., `-dmydomain.com`)
+</ParamField>
+
+<ParamField path="-e" type="days" default="1">
+  Password expiration days (0 = no expiration)
+</ParamField>
+
+<ParamField path="-u" type="flag">
+  Allow specifying user ID at login time
+</ParamField>
+
+<ParamField path="-autoProvision" type="flag">
+  Auto-create users on successful authentication (AD and JAAS only)
+</ParamField>
+
+<ParamField path="-anonymous" type="flag">
+  Enable anonymous read-only access to designated repositories
+</ParamField>
+
+## Installation and Management
+
+### Windows Installation
+
+<Steps>
+  <Step title="Install Service">
+    Run `svrInstall.bat` with Administrator privileges
+    ```bash
+    cd server
+    svrInstall.bat
+    ```
+  </Step>
+  
+  <Step title="Start Service">
+    Use Service Control Panel or:
+    ```bash
+    ghidraSvr.bat start
+    ```
+  </Step>
+  
+  <Step title="Verify Status">
+    ```bash
+    ghidraSvr.bat status
+    ```
+  </Step>
+</Steps>
+
+<Accordion title="Console Mode (Diagnostic)">
+  ```bash
+  ghidraSvr.bat console
+  # Press Ctrl-C to stop
+  ```
+</Accordion>
+
+### Linux/macOS Installation
+
+<Steps>
+  <Step title="Set Java Home (Recommended)">
+    Edit `ghidraSvr` script before installation:
+    ```bash
+    GHIDRA_JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+    ```
+  </Step>
+  
+  <Step title="Install Service">
+    ```bash
+    sudo ./svrInstall
+    ```
+  </Step>
+  
+  <Step title="Start Service">
+    ```bash
+    sudo ./ghidraSvr start
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+Use a **major-version symbolic link** for Java path to survive Java updates:
+```bash
+GHIDRA_JAVA_HOME=/usr/lib/jvm/java-21-openjdk  # Good
+GHIDRA_JAVA_HOME=/usr/lib/jvm/java-21.0.1-openjdk  # Avoid
+```
+</Tip>
+
+### Service Commands
+
+| Command | Description |
+|---------|-------------|
+| `start` | Start the Ghidra Server service |
+| `stop` | Stop the running service |
+| `restart` | Stop and restart the service |
+| `status` | Display current service status |
+| `console` | Run in foreground (diagnostic mode) |
+
+## Server Administration
+
+The `svrAdmin` script manages users and repositories:
+
+### User Management
+
+<Tabs>
+  <Tab title="Add User">
+    ```bash
+    svrAdmin -add <username>
+    svrAdmin -add <username> --p  # Prompt for password
+    ```
+  </Tab>
+  
+  <Tab title="Remove User">
+    ```bash
+    svrAdmin -remove <username>
+    ```
+  </Tab>
+  
+  <Tab title="Reset Password">
+    ```bash
+    svrAdmin -reset <username>
+    svrAdmin -reset <username> --p  # Set new password
+    ```
+  </Tab>
+  
+  <Tab title="Set PKI DN">
+    ```bash
+    svrAdmin -dn <username> "CN=Name,OU=Org,O=Company,C=US"
+    ```
+  </Tab>
+</Tabs>
+
+### Repository Access
+
+<CodeGroup>
+```bash Grant Access
+# READ_ONLY access
+svrAdmin -grant <username> +r <repository>
+
+# WRITE access  
+svrAdmin -grant <username> +w <repository>
+
+# ADMIN access
+svrAdmin -grant <username> +a <repository>
+```
+
+```bash Revoke Access
+svrAdmin -revoke <username> <repository>
+```
+
+```bash List Permissions
+# List all repositories
+svrAdmin -list
+
+# List with all user permissions
+svrAdmin -list --users
+
+# List for specific user
+svrAdmin -list <username>
+```
+</CodeGroup>
+
+### Repository Migration
+
+Migrate from Mangled to Indexed filesystem storage:
+
+```bash
+# Migrate all repositories
+svrAdmin -migrate-all
+
+# Migrate specific repository
+svrAdmin -migrate "MyRepository"
+```
+
+<Warning>
+Migration to Indexed filesystem is **one-way**. Backup repositories before proceeding.
+</Warning>
+
+## Server Logs
+
+The server produces two log files:
+
+| Log File | Location | Purpose |
+|----------|----------|----------|
+| `wrapper.log` | Ghidra installation root | Service wrapper output |
+| `server.log` | Repositories directory | Server application log |
+
+<Tip>
+In console mode, `wrapper.log` output is directed to the terminal.
+</Tip>
+
+## Repository Backup
+
+<Steps>
+  <Step title="Stop Server">
+    ```bash
+    # Linux/macOS
+    sudo ./ghidraSvr stop
+    
+    # Windows  
+    ghidraSvr.bat stop
+    ```
+  </Step>
+  
+  <Step title="Backup Directory">
+    ```bash
+    tar -czf ghidra-repos-backup.tar.gz /data/ghidra-repos/
+    ```
+  </Step>
+  
+  <Step title="Restart Server">
+    ```bash
+    # Linux/macOS
+    sudo ./ghidraSvr start
+    
+    # Windows
+    ghidraSvr.bat start  
+    ```
+  </Step>
+</Steps>
+
+<Note>
+While backups can be taken while the server is idle, it's safest to stop the server during backup operations.
+</Note>
+
+## Clearing Obsolete Checkouts
+
+Admins can clear checkouts via Ghidra client or command line:
+
+```bash
+# Stop server first
+sudo ./ghidraSvr stop
+
+# Clear all checkouts in repository
+find /data/ghidra-repos/MyRepo -name checkout.dat -exec rm {} \;
+
+# Clear all checkouts on entire server
+find /data/ghidra-repos -name checkout.dat -exec rm {} \;
+
+# Restart server
+sudo ./ghidraSvr start
+```
+
+<Warning>
+Be **extremely careful** with the `find` command. Incorrect parameters can delete important files.
+</Warning>
+
+## PKI Certificates
+
+### Server Certificate Configuration
+
+Edit `server.conf` to specify server keystore:
+
+```bash
+wrapper.app.parameter.10=-ghidra.keystore=/path/to/server.p12
+wrapper.app.parameter.11=-ghidra.password=keystorePassword
+```
+
+### Managing Certificate Authorities
+
+The `cacerts` file can be in PEM or JKS format:
+
+<CodeGroup>
+```bash Inspect Certificate (PEM)
+keytool -printcert -v -file certificate.crt
+```
+
+```bash Import to JKS
+keytool -import -alias "My CA" \
+  -file ca-cert.crt \
+  -storetype jks \
+  -keystore cacerts
+```
+
+```bash List Certificates
+keytool -list -v -keystore cacerts
+```
+</CodeGroup>
+
+<Info>
+CA certificates in PEM format should have an extra blank line after each `END CERTIFICATE` line when concatenating.
+</Info>
+
+## Upgrading Server
+
+<Steps>
+  <Step title="Backup">
+    Backup repositories and configuration files
+  </Step>
+  
+  <Step title="Uninstall Old Service">
+    ```bash
+    cd old-ghidra/server
+    sudo ./svrUninstall
+    ```
+  </Step>
+  
+  <Step title="Extract New Version">
+    Unzip new Ghidra distribution to new directory
+  </Step>
+  
+  <Step title="Migrate Configuration">
+    Copy `wrapper.app.parameter.*` lines from old to new `server.conf`
+    
+    <Warning>Do NOT copy entire server.conf file</Warning>
+  </Step>
+  
+  <Step title="Copy Repositories">
+    If not using external directory, copy repositories to new installation
+  </Step>
+  
+  <Step title="Install New Service">
+    ```bash
+    cd new-ghidra/server  
+    sudo ./svrInstall
+    sudo ./ghidraSvr start
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Connection Errors">
+    **Symptom**: `non-JRMP server at remote endpoint`
+    
+    **Cause**: Incompatible Ghidra client version
+    
+    **Solution**: Ensure client and server versions are compatible
+  </Accordion>
+  
+  <Accordion title="Windows Watch Service Error">
+    **Symptom**: `ERROR Incorrect function (WindowsWatchService)`
+    
+    **Cause**: Repositories not on NTFS/ReFS filesystem
+    
+    **Solution**: Move repositories to locally-mounted NTFS or ReFS volume
+  </Accordion>
+  
+  <Accordion title="Missing Temp Directory (Windows)">
+    **Symptom**: Server fails to start as service
+    
+    **Solution**: Add to server.conf:
+    ```bash
+    wrapper.java.additional.3=-Djava.io.tmpdir=C:\Windows\Temp
+    ```
+  </Accordion>
+  
+  <Accordion title="Linux SELinux">
+    **Symptom**: Server won't start on Linux
+    
+    **Solution**: Disable SELinux in `/etc/selinux/config`
+  </Accordion>
+  
+  <Accordion title="/dev/random Depletion (Linux)">
+    **Symptom**: SSL/PKI operations hang
+    
+    **Solution**: Install `haveged` daemon:
+    ```bash
+    sudo apt-get install haveged
+    sudo systemctl enable haveged
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### DNS Configuration
+
+<Warning>
+Both server and clients make extensive use of forward and reverse DNS lookups. Improperly configured DNS can cause severe performance delays.
+</Warning>
+
+The server publishes a remote access address and listens on interfaces:
+
+- **Published Address**: What clients use to connect (configurable via `-ip`)
+- **Listening Address**: Which network interfaces accept connections (configurable via `-i`)
+
+## Source Code References
+
+```bash
+# Main implementation  
+~/workspace/source/Ghidra/Features/GhidraServer/
+
+# Server scripts
+Ghidra/RuntimeScripts/Common/server/
+
+# Documentation
+Ghidra/RuntimeScripts/Common/server/svrREADME.md
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Version Tracking" icon="code-compare" href="/features/version-tracking">
+    Use server for collaborative version tracking sessions
+  </Card>
+  <Card title="BSim" icon="fingerprint" href="/features/bsim">
+    Store BSim databases on server for team access
+  </Card>
+</CardGroup>

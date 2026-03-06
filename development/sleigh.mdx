@@ -1,0 +1,594 @@
+---
+title: Sleigh Language Specification
+description: Define processor architectures and instruction sets using Sleigh
+---
+
+## What is Sleigh?
+
+Sleigh is Ghidra's domain-specific language for defining processor instruction sets. It enables:
+
+- **Instruction Decoding** - Pattern matching for instruction bytes
+- **Semantics** - P-code translation for decompilation
+- **Register Definitions** - Processor register architecture
+- **Address Spaces** - Memory and register space layouts
+- **Disassembly** - Human-readable instruction formatting
+
+## Architecture Overview
+
+### Language Files
+
+A processor language consists of several files:
+
+```
+ProcessorName/
+└── data/
+    └── languages/
+        ├── processor.ldefs       # Language definitions
+        ├── processor.pspec      # Processor specification
+        ├── processor.cspec      # Compiler specification
+        ├── processor.slaspec    # Sleigh specification
+        ├── processor.sla        # Compiled Sleigh (generated)
+        └── *.sinc               # Include files
+```
+
+### Language Definition (.ldefs)
+
+Defines available language variants:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<language_definitions>
+  <language processor="MyProc"
+            endian="little"
+            size="32"
+            variant="default"
+            version="1.0"
+            slafile="myproc.sla"
+            processorspec="myproc.pspec"
+            id="MyProc:LE:32:default">
+    <description>My Processor 32-bit</description>
+    <compiler name="gcc" spec="myproc.cspec" id="gcc"/>
+    <external_name tool="gnu" name="myproc"/>
+  </language>
+</language_definitions>
+```
+
+### Processor Specification (.pspec)
+
+Defines processor properties:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<processor_spec>
+  <programcounter register="PC"/>
+  <context_data>
+    <context_set space="ram">
+      <set name="ctx" val="0"/>
+    </context_set>
+  </context_data>
+  <default_memory_blocks>
+    <memory_block name="ram" start_address="0x0" length="0x100000" initialized="false"/>
+  </default_memory_blocks>
+</processor_spec>
+```
+
+### Compiler Specification (.cspec)
+
+Defines calling conventions:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<compiler_spec>
+  <default_proto>
+    <prototype name="__stdcall" extrapop="0" stackshift="0">
+      <input>
+        <pentry minsize="1" maxsize="4">
+          <register name="R0"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="R1"/>
+        </pentry>
+        <pentry minsize="1" maxsize="500" align="4">
+          <addr offset="0" space="stack"/>
+        </pentry>
+      </input>
+      <output>
+        <pentry minsize="1" maxsize="4">
+          <register name="R0"/>
+        </pentry>
+      </output>
+      <unaffected>
+        <register name="SP"/>
+        <register name="R4"/>
+      </unaffected>
+    </prototype>
+  </default_proto>
+</compiler_spec>
+```
+
+## Sleigh Specification (.slaspec)
+
+### Basic Structure
+
+```sleigh
+# Define endianness and alignment
+define endian=little;
+define alignment=1;
+
+# Define address spaces
+define space RAM     type=ram_space      size=4  default;
+define space register type=register_space size=4;
+
+# Define registers
+define register offset=0x00 size=4 [
+    R0 R1 R2 R3 R4 R5 R6 R7
+    R8 R9 R10 R11 R12 SP LR PC
+];
+
+# Define status flags
+define register offset=0x40 size=1 [
+    N Z C V  # Negative, Zero, Carry, Overflow
+];
+
+# Define instruction tokens
+define token instr(32)
+    op=(28,31)
+    cond=(24,27)
+    rd=(16,19)
+    rs=(8,11)
+    rt=(0,7)
+    imm16=(0,15)
+    imm24=(0,23)
+;
+```
+
+### Token Definitions
+
+Tokens represent instruction bit fields:
+
+```sleigh
+define token instr(32)  # 32-bit instruction
+    opcode   = (26,31)  # bits 26-31
+    rd       = (21,25)  # destination register (bits 21-25)
+    rs       = (16,20)  # source register 1
+    rt       = (11,15)  # source register 2
+    shamt    = (6,10)   # shift amount
+    funct    = (0,5)    # function code
+    imm16    = (0,15)   # 16-bit immediate
+;
+
+define token data8(8)
+    imm8 = (0,7)
+;
+```
+
+### Register Definitions
+
+Define processor registers with offsets:
+
+```sleigh
+# General purpose registers (32-bit)
+define register offset=0x00 size=4 [
+    R0  R1  R2  R3  R4  R5  R6  R7
+    R8  R9  R10 R11 R12 R13 R14 R15
+];
+
+# Special registers
+define register offset=0x40 size=4 [ PC SP LR ];
+
+# Status flags (1-bit each)
+define register offset=0x50 size=1 [ N Z C V ];
+
+# Floating point registers (64-bit)
+define register offset=0x100 size=8 [
+    F0 F1 F2 F3 F4 F5 F6 F7
+];
+```
+
+### Attach Variables
+
+Map token fields to registers:
+
+```sleigh
+attach variables [ rd rs rt ] [
+    R0 R1 R2 R3 R4 R5 R6 R7
+    R8 R9 R10 R11 R12 SP LR PC
+];
+
+attach variables [ fd fs ft ] [
+    F0 F1 F2 F3 F4 F5 F6 F7
+];
+```
+
+### Constructors
+
+Define instruction patterns and semantics:
+
+```sleigh
+# Simple instruction: ADD rd, rs, rt
+:ADD rd, rs, rt is opcode=0x00 & rd & rs & rt & funct=0x20 {
+    rd = rs + rt;
+    # Update flags
+    Z = (rd == 0);
+    N = (rd s< 0);
+}
+
+# Immediate instruction: ADDI rd, rs, imm
+:ADDI rd, rs, imm16 is opcode=0x08 & rd & rs & imm16 {
+    local tmp:4 = rs + sext(imm16);
+    rd = tmp;
+    Z = (tmp == 0);
+    N = (tmp s< 0);
+}
+
+# Load instruction: LW rd, offset(rs)
+:LW rd, imm16(rs) is opcode=0x23 & rd & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    rd = *:4 addr;
+}
+
+# Store instruction: SW rt, offset(rs)
+:SW rt, imm16(rs) is opcode=0x2B & rt & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    *:4 addr = rt;
+}
+
+# Branch: BEQ rs, rt, offset
+:BEQ rs, rt, Rel is opcode=0x04 & rs & rt & imm16 [ Rel = inst_start + 4 + (imm16 << 2); ] {
+    if (rs == rt) goto Rel;
+}
+```
+
+### Display Sections
+
+Control instruction display format:
+
+```sleigh
+:ADD rd, rs, rt is opcode=0x00 & rd & rs & rt & funct=0x20 {
+    rd = rs + rt;
+}
+# Displays as: ADD R1, R2, R3
+
+:LW rd, imm16(rs) is opcode=0x23 & rd & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    rd = *:4 addr;
+}
+# Displays as: LW R1, 0x10(R2)
+```
+
+### Context Variables
+
+Maintain decoding state:
+
+```sleigh
+define register offset=0x100 size=4 contextreg;
+define context contextreg
+    thumb = (0,0)      # ARM/Thumb mode
+    itstate = (1,8)    # IT block state
+;
+
+# Switch to Thumb mode
+:BX rs is opcode=0x12 & rs {
+    thumb = rs[0,1];  # Set mode from LSB of rs
+    PC = rs & 0xFFFFFFFE;
+}
+```
+
+### Macros
+
+Define reusable code snippets:
+
+```sleigh
+macro push(val) {
+    SP = SP - 4;
+    *:4 SP = val;
+}
+
+macro pop(dest) {
+    dest = *:4 SP;
+    SP = SP + 4;
+}
+
+# Use in instructions
+:PUSH rt is opcode=0x50 & rt {
+    push(rt);
+}
+
+:POP rd is opcode=0x51 & rd {
+    pop(rd);
+}
+```
+
+### Subtables
+
+Organize complex instruction sets:
+
+```sleigh
+# Define ALU operations subtable
+ALUop: "ADD"  is funct=0x20 { export 0x00; }
+ALUop: "SUB"  is funct=0x22 { export 0x01; }
+ALUop: "AND"  is funct=0x24 { export 0x02; }
+ALUop: "OR"   is funct=0x25 { export 0x03; }
+ALUop: "XOR"  is funct=0x26 { export 0x04; }
+ALUop: "SLL"  is funct=0x00 { export 0x05; }
+
+# Use subtable in main instruction
+:^ALUop rd, rs, rt is opcode=0x00 & ALUop & rd & rs & rt & funct {
+    local op = ALUop;
+    if (op == 0x00) goto <add>;
+    if (op == 0x01) goto <sub>;
+    # ...
+    <add>
+        rd = rs + rt;
+        goto <done>;
+    <sub>
+        rd = rs - rt;
+        goto <done>;
+    <done>
+}
+```
+
+## P-code Semantics
+
+### Arithmetic Operations
+
+```sleigh
+:ADD rd, rs, rt is opcode=0x00 & rd & rs & rt {
+    rd = rs + rt;              # Addition
+}
+
+:SUB rd, rs, rt is opcode=0x01 & rd & rs & rt {
+    rd = rs - rt;              # Subtraction
+}
+
+:MUL rd, rs, rt is opcode=0x02 & rd & rs & rt {
+    rd = rs * rt;              # Multiplication
+}
+
+:DIV rd, rs, rt is opcode=0x03 & rd & rs & rt {
+    rd = rs / rt;              # Division (unsigned)
+    rd = rs s/ rt;             # Division (signed)
+}
+```
+
+### Logical Operations
+
+```sleigh
+:AND rd, rs, rt is opcode=0x10 & rd & rs & rt {
+    rd = rs & rt;              # Bitwise AND
+}
+
+:OR rd, rs, rt is opcode=0x11 & rd & rs & rt {
+    rd = rs | rt;              # Bitwise OR
+}
+
+:XOR rd, rs, rt is opcode=0x12 & rd & rs & rt {
+    rd = rs ^ rt;              # Bitwise XOR
+}
+
+:NOT rd, rs is opcode=0x13 & rd & rs {
+    rd = ~rs;                  # Bitwise NOT
+}
+```
+
+### Shifts and Rotates
+
+```sleigh
+:SLL rd, rs, shamt is opcode=0x20 & rd & rs & shamt {
+    rd = rs << shamt;          # Logical shift left
+}
+
+:SRL rd, rs, shamt is opcode=0x21 & rd & rs & shamt {
+    rd = rs >> shamt;          # Logical shift right
+}
+
+:SRA rd, rs, shamt is opcode=0x22 & rd & rs & shamt {
+    rd = rs s>> shamt;         # Arithmetic shift right
+}
+```
+
+### Memory Access
+
+```sleigh
+:LB rd, imm16(rs) is opcode=0x30 & rd & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    rd = sext(*:1 addr);       # Load byte (sign-extend)
+}
+
+:LH rd, imm16(rs) is opcode=0x31 & rd & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    rd = sext(*:2 addr);       # Load halfword (sign-extend)
+}
+
+:LW rd, imm16(rs) is opcode=0x32 & rd & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    rd = *:4 addr;             # Load word
+}
+
+:SB rt, imm16(rs) is opcode=0x38 & rt & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    *:1 addr = rt:1;           # Store byte
+}
+
+:SW rt, imm16(rs) is opcode=0x3A & rt & rs & imm16 {
+    local addr:4 = rs + sext(imm16);
+    *:4 addr = rt;             # Store word
+}
+```
+
+### Control Flow
+
+```sleigh
+:JMP Addr is opcode=0x40 & imm24 [ Addr = inst_start + ((imm24 << 2) & 0x0FFFFFFF); ] {
+    goto Addr;                 # Unconditional jump
+}
+
+:JAL Addr is opcode=0x41 & imm24 [ Addr = inst_start + ((imm24 << 2) & 0x0FFFFFFF); ] {
+    LR = inst_next;            # Save return address
+    call Addr;                 # Function call
+}
+
+:JR rs is opcode=0x42 & rs {
+    goto [rs];                 # Jump register
+}
+
+:BEQ rs, rt, Rel is opcode=0x50 & rs & rt & imm16 [ Rel = inst_start + 4 + (imm16 << 2); ] {
+    if (rs == rt) goto Rel;    # Branch if equal
+}
+
+:BNE rs, rt, Rel is opcode=0x51 & rs & rt & imm16 [ Rel = inst_start + 4 + (imm16 << 2); ] {
+    if (rs != rt) goto Rel;    # Branch if not equal
+}
+```
+
+## Real-World Example: 6502 Processor
+
+Based on Ghidra's 6502 implementation:
+
+```sleigh
+# sleigh specification file for MOS 6502
+
+define endian=little;
+define alignment=1;
+
+define space RAM     type=ram_space      size=2  default;
+define space register type=register_space size=1;
+
+define register offset=0x00 size=1 [ A X Y P ];
+define register offset=0x20 size=2 [ PC SP ];
+define register offset=0x30 size=1 [ N V B D I Z C ];  # Status bits
+
+# Token definitions
+define token opbyte (8)
+    op       = (0,7)
+    aaa      = (5,7)
+    bbb      = (2,4)
+    cc       = (0,1)
+;
+
+define token data8 (8)
+    imm8     = (0,7)
+    rel      = (0,7) signed
+;
+
+define token data(16)
+    imm16 = (0,15)
+;
+
+# Macros
+macro pushSR() {
+    local ccr:1 = 0xff;
+    ccr[7,1] = N;
+    ccr[6,1] = V;
+    ccr[4,1] = B;
+    ccr[3,1] = D;
+    ccr[2,1] = I;
+    ccr[1,1] = Z;
+    ccr[0,1] = C;
+    SP = SP - 1;
+    *:1 SP = ccr;
+}
+
+macro popSR() {
+    local ccr:1 = *:1 SP;
+    SP = SP + 1;
+    N = ccr[7,1];
+    V = ccr[6,1];
+    B = ccr[4,1];
+    D = ccr[3,1];
+    I = ccr[2,1];
+    Z = ccr[1,1];
+    C = ccr[0,1];
+}
+
+# Instructions
+:ADC "#"imm8 is op=0x69; imm8 {
+    local op1 = A;
+    local op2 = imm8;
+    local result = op1 + op2 + zext(C);
+    C = carry(op1, op2);
+    V = scarry(op1, op2);
+    A = result;
+    Z = (A == 0);
+    N = (A s< 0);
+}
+
+:LDA "#"imm8 is op=0xA9; imm8 {
+    A = imm8;
+    Z = (A == 0);
+    N = (A s< 0);
+}
+
+:STA imm16 is op=0x8D; imm16 {
+    *:1 imm16 = A;
+}
+```
+
+## Compiling Sleigh Specifications
+
+### From Gradle
+
+```bash
+# Compile all Sleigh files
+gradle sleighCompile
+
+# Compile specific processor
+gradle :Processors:MyProc:sleighCompile
+```
+
+### From Ghidra
+
+Ghidra automatically compiles `.slaspec` files at runtime if `.sla` is missing or outdated.
+
+## Testing Sleigh Languages
+
+### Disassembly Testing
+
+1. Create test binary with known instruction bytes
+2. Import into Ghidra with your language
+3. Verify disassembly matches expected output
+4. Check p-code generation in Listing window
+
+### Decompiler Testing
+
+1. Import or create test programs
+2. Analyze with auto-analysis
+3. Open in decompiler
+4. Verify high-level code makes sense
+5. Check for incorrect semantics
+
+## Best Practices
+
+<Check>**Do:**</Check>
+- Define all status flags correctly
+- Use signed/unsigned operators appropriately (`s<`, `s>>`, etc.)
+- Test with real binaries
+- Document instruction semantics
+- Use meaningful register and field names
+- Include test cases
+
+<Warning>**Don't:**</Warning>
+- Forget to update flag bits
+- Ignore overflow and carry
+- Use incorrect operator sizes
+- Assume instruction alignment
+- Skip context variables when needed
+
+## Resources
+
+- [Sleigh Documentation](https://htmlpreview.github.io/?https://github.com/NationalSecurityAgency/ghidra/blob/stable/GhidraDocs/languages/index.html)
+- Language examples: `Ghidra/Processors/*/data/languages/`
+- x86 Sleigh: `Ghidra/Processors/x86/data/languages/`
+- ARM Sleigh: `Ghidra/Processors/ARM/data/languages/`
+- Sleigh compiler: `Ghidra/Features/SleighDevTools/`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Development Overview" icon="book" href="./overview">
+    Return to development overview
+  </Card>
+  <Card title="Loader Development" icon="file-import" href="./loaders">
+    Create loaders for your architecture
+  </Card>
+</CardGroup>

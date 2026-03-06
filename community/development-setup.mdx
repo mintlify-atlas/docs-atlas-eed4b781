@@ -1,0 +1,252 @@
+---
+title: Development Setup
+description: Set up your development environment for Ghidra
+---
+
+This guide covers how to set up a development environment for contributing to Ghidra or developing extensions.
+
+## Development Approaches
+
+There are two main approaches to developing with Ghidra:
+
+1. **User Scripts and Extensions** - For writing custom scripts and plugins
+2. **Advanced Development** - For developing the Ghidra tool itself
+
+## User Scripts and Extensions
+
+For developing user scripts and extensions, you have two options:
+
+### Option 1: GhidraDev Eclipse Plugin
+
+The GhidraDev plugin provides a complete Eclipse-based development environment.
+
+**Location:** `Extensions/Eclipse/GhidraDev/` in your Ghidra installation
+
+**Requirements:**
+- Fully built Ghidra installation (download from [Releases](https://github.com/NationalSecurityAgency/ghidra/releases))
+- Eclipse IDE
+
+**Setup:**
+1. Install Eclipse IDE for Java Developers
+2. Follow the instructions in the GhidraDev directory
+3. Install the GhidraDev plugin into Eclipse
+4. Create a new GhidraDev project
+
+### Option 2: Visual Studio Code
+
+Ghidra also supports Visual Studio Code for script development.
+
+**For Script Editing:**
+- Click the Visual Studio Code icon in the Script Manager
+- Ghidra will open the script in VS Code with appropriate configuration
+
+**For Full Projects:**
+1. Open a Ghidra CodeBrowser window
+2. Navigate to **Tools → Create VSCode Module project**
+3. Follow the prompts to create a fully-featured VS Code project
+
+<Note>
+Both GhidraDev and Visual Studio Code integrations only support developing against fully built Ghidra installations, not source repositories.
+</Note>
+
+## Advanced Development (Eclipse)
+
+To develop the Ghidra tool itself, Eclipse is highly recommended. The Ghidra development process has been highly customized for Eclipse.
+
+### Prerequisites
+
+1. **Complete the build process first:**
+   - Follow the [Building Ghidra](/community/building) guide
+   - Ensure the build completes without errors
+
+2. **Install Eclipse IDE:**
+   - Download [Eclipse IDE for Java Developers](https://www.eclipse.org/downloads/packages/)
+   - Install and launch Eclipse
+
+### Setup Process
+
+<Steps>
+  <Step title="Prepare Development Environment">
+    Run the following Gradle command from the Ghidra source directory:
+    
+    ```bash
+    gradle prepdev eclipse buildNatives
+    ```
+    
+    This command:
+    - Prepares the development environment (`prepdev`)
+    - Generates Eclipse project files (`eclipse`)
+    - Builds native components (`buildNatives`)
+  </Step>
+
+  <Step title="Import Projects into Eclipse">
+    1. Open Eclipse
+    2. Go to **File → Import...**
+    3. Select **General | Existing Projects into Workspace**
+    4. Click **Next**
+    5. Set the root directory to your Ghidra source repository
+    6. **Check** "Search for nested projects"
+    7. Click **Finish**
+    
+    Eclipse will begin importing and building all Ghidra projects.
+  </Step>
+
+  <Step title="Launch Ghidra from Eclipse">
+    Once Eclipse finishes building:
+    
+    1. Look for the **Ghidra** run configuration in the toolbar
+    2. Click the run button to launch Ghidra
+    3. You can also debug Ghidra using the debug button
+    
+    The run configuration is automatically created during the import process.
+  </Step>
+</Steps>
+
+## Development Languages and Tools
+
+Ghidra development involves several languages and technologies:
+
+### Primary Language
+- **Java** - The main language for Ghidra development
+
+### Secondary Languages
+- **C++** - For native components
+- **Sleigh** - For processor language specifications
+- **Python 3** - For scripting and the Debugger
+- **Jython 2.7** - For legacy scripting support
+
+### Development Tools
+- **IDE:** Eclipse (recommended for core development)
+- **Build System:** Gradle
+- **Source Control:** Git
+
+## Specialized Development Areas
+
+### PyGhidra Development
+
+PyGhidra development uses the PyDev plugin for Eclipse.
+
+<Steps>
+  <Step title="Prepare PyGhidra">
+    ```bash
+    gradle prepPyGhidra
+    ```
+    
+    This sets up a Python virtual environment at `build/venv/` and installs an editable PyGhidra module.
+  </Step>
+
+  <Step title="Configure PyDev Interpreter">
+    1. Install the PyDev plugin in Eclipse
+    2. Go to **Settings → PyDev → Interpreters → Python Interpreter**
+    3. Click **New...**
+    4. Click **Browse for python/pypy exe**
+    5. Choose `build/venv/bin/python3`
+    6. Enter a name for the interpreter
+    7. Check **Select All** and press **OK**
+    8. Click the **Predefined** tab, then **New...**
+    9. Choose `build/typestubs/pypredef`
+    10. Click **Apply and Close**
+  </Step>
+
+  <Step title="Run and Debug">
+    New Eclipse run configurations will appear that enable:
+    - Running PyGhidra in GUI mode
+    - Running PyGhidra in Interpreter mode
+    - Debugging PyGhidra
+  </Step>
+</Steps>
+
+### GhidraDev Eclipse Plugin Development
+
+To develop the GhidraDev Eclipse plugin itself:
+
+**Prerequisites:**
+- Eclipse PDE (Plug-in Development Environment)
+- Available via Eclipse marketplace or included in "Eclipse IDE for RCP and RAP Developers"
+
+**Setup:**
+```bash
+gradle prepGhidraDev eclipse -PeclipsePDE
+```
+
+Import the newly generated GhidraDev projects into an Eclipse instance that supports plugin development.
+
+<Tip>
+If you're getting compilation errors related to PyDev and CDT, go into Eclipse's preferences, and under **Target Platform**, activate `/Eclipse GhidraDevPlugin/GhidraDev.target`.
+</Tip>
+
+### Debugger Development
+
+The Ghidra Debugger uses a Python3 and protobuf-based TCP connection for back-end integration.
+
+**Additional Dependencies:**
+- **WinDbg** for Windows x64
+- **GDB 13 or later** for Linux
+- **LLDB 10 or later** for macOS
+
+**Python Package Assembly:**
+
+Whenever you make changes to Python code:
+
+```bash
+gradle assemblePyPackage
+```
+
+This is required for packages that include generated source, such as Debugger-rmi-trace.
+
+**Creating a New Connector:**
+
+If you're developing a new debugger connector:
+1. Use existing connectors (GDB, dbgeng) as templates
+2. Look at the Python code in `src/main/py` directories
+3. Apply the `hasPythonPackage.gradle` script in your module's `build.gradle`
+4. Follow the testing patterns from GDB (Commands, Methods, Hooks)
+
+## Licensing and Copyright
+
+**Primary License:** [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+
+**Important Guidelines:**
+- Try to stick to the Apache License 2.0 when developing for Ghidra
+- Any GPL code must live in the top-level `GPL/` directory as a standalone, independently buildable module
+- Credit/recognition is preferred via Git commit authorship
+- Ensure your Git credentials are properly linked to your GitHub account
+- Authors' names directly in source code are discouraged
+
+## Building Supporting Data
+
+Some Ghidra features require extensive databases:
+
+### Data Type Archives
+
+Built manually from the Ghidra GUI:
+
+1. From the CodeBrowser, select **File → Parse C Source**
+2. Create and configure parsing profiles (headers and pre-processor options)
+3. Click **Parse to File** to create the Data Type Archive
+4. Copy the result to `Ghidra/Features/Base/data/typeinfo`
+
+Official archives are available in the [ghidra-data](https://github.com/NationalSecurityAgency/ghidra-data) repository.
+
+### FID Databases
+
+Built manually from the Ghidra GUI:
+
+1. Import the relevant libraries from an SDK
+2. From CodeBrowser, select **File → Configure**
+3. Enable the "Function ID" plugins
+4. Select **Tools → Function ID → Create new empty FidDb**
+5. Choose a destination file
+6. Select **Tools → Function ID → Populate FidDb from programs**
+7. Fill out the options and click OK
+
+For fine-tuning details, see `Ghidra/Features/FunctionID/data/building_fid.txt`.
+
+## Next Steps
+
+Now that your development environment is set up:
+
+1. Review the [Contributing Guide](/community/contributing) to understand the contribution process
+2. Familiarize yourself with the codebase structure
+3. Check the [Troubleshooting](/resources/troubleshooting) guide if you encounter issues
+4. Join the [GitHub Discussions](https://github.com/NationalSecurityAgency/ghidra/discussions) to connect with the community

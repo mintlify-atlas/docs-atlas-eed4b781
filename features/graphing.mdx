@@ -1,0 +1,551 @@
+---
+title: 'Graph Visualization'
+description: 'Visualize program structure, relationships, and data flow'
+icon: 'diagram-project'
+---
+
+## Overview
+
+Ghidra's **Graph Visualization** capabilities enable you to create and display visual representations of program structure, function relationships, data types, control flow, and more. Graph services provide extensible rendering and export options.
+
+<Info>
+Graphing features are available through the **Graph** menu in the CodeBrowser toolbar and via programmatic APIs for script-based graph generation.
+</Info>
+
+## Graph Types
+
+Ghidra supports multiple graph visualization types:
+
+<CardGroup cols={2}>
+  <Card title="Function Call Graph" icon="diagram-project">
+    Visualize function call relationships and program structure
+  </Card>
+  <Card title="Control Flow Graph" icon="code-branch">
+    Display basic block flow within functions
+  </Card>
+  <Card title="Data Type Graph" icon="sitemap">
+    Show data type hierarchies and relationships
+  </Card>
+  <Card title="Reference Graph" icon="arrows-split-up-and-left">
+    Explore code and data reference patterns
+  </Card>
+</CardGroup>
+
+## Graph Services
+
+The **Graph Display Broker** provides a plugin architecture for graph rendering:
+
+### Service Providers
+
+Multiple graph service providers can be installed:
+
+- **Default Graph Display**: Built-in Jung-based renderer
+- **Third-party Renderers**: Extensible plugin system
+- **Export Services**: Save graphs to various formats
+
+```java
+// Source: GraphDisplayBrokerPlugin.java
+// The broker manages multiple graph display providers
+// and routes graph requests to appropriate renderers
+```
+
+### Display Capabilities
+
+Graph displays support:
+
+<AccordionGroup>
+  <Accordion title="Interactive Navigation">
+    - Zoom and pan
+    - Node selection and highlighting
+    - Double-click to navigate to code
+    - Tooltip information on hover
+  </Accordion>
+  
+  <Accordion title="Layout Algorithms">
+    - Hierarchical layout
+    - Force-directed layout
+    - Tree layout
+    - Circular layout
+    - Custom layouts
+  </Accordion>
+  
+  <Accordion title="Customization">
+    - Color coding by type
+    - Shape customization
+    - Edge styling and labels
+    - Filter and search
+  </Accordion>
+  
+  <Accordion title="Export Options">
+    - PNG/JPEG image export
+    - SVG vector graphics
+    - GraphML XML format
+    - DOT format for Graphviz
+  </Accordion>
+</AccordionGroup>
+
+## Function Call Graphs
+
+### Generating Call Graphs
+
+<Steps>
+  <Step title="Select Function">
+    Place cursor on a function in the Listing or Decompiler.
+  </Step>
+  
+  <Step title="Open Graph Menu">
+    Navigate to **Graph → Function Call Graph** in the menu bar.
+  </Step>
+  
+  <Step title="Configure Options">
+    Set options:
+    - Maximum depth (caller/callee levels)
+    - Show incoming/outgoing calls
+    - Filter by function type
+  </Step>
+  
+  <Step title="View Graph">
+    Graph window opens showing function relationships.
+  </Step>
+</Steps>
+
+### Call Graph Features
+
+<Tabs>
+  <Tab title="Caller Graph">
+    Shows functions that call the selected function.
+    
+    **Use**: Understand how a function is used throughout the program
+  </Tab>
+  
+  <Tab title="Callee Graph">
+    Shows functions called by the selected function.
+    
+    **Use**: Explore dependencies and execution flow
+  </Tab>
+  
+  <Tab title="Combined Graph">
+    Displays both callers and callees.
+    
+    **Use**: See complete context of function relationships
+  </Tab>
+</Tabs>
+
+### Graph Elements
+
+| Element | Description |
+|---------|-------------|
+| **Nodes** | Represent functions |
+| **Edges** | Represent call relationships |
+| **Colors** | Indicate function types (user, library, thunk) |
+| **Shapes** | May indicate entry points or special functions |
+
+<Tip>
+Double-click on any node to navigate to that function in the Listing.
+</Tip>
+
+## Control Flow Graphs
+
+Control flow graphs show execution paths within a single function:
+
+### Basic Blocks
+
+Nodes represent basic blocks:
+
+- **Entry Block**: Function entry point (highlighted)
+- **Code Blocks**: Sequences of instructions with single entry/exit
+- **Exit Blocks**: Return or terminal instructions
+
+### Edges
+
+Edges represent control flow:
+
+- **Unconditional**: Solid lines for direct flow
+- **Conditional**: Different colors for true/false branches
+- **Fall-through**: Default execution path
+
+```java
+// Control flow graphs are essential for understanding:
+// - Branch logic and conditions
+// - Loop structures  
+// - Exception handling paths
+// - Switch/case statements
+```
+
+### Layout Options
+
+<CardGroup cols={3}>
+  <Card title="Compact" icon="compress">
+    Minimize space usage
+  </Card>
+  <Card title="Hierarchical" icon="list-tree">
+    Top-down flow layout
+  </Card>
+  <Card title="Nested" icon="layer-group">
+    Show loop nesting
+  </Card>
+</CardGroup>
+
+## Data Type Graphs
+
+Visualize data type hierarchies and relationships:
+
+### Generating Type Graphs
+
+<Steps>
+  <Step title="Open Data Type Manager">
+    Access via **Window → Data Type Manager**.
+  </Step>
+  
+  <Step title="Select Type">
+    Right-click on a data type (struct, class, typedef).
+  </Step>
+  
+  <Step title="Choose Graph Action">
+    Select **Display Type as Graph**.
+  </Step>
+  
+  <Step title="View Relationships">
+    Graph shows type composition and inheritance.
+  </Step>
+</Steps>
+
+### Type Graph Elements
+
+<Tabs>
+  <Tab title="Structures">
+    Shows structure composition with member relationships.
+  </Tab>
+  
+  <Tab title="Inheritance">
+    Displays class hierarchies in C++ programs.
+  </Tab>
+  
+  <Tab title="References">
+    Shows which types reference other types.
+  </Tab>
+  
+  <Tab title="Typedefs">
+    Traces typedef chains and aliasing.
+  </Tab>
+</Tabs>
+
+```java
+// Source: DisplayTypeAsGraphAction.java, TypeGraphTask.java  
+// Data type graphs help understand complex data structures
+// and their relationships within the program
+```
+
+## Graph Display Features
+
+### Navigation and Selection
+
+<AccordionGroup>
+  <Accordion title="Zooming">
+    - Mouse wheel: Zoom in/out
+    - Zoom to fit: View entire graph
+    - Zoom to selection: Focus on selected nodes
+  </Accordion>
+  
+  <Accordion title="Panning">
+    - Click and drag background to pan
+    - Arrow keys for fine movement
+    - Minimap for large graphs
+  </Accordion>
+  
+  <Accordion title="Selection">
+    - Click to select single node
+    - Ctrl+Click for multi-select
+    - Drag to select region
+    - Select connected components
+  </Accordion>
+  
+  <Accordion title="Search">
+    - Text search for nodes
+    - Highlight matching nodes
+    - Navigate between matches
+  </Accordion>
+</AccordionGroup>
+
+### Filtering
+
+Filter graphs to focus on relevant information:
+
+- **Hide/Show nodes** by type or criteria
+- **Filter edges** by relationship type  
+- **Depth limiting** for large graphs
+- **Scope restriction** to address ranges
+
+### Customization
+
+<ParamField path="Node Color" type="color">
+  Customize node colors by function type, address range, or custom criteria
+</ParamField>
+
+<ParamField path="Node Shape" type="enum">
+  Choose shapes: Rectangle, Ellipse, Diamond, or custom
+</ParamField>
+
+<ParamField path="Edge Style" type="enum">
+  Configure edge rendering: Straight, Curved, Orthogonal
+</ParamField>
+
+<ParamField path="Labels" type="boolean">
+  Show/hide node and edge labels
+</ParamField>
+
+## Export and Sharing
+
+### Export Formats
+
+<CodeGroup>
+```bash Export as Image
+# From graph window: File → Export → Image
+# Formats: PNG, JPEG, BMP
+```
+
+```bash Export as SVG
+# File → Export → SVG
+# Scalable vector format for documentation
+```
+
+```bash Export as GraphML
+# File → Export → GraphML
+# XML format for analysis tools
+```
+
+```bash Export as DOT
+# File → Export → DOT
+# Use with Graphviz for custom rendering
+```
+</CodeGroup>
+
+<Tip>
+SVG exports are ideal for documentation as they scale without quality loss and can be edited in vector graphics tools.
+</Tip>
+
+## Programmatic Graph Generation
+
+### Using Scripts
+
+Create custom graphs using Ghidra's scripting API:
+
+```python
+# Example: Generate custom function graph
+from ghidra.app.services import GraphDisplayBroker
+from ghidra.service.graph import AttributedGraph, AttributedVertex, AttributedEdge
+
+# Get graph service
+service = state.getTool().getService(GraphDisplayBroker)
+
+# Create graph
+graph = AttributedGraph("My Custom Graph", AttributedGraph())
+
+# Add vertices
+v1 = graph.addVertex("1", "Function_A")
+v2 = graph.addVertex("2", "Function_B")
+
+# Add edge
+graph.addEdge(v1, v2)
+
+# Display
+display = service.getDefaultGraphDisplay(False, monitor)
+display.setGraph(graph, "Custom Graph", False, monitor)
+```
+
+### Example Scripts
+
+Ghidra includes example graph scripts:
+
+```bash
+# Located in:
+~/workspace/source/Ghidra/Features/Base/ghidra_scripts/
+
+# Examples:
+- ExampleGraphServiceScript.java
+- GraphClassesScript.java
+```
+
+<Info>
+See the **Graph** directory in help topics for comprehensive scripting documentation.
+</Info>
+
+## Graph Services API
+
+The Graph Services framework provides:
+
+### Core Interfaces
+
+<Tabs>
+  <Tab title="GraphDisplayBroker">
+    Main service for obtaining graph displays.
+    
+    ```java
+    GraphDisplayBroker broker = tool.getService(GraphDisplayBroker.class);
+    GraphDisplay display = broker.getDefaultGraphDisplay(...);
+    ```
+  </Tab>
+  
+  <Tab title="AttributedGraph">
+    Graph data structure with attributed vertices and edges.
+    
+    ```java
+    AttributedGraph graph = new AttributedGraph(name, description);
+    AttributedVertex vertex = graph.addVertex(id, name);
+    graph.addEdge(source, destination);
+    ```
+  </Tab>
+  
+  <Tab title="GraphDisplay">
+    Rendering and interaction interface.
+    
+    ```java
+    display.setGraph(graph, title, append, monitor);
+    display.setVertexLabel(vertexId, label);
+    display.setEdgeLabel(edgeId, label);
+    ```
+  </Tab>
+</Tabs>
+
+### Graph Attributes
+
+Vertices and edges support custom attributes:
+
+```java
+// Set vertex attributes
+vertex.setAttribute("Color", "red");
+vertex.setAttribute("Shape", "ellipse");
+vertex.setAttribute("VertexType", "EntryPoint");
+
+// Set edge attributes  
+edge.setAttribute("Color", "blue");
+edge.setAttribute("Style", "dashed");
+edge.setAttribute("Weight", "5");
+```
+
+## Advanced Graphing
+
+### Address-Based Graphs
+
+Graphs synchronized with program addresses:
+
+- **Automatic highlighting**: Selected code highlights in graph
+- **Bidirectional navigation**: Graph to listing and vice versa
+- **Address tracking**: Graph updates with program changes
+
+```java
+// Source: AddressBasedGraphDisplayListener.java
+// Listener handles synchronization between graph display
+// and program location/selection events
+```
+
+### Custom Graph Providers
+
+Extend Ghidra with custom graph implementations:
+
+1. Implement `GraphDisplay` interface
+2. Register as service provider
+3. Handle graph rendering and interaction
+4. Support standard graph operations
+
+<Warning>
+Custom graph providers require understanding of Ghidra's service architecture and graph display protocols.
+</Warning>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Architecture Analysis" icon="building">
+    Understand program architecture and module dependencies
+  </Card>
+  <Card title="Malware Analysis" icon="virus">
+    Trace execution flow and identify malicious behavior
+  </Card>
+  <Card title="Vulnerability Research" icon="magnifying-glass-chart">
+    Identify vulnerable code paths and attack surfaces
+  </Card>
+  <Card title="Reverse Engineering" icon="wrench">
+    Visualize complex algorithms and data structures
+  </Card>
+  <Card title="Documentation" icon="book">
+    Generate visual documentation of program structure
+  </Card>
+  <Card title="Code Review" icon="code-pull-request">
+    Review function interactions and dependencies
+  </Card>
+</CardGroup>
+
+## Performance Considerations
+
+<Tip>
+**For Large Graphs**:
+- Limit maximum depth in call graphs
+- Use filtering to reduce node count
+- Export to dedicated graph tools for massive graphs
+- Consider sampling for overview visualization
+</Tip>
+
+### Graph Size Recommendations
+
+| Nodes | Performance | Recommendation |
+|-------|-------------|----------------|
+| < 100 | Excellent | Full interaction |
+| 100-500 | Good | Minor delays |
+| 500-1000 | Moderate | Use filtering |
+| > 1000 | Slow | Export to specialized tools |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Graph Won't Display">
+    **Checks**:
+    - Verify graph service is available
+    - Check for errors in console log
+    - Try different graph provider
+    - Ensure function/data is analyzable
+  </Accordion>
+  
+  <Accordion title="Empty Graph Generated">
+    **Causes**:
+    - No relationships found (isolated function)
+    - Depth limit too restrictive
+    - Filtering too aggressive
+    
+    **Solution**: Adjust parameters and rerun
+  </Accordion>
+  
+  <Accordion title="Graph Performance Issues">
+    **Solutions**:
+    - Reduce maximum depth
+    - Enable filtering
+    - Export to external tool
+    - Use hierarchical layout
+  </Accordion>
+</AccordionGroup>
+
+## Source Code References
+
+```bash
+# Graph framework
+~/workspace/source/Ghidra/Framework/Graph/
+
+# Graph features  
+~/workspace/source/Ghidra/Features/Base/src/main/java/ghidra/app/plugin/core/graph/
+
+# Help documentation
+~/workspace/source/Ghidra/Features/Base/src/main/help/help/topics/Graph/
+
+# Example scripts
+~/workspace/source/Ghidra/Features/Base/ghidra_scripts/
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Program Diff" icon="not-equal" href="/features/diff">
+    Compare programs with visual difference highlighting
+  </Card>
+  <Card title="Version Tracking" icon="code-compare" href="/features/version-tracking">
+    Track changes across program versions
+  </Card>
+</CardGroup>

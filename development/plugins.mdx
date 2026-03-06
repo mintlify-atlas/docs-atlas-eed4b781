@@ -1,0 +1,561 @@
+---
+title: Plugin Development
+description: Create custom UI components, services, and tools for Ghidra
+---
+
+## Plugin Architecture
+
+Plugins are the primary mechanism for extending Ghidra's user interface. They can:
+
+- Add menu items, toolbar buttons, and keyboard shortcuts
+- Create dockable windows (ComponentProviders)
+- Provide services to other plugins
+- Respond to program events (location, selection, highlight)
+- Manage program state and transactions
+
+## Plugin Types
+
+### Basic Plugin
+
+Extends `Plugin` - minimal functionality:
+
+```java
+import ghidra.framework.plugintool.Plugin;
+import ghidra.framework.plugintool.PluginTool;
+
+public class MyPlugin extends Plugin {
+    public MyPlugin(PluginTool tool) {
+        super(tool);
+    }
+}
+```
+
+### Program Plugin
+
+Extends `ProgramPlugin` - automatically handles program events:
+
+```java
+import ghidra.app.plugin.ProgramPlugin;
+import ghidra.framework.plugintool.PluginTool;
+import ghidra.program.model.listing.Program;
+import ghidra.program.util.ProgramLocation;
+import ghidra.program.util.ProgramSelection;
+
+public class MyProgramPlugin extends ProgramPlugin {
+    public MyProgramPlugin(PluginTool tool) {
+        super(tool);
+    }
+
+    @Override
+    protected void programOpened(Program program) {
+        // Called when program is opened
+    }
+
+    @Override
+    protected void programClosed(Program program) {
+        // Called when program is closed
+    }
+
+    @Override
+    protected void locationChanged(ProgramLocation loc) {
+        // Called when cursor location changes
+    }
+
+    @Override
+    protected void selectionChanged(ProgramSelection sel) {
+        // Called when selection changes
+    }
+
+    @Override
+    protected void highlightChanged(ProgramSelection highlight) {
+        // Called when highlight changes
+    }
+}
+```
+
+## Plugin Metadata
+
+Use `@PluginInfo` annotation to describe your plugin:
+
+```java
+import ghidra.app.plugin.PluginCategoryNames;
+import ghidra.framework.plugintool.util.PluginStatus;
+import ghidra.app.plugin.core.PluginPackage;
+
+@PluginInfo(
+    status = PluginStatus.RELEASED,
+    packageName = CorePluginPackage.NAME,
+    category = PluginCategoryNames.ANALYSIS,
+    shortDescription = "Brief description",
+    description = "Detailed description of what this plugin does.",
+    servicesRequired = { GoToService.class },  // Services needed
+    servicesProvided = { MyCustomService.class }  // Services offered
+)
+public class MyPlugin extends ProgramPlugin {
+    // ...
+}
+```
+
+### Status Values
+
+- `PluginStatus.RELEASED` - Production ready
+- `PluginStatus.STABLE` - Well tested, minor issues possible
+- `PluginStatus.UNSTABLE` - Under development, may have bugs
+- `PluginStatus.HIDDEN` - Not shown in plugin manager
+
+### Categories
+
+Defined in `PluginCategoryNames`:
+
+- `ANALYSIS` - Analysis tools
+- `CODE_VIEWER` - Code browser features
+- `GRAPH` - Graph and visualization
+- `BYTE_VIEWER` - Binary view components
+- `DEBUGGER` - Debugging tools
+- `EXAMPLES` - Example/sample plugins
+
+## Creating Actions
+
+Actions add menu items, toolbar buttons, and keybindings:
+
+```java
+import docking.ActionContext;
+import docking.action.DockingAction;
+import docking.action.MenuData;
+import docking.action.ToolBarData;
+import docking.action.KeyBindingData;
+import resources.Icons;
+import java.awt.event.KeyEvent;
+
+public class MyPlugin extends Plugin {
+    
+    public MyPlugin(PluginTool tool) {
+        super(tool);
+        createActions();
+    }
+    
+    private void createActions() {
+        DockingAction action = new DockingAction("My Action", getName()) {
+            @Override
+            public void actionPerformed(ActionContext context) {
+                // Action logic here
+                Msg.info(this, "Action executed!");
+            }
+        };
+        
+        // Add to menu
+        action.setMenuBarData(
+            new MenuData(new String[] { "Tools", "My Tool", "My Action" })
+        );
+        
+        // Add to toolbar
+        action.setToolBarData(
+            new ToolBarData(Icons.ADD_ICON, "My Group")
+        );
+        
+        // Add keyboard shortcut
+        action.setKeyBindingData(
+            new KeyBindingData(KeyEvent.VK_M, InputEvent.CTRL_DOWN_MASK)
+        );
+        
+        // Set description
+        action.setDescription("Performs my custom action");
+        
+        // Enable action
+        action.setEnabled(true);
+        
+        // Register with tool
+        tool.addAction(action);
+    }
+}
+```
+
+## Component Providers
+
+Create dockable windows with `ComponentProvider`:
+
+```java
+import docking.ComponentProvider;
+import javax.swing.*;
+import java.awt.BorderLayout;
+
+public class MyProvider extends ComponentProvider {
+    
+    private JPanel panel;
+    private JTextArea textArea;
+    
+    public MyProvider(Plugin plugin, String owner) {
+        super(plugin.getTool(), "My Window", owner);
+        buildPanel();
+        setVisible(true);
+    }
+    
+    private void buildPanel() {
+        panel = new JPanel(new BorderLayout());
+        textArea = new JTextArea(10, 40);
+        textArea.setEditable(false);
+        panel.add(new JScrollPane(textArea), BorderLayout.CENTER);
+    }
+    
+    @Override
+    public JComponent getComponent() {
+        return panel;
+    }
+    
+    public void setText(String text) {
+        textArea.setText(text);
+    }
+}
+```
+
+Integrate provider in plugin:
+
+```java
+public class MyPlugin extends ProgramPlugin {
+    
+    private MyProvider provider;
+    
+    public MyPlugin(PluginTool tool) {
+        super(tool);
+        provider = new MyProvider(this, getName());
+    }
+    
+    @Override
+    protected void programOpened(Program program) {
+        provider.setText("Program: " + program.getName());
+    }
+}
+```
+
+## Using Services
+
+Access functionality from other plugins:
+
+```java
+import ghidra.app.services.GoToService;
+import ghidra.program.model.address.Address;
+
+public class MyPlugin extends ProgramPlugin {
+    
+    private GoToService goToService;
+    
+    @Override
+    public void init() {
+        super.init();
+        goToService = tool.getService(GoToService.class);
+    }
+    
+    private void goToAddress(Address addr) {
+        if (goToService != null) {
+            goToService.goTo(addr);
+        }
+    }
+}
+```
+
+## Providing Services
+
+Offer functionality to other plugins:
+
+```java
+// Define service interface
+public interface MyCustomService {
+    void doSomething(String param);
+    String getSomeData();
+}
+
+// Implement in plugin
+@PluginInfo(
+    servicesProvided = { MyCustomService.class }
+)
+public class MyPlugin extends Plugin implements MyCustomService {
+    
+    @Override
+    public void doSomething(String param) {
+        // Implementation
+    }
+    
+    @Override
+    public String getSomeData() {
+        return "data";
+    }
+}
+```
+
+## Program Transactions
+
+Modify programs within transactions:
+
+```java
+import ghidra.program.model.listing.Program;
+import ghidra.program.model.symbol.SymbolTable;
+import ghidra.program.model.address.Address;
+
+private void addLabel(Program program, Address addr, String name) {
+    int transactionID = program.startTransaction("Add Label");
+    boolean success = false;
+    
+    try {
+        SymbolTable symTable = program.getSymbolTable();
+        symTable.createLabel(addr, name, SourceType.USER_DEFINED);
+        success = true;
+    }
+    catch (Exception e) {
+        Msg.error(this, "Failed to add label", e);
+    }
+    finally {
+        program.endTransaction(transactionID, success);
+    }
+}
+```
+
+## Event Handling
+
+### Domain Object Events
+
+```java
+import ghidra.framework.model.*;
+import ghidra.program.model.listing.Program;
+
+public class MyPlugin extends ProgramPlugin implements DomainObjectListener {
+    
+    @Override
+    protected void programOpened(Program program) {
+        program.addListener(this);
+    }
+    
+    @Override
+    protected void programClosed(Program program) {
+        program.removeListener(this);
+    }
+    
+    @Override
+    public void domainObjectChanged(DomainObjectChangedEvent ev) {
+        for (DomainObjectChangeRecord record : ev) {
+            int eventType = record.getEventType();
+            // Handle specific events
+        }
+    }
+}
+```
+
+### Plugin Events
+
+```java
+import ghidra.framework.plugintool.PluginEvent;
+import ghidra.app.events.ProgramActivatedPluginEvent;
+
+public class MyPlugin extends Plugin {
+    
+    public MyPlugin(PluginTool tool) {
+        super(tool);
+        // Register event consumption
+        registerEventConsumed(ProgramActivatedPluginEvent.class);
+    }
+    
+    @Override
+    public void processEvent(PluginEvent event) {
+        if (event instanceof ProgramActivatedPluginEvent) {
+            ProgramActivatedPluginEvent ev = (ProgramActivatedPluginEvent) event;
+            Program program = ev.getActiveProgram();
+            // Handle program activation
+        }
+    }
+}
+```
+
+## Options Management
+
+Provide user-configurable options:
+
+```java
+import ghidra.framework.options.Options;
+import ghidra.framework.options.OptionsChangeListener;
+import ghidra.framework.options.ToolOptions;
+
+public class MyPlugin extends Plugin implements OptionsChangeListener {
+    
+    private static final String OPTION_NAME = "My Option";
+    private boolean optionValue;
+    
+    public MyPlugin(PluginTool tool) {
+        super(tool);
+        setupOptions();
+    }
+    
+    private void setupOptions() {
+        ToolOptions options = tool.getOptions("My Tool");
+        options.registerOption(OPTION_NAME, true, null, 
+            "Description of what this option does");
+        optionValue = options.getBoolean(OPTION_NAME, true);
+        options.addOptionsChangeListener(this);
+    }
+    
+    @Override
+    public void optionsChanged(ToolOptions options, String optionName, 
+                              Object oldValue, Object newValue) {
+        if (optionName.equals(OPTION_NAME)) {
+            optionValue = (Boolean) newValue;
+        }
+    }
+}
+```
+
+## Complete Example
+
+```java
+package com.example;
+
+import docking.ActionContext;
+import docking.ComponentProvider;
+import docking.action.DockingAction;
+import docking.action.MenuData;
+import ghidra.app.plugin.PluginCategoryNames;
+import ghidra.app.plugin.ProgramPlugin;
+import ghidra.framework.plugintool.*;
+import ghidra.framework.plugintool.util.PluginStatus;
+import ghidra.program.model.listing.Program;
+import ghidra.program.util.ProgramLocation;
+import ghidra.util.HelpLocation;
+import ghidra.util.Msg;
+
+import javax.swing.*;
+import java.awt.BorderLayout;
+
+@PluginInfo(
+    status = PluginStatus.RELEASED,
+    packageName = "Examples",
+    category = PluginCategoryNames.EXAMPLES,
+    shortDescription = "Example plugin demonstrating core concepts",
+    description = "Shows how to create a plugin with UI components and actions"
+)
+public class ExamplePlugin extends ProgramPlugin {
+    
+    private ExampleProvider provider;
+    
+    public ExamplePlugin(PluginTool tool) {
+        super(tool);
+        provider = new ExampleProvider(this);
+        createActions();
+    }
+    
+    private void createActions() {
+        DockingAction showAction = new DockingAction("Show Example", getName()) {
+            @Override
+            public void actionPerformed(ActionContext context) {
+                provider.setVisible(true);
+            }
+        };
+        showAction.setMenuBarData(new MenuData(new String[] { "Window", "Example" }));
+        showAction.setEnabled(true);
+        tool.addAction(showAction);
+    }
+    
+    @Override
+    protected void programOpened(Program program) {
+        provider.programOpened(program);
+    }
+    
+    @Override
+    protected void locationChanged(ProgramLocation loc) {
+        provider.locationChanged(loc);
+    }
+    
+    private static class ExampleProvider extends ComponentProvider {
+        
+        private JPanel panel;
+        private JLabel programLabel;
+        private JLabel locationLabel;
+        
+        public ExampleProvider(Plugin plugin) {
+            super(plugin.getTool(), "Example Window", plugin.getName());
+            buildPanel();
+            setHelpLocation(new HelpLocation("ExamplePlugin", "ExampleProvider"));
+        }
+        
+        private void buildPanel() {
+            panel = new JPanel(new BorderLayout());
+            JPanel infoPanel = new JPanel();
+            infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+            
+            programLabel = new JLabel("No program");
+            locationLabel = new JLabel("No location");
+            
+            infoPanel.add(programLabel);
+            infoPanel.add(locationLabel);
+            panel.add(infoPanel, BorderLayout.CENTER);
+        }
+        
+        @Override
+        public JComponent getComponent() {
+            return panel;
+        }
+        
+        public void programOpened(Program program) {
+            programLabel.setText("Program: " + program.getName());
+        }
+        
+        public void locationChanged(ProgramLocation loc) {
+            if (loc != null) {
+                locationLabel.setText("Location: " + loc.getAddress());
+            }
+        }
+    }
+}
+```
+
+## Testing Plugins
+
+### Run from Eclipse
+
+1. Right-click project → **Debug As → Ghidra**
+2. In Ghidra: **File → Configure → Miscellaneous → My Plugin**
+3. Enable plugin and click **OK**
+
+### Export as Extension
+
+1. Right-click project → **GhidraDev → Export → Ghidra Module Extension**
+2. Configure Gradle path
+3. Click **Finish**
+4. Find extension in `<project>/dist/` directory
+
+### Install Extension
+
+1. In Ghidra: **File → Install Extensions...**
+2. Click **+** (Add Extension)
+3. Select `.zip` file
+4. Restart Ghidra
+
+## Best Practices
+
+<Check>**Do:**</Check>
+- Use transactions for all program modifications
+- Clean up resources in `dispose()` method
+- Provide meaningful help locations
+- Follow Ghidra naming conventions
+- Make actions context-aware
+- Handle null programs gracefully
+
+<Warning>**Don't:**</Warning>
+- Modify programs outside transactions
+- Block the UI thread with long operations
+- Forget to remove event listeners
+- Hardcode file paths or system-specific settings
+
+## Resources
+
+- Sample plugins: `Ghidra/Extensions/sample/src/main/java/ghidra/examples/`
+- Plugin templates: `GhidraBuild/Skeleton/src/main/java/skeleton/`
+- API docs: [Plugin](https://ghidra.re/ghidra_docs/api/ghidra/framework/plugintool/Plugin.html)
+- Examples: [HelloWorldPlugin.java](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Extensions/sample/src/main/java/ghidra/examples/HelloWorldPlugin.java)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Analyzer Development" icon="magnifying-glass" href="./analyzers">
+    Build automatic analysis components
+  </Card>
+  <Card title="Loader Development" icon="file-import" href="./loaders">
+    Add support for new binary formats
+  </Card>
+</CardGroup>

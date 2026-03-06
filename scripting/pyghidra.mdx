@@ -1,0 +1,569 @@
+---
+title: PyGhidra
+description: Native Python 3 scripting with PyGhidra for standalone Ghidra automation
+---
+
+## Introduction
+
+PyGhidra is a Python library that provides direct access to the Ghidra API within a native CPython 3 interpreter using JPype. Originally developed by the Department of Defense Cyber Crime Center (DC3) as "Pyhidra", it enables modern Python workflows with full Ghidra functionality.
+
+## Key Features
+
+- **Native CPython 3** - Use Python 3.x with modern syntax and libraries
+- **Standalone operation** - Run Ghidra scripts outside the GUI
+- **Full API access** - Complete access to Ghidra's Java API
+- **Project management** - Open, create, and manage Ghidra projects
+- **Type stubs** - IDE autocomplete and type checking support
+- **Integration ready** - Use Ghidra as part of larger Python workflows
+
+## Installation
+
+### Prerequisites
+
+1. Ghidra 12.0 or later installed
+2. Python 3.8 or later
+3. pip package manager
+
+### Install PyGhidra
+
+**Online installation:**
+
+```bash
+pip install pyghidra
+```
+
+**Offline installation:**
+
+```bash
+python3 -m pip install --no-index \
+  -f <GhidraInstallDir>/Ghidra/Features/PyGhidra/pypkg/dist \
+  pyghidra
+```
+
+### Install Type Stubs (Optional)
+
+For better IDE support:
+
+```bash
+# Ghidra type stubs (version-specific)
+pip install ghidra-stubs==11.4
+
+# Java type stubs
+pip install java-stubs-converted-strings
+```
+
+### Set Ghidra Installation Path
+
+Option 1: Environment variable
+
+```bash
+export GHIDRA_INSTALL_DIR=/path/to/ghidra
+```
+
+Option 2: In code
+
+```python
+import pyghidra
+pyghidra.start(install_dir="/path/to/ghidra")
+```
+
+## Quick Start
+
+### Basic Program Analysis
+
+```python
+import pyghidra
+
+# Initialize PyGhidra
+pyghidra.start()
+
+# Open a project and program
+with pyghidra.open_project("/path/to/projects", "MyProject", create=True) as project:
+    # Import and analyze a binary
+    loader = pyghidra.program_loader().project(project)
+    loader = loader.source("/path/to/binary.exe").name("binary.exe")
+    
+    with loader.load() as load_results:
+        load_results.save(pyghidra.task_monitor())
+    
+    # Open the program
+    with pyghidra.program_context(project, "/binary.exe") as program:
+        # Analyze
+        pyghidra.analyze(program)
+        
+        # Access program data
+        listing = program.getListing()
+        for func in listing.getFunctions(True):
+            print(f"{func.getName()} @ {func.getEntryPoint()}")
+```
+
+### Legacy API (Simple)
+
+```python
+import pyghidra
+
+with pyghidra.open_program("binary.exe") as flat_api:
+    program = flat_api.getCurrentProgram()
+    listing = program.getListing()
+    
+    # Iterate functions
+    for func in listing.getFunctions(True):
+        print(f"{func.getName()} @ {func.getEntryPoint()}")
+```
+
+## Core API Reference
+
+### pyghidra.start()
+
+Initialize Ghidra in headless mode:
+
+```python
+import pyghidra
+
+# Basic start
+pyghidra.start()
+
+# With custom installation
+pyghidra.start(install_dir="/opt/ghidra")
+
+# Verbose output
+pyghidra.start(verbose=True)
+
+# Check if already started
+if not pyghidra.started():
+    pyghidra.start()
+```
+
+### Project Management
+
+**Open or create project:**
+
+```python
+with pyghidra.open_project("/projects", "MyProject", create=True) as project:
+    # Work with project
+    print(f"Project: {project.getName()}")
+```
+
+**Load program from file:**
+
+```python
+loader = pyghidra.program_loader()
+loader = loader.project(project)
+loader = loader.source("/path/to/binary.exe")
+loader = loader.name("my_binary")
+loader = loader.language("x86:LE:64:default")
+
+with loader.load() as load_results:
+    load_results.save(pyghidra.task_monitor())
+```
+
+**Access program:**
+
+```python
+# With context manager (auto-cleanup)
+with pyghidra.program_context(project, "/binary.exe") as program:
+    # Use program
+    pass
+
+# Manual management
+program, consumer = pyghidra.consume_program(project, "/binary.exe")
+try:
+    # Use program
+    pass
+finally:
+    program.release(consumer)
+```
+
+### Analysis Operations
+
+**Run analysis:**
+
+```python
+with pyghidra.program_context(project, "/binary.exe") as program:
+    # Analyze with default settings
+    log = pyghidra.analyze(program)
+    print(log)
+    
+    # Analyze with timeout
+    monitor = pyghidra.task_monitor(timeout=60)  # 60 seconds
+    log = pyghidra.analyze(program, monitor)
+```
+
+**Configure analysis:**
+
+```python
+with pyghidra.program_context(project, "/binary.exe") as program:
+    # Get analysis properties
+    props = pyghidra.analysis_properties(program)
+    
+    # Modify settings
+    with pyghidra.transaction(program, "Configure Analysis"):
+        props.setBoolean("Non-Returning Functions - Discovered", False)
+        props.setBoolean("Stack", True)
+    
+    # Run analysis
+    pyghidra.analyze(program)
+```
+
+### Transactions
+
+All program modifications require transactions:
+
+```python
+with pyghidra.program_context(project, "/binary.exe") as program:
+    from ghidra.program.model.listing import CodeUnit
+    
+    # Use transaction context manager
+    with pyghidra.transaction(program, "Add Comment"):
+        listing = program.getListing()
+        addr = program.getMinAddress()
+        cu = listing.getCodeUnitAt(addr)
+        cu.setComment(CodeUnit.PLATE_COMMENT, "My comment")
+    
+    # Save changes
+    program.save("Added comment", pyghidra.task_monitor())
+```
+
+### Running GhidraScripts
+
+```python
+# Run any GhidraScript (Java, Python, etc.)
+with pyghidra.open_project("/projects", "MyProject") as project:
+    with pyghidra.program_context(project, "/binary.exe") as program:
+        stdout, stderr = pyghidra.ghidra_script(
+            "/path/to/MyScript.java",
+            project,
+            program,
+            echo_stdout=True,
+            echo_stderr=True
+        )
+        print("Script output:", stdout)
+```
+
+## Advanced Usage
+
+### Walking Projects
+
+**Process all domain files:**
+
+```python
+def process_file(domain_file):
+    print(f"File: {domain_file.getName()}")
+
+pyghidra.walk_project(
+    project,
+    process_file,
+    start="/",
+    file_filter=lambda f: f.getName().endswith(".exe")
+)
+```
+
+**Process all programs:**
+
+```python
+def process_program(domain_file, program):
+    print(f"Program: {program.getName()}")
+    listing = program.getListing()
+    func_count = listing.getFunctions(True).size()
+    print(f"  Functions: {func_count}")
+
+pyghidra.walk_programs(
+    project,
+    process_program,
+    program_filter=lambda f, p: not p.getName().startswith("test_")
+)
+```
+
+### Working with Filesystems
+
+```python
+import os
+
+# Open a filesystem (ZIP, TAR, etc.)
+with pyghidra.open_filesystem("/path/to/archive.zip") as fs:
+    loader = pyghidra.program_loader().project(project)
+    
+    # Load files from filesystem
+    for f in fs.files(lambda f: f.name.endswith(".dll")):
+        loader = loader.source(f.getFSRL())
+        loader = loader.projectFolderPath("/" + f.parentFile.name)
+        
+        with loader.load() as load_results:
+            load_results.save(pyghidra.task_monitor())
+```
+
+### Accessing the Decompiler
+
+```python
+from ghidra.app.decompiler import DecompInterface
+
+with pyghidra.program_context(project, "/binary.exe") as program:
+    # Initialize decompiler
+    decompiler = DecompInterface()
+    decompiler.openProgram(program)
+    
+    try:
+        # Decompile a function
+        listing = program.getListing()
+        func = listing.getFunctions(True).next()
+        
+        results = decompiler.decompileFunction(
+            func, 30, pyghidra.task_monitor()
+        )
+        
+        if results.decompileCompleted():
+            decomp = results.getDecompiledFunction()
+            print(decomp.getC())
+    finally:
+        decompiler.dispose()
+```
+
+### Memory Operations
+
+```python
+with pyghidra.program_context(project, "/binary.exe") as program:
+    memory = program.getMemory()
+    
+    # Read bytes
+    addr = program.getMinAddress()
+    byte_array = bytearray(16)
+    memory.getBytes(addr, byte_array)
+    print(" ".join(f"{b:02x}" for b in byte_array))
+    
+    # Write bytes (requires transaction)
+    with pyghidra.transaction(program, "Write Memory"):
+        import jpype
+        ByteArray = jpype.JArray(jpype.JByte)
+        new_bytes = ByteArray([0x90, 0x90, 0x90, 0x90])
+        memory.setBytes(addr, new_bytes)
+```
+
+### Symbol Operations
+
+```python
+with pyghidra.program_context(project, "/binary.exe") as program:
+    from ghidra.program.model.symbol import SourceType
+    
+    symbol_table = program.getSymbolTable()
+    
+    # Find symbols
+    symbols = symbol_table.getSymbolIterator("main", True)
+    for sym in symbols:
+        print(f"{sym.getName()} @ {sym.getAddress()}")
+    
+    # Create label
+    with pyghidra.transaction(program, "Create Label"):
+        addr = program.getMinAddress()
+        symbol_table.createLabel(
+            addr, "my_label", SourceType.USER_DEFINED
+        )
+```
+
+## Real-World Examples
+
+### Example 1: Batch Binary Analysis
+
+```python
+import pyghidra
+import os
+from pathlib import Path
+
+pyghidra.start()
+
+binaries = Path("/malware/samples").glob("*.exe")
+
+with pyghidra.open_project("/analysis", "MalwareAnalysis", create=True) as project:
+    for binary in binaries:
+        print(f"Processing: {binary.name}")
+        
+        # Load binary
+        loader = pyghidra.program_loader().project(project)
+        loader = loader.source(str(binary)).name(binary.name)
+        
+        with loader.load() as load_results:
+            load_results.save(pyghidra.task_monitor())
+        
+        # Analyze
+        with pyghidra.program_context(project, f"/{binary.name}") as program:
+            pyghidra.analyze(program, pyghidra.task_monitor(300))
+            
+            # Extract function info
+            listing = program.getListing()
+            funcs = [f.getName() for f in listing.getFunctions(True)]
+            
+            print(f"  Functions: {len(funcs)}")
+            
+            # Save
+            program.save("Analysis complete", pyghidra.task_monitor())
+```
+
+### Example 2: Function Signature Extraction
+
+```python
+import pyghidra
+import json
+
+pyghidra.start()
+
+with pyghidra.open_program("/path/to/binary.exe") as flat_api:
+    program = flat_api.getCurrentProgram()
+    listing = program.getListing()
+    
+    functions = []
+    for func in listing.getFunctions(True):
+        func_info = {
+            "name": func.getName(),
+            "entry": str(func.getEntryPoint()),
+            "signature": func.getPrototypeString(False, False),
+            "params": [
+                {
+                    "name": p.getName(),
+                    "type": str(p.getDataType())
+                }
+                for p in func.getParameters()
+            ],
+            "return_type": str(func.getReturnType())
+        }
+        functions.append(func_info)
+    
+    # Export to JSON
+    with open("functions.json", "w") as f:
+        json.dump(functions, f, indent=2)
+    
+    print(f"Exported {len(functions)} functions")
+```
+
+### Example 3: Custom Analysis with Transactions
+
+```python
+import pyghidra
+
+pyghidra.start()
+
+with pyghidra.open_project("/projects", "Analysis") as project:
+    with pyghidra.program_context(project, "/binary.exe") as program:
+        from ghidra.program.model.listing import CodeUnit
+        from ghidra.program.model.symbol import SourceType
+        
+        listing = program.getListing()
+        symbol_table = program.getSymbolTable()
+        
+        # Find and annotate string references
+        with pyghidra.transaction(program, "Annotate Strings"):
+            for func in listing.getFunctions(True):
+                if not func.getName().startswith("FUN_"):
+                    continue
+                
+                # Check for string references
+                body = func.getBody()
+                has_strings = False
+                
+                for addr in body.getAddresses(True):
+                    refs = program.getReferenceManager().getReferencesFrom(addr)
+                    for ref in refs:
+                        to_addr = ref.getToAddress()
+                        data = listing.getDataAt(to_addr)
+                        if data and "string" in str(data.getDataType()).lower():
+                            has_strings = True
+                            break
+                    if has_strings:
+                        break
+                
+                # Rename if it uses strings
+                if has_strings:
+                    new_name = f"str_{func.getEntryPoint()}"
+                    func.setName(new_name, SourceType.USER_DEFINED)
+                    
+                    # Add comment
+                    cu = listing.getCodeUnitAt(func.getEntryPoint())
+                    cu.setComment(CodeUnit.PLATE_COMMENT, 
+                        "Function uses string references")
+        
+        # Save changes
+        program.save("String annotation", pyghidra.task_monitor())
+        print("Analysis complete")
+```
+
+## Custom Launchers
+
+For advanced JVM configuration:
+
+```python
+from pyghidra.launcher import HeadlessPyGhidraLauncher
+
+launcher = HeadlessPyGhidraLauncher()
+launcher.add_classpaths("custom.jar", "lib/other.jar")
+launcher.add_vmargs("-Xmx4g", "-Dmy.property=value")
+launcher.start()
+
+# Now use PyGhidra normally
+import pyghidra
+# pyghidra is already started via launcher
+```
+
+## Package Name Conflicts
+
+When Python modules conflict with Java packages:
+
+```python
+import pdb   # Python debugger
+import pdb_  # Ghidra's pdb package
+```
+
+## Best Practices
+
+1. **Use context managers** - Ensures proper resource cleanup
+2. **Handle transactions** - Always wrap modifications in transactions
+3. **Set timeouts** - Use task monitors with timeouts for long operations
+4. **Save work** - Call `program.save()` after modifications
+5. **Check started state** - Use `pyghidra.started()` before calling `start()`
+6. **Release programs** - Always release programs when done
+
+## Troubleshooting
+
+### Common Issues
+
+**ImportError: No module named pyghidra**
+
+```bash
+pip install pyghidra
+```
+
+**Ghidra installation not found**
+
+```bash
+export GHIDRA_INSTALL_DIR=/path/to/ghidra
+```
+
+**JVM already started**
+
+```python
+if not pyghidra.started():
+    pyghidra.start()
+```
+
+**Program locked**
+
+Ensure previous program instances are released:
+
+```python
+program.release(consumer)
+```
+
+## Migration from Jython
+
+Key differences when migrating from Jython scripts:
+
+| Jython 2 | PyGhidra (Python 3) |
+|----------|---------------------|
+| `print "text"` | `print("text")` |
+| `xrange()` | `range()` |
+| Auto state variables | Must access via program |
+| GUI context | Standalone context |
+| `.properties` files | Python configuration |
+
+## Related Topics
+
+- [Java Scripts](/scripting/java-scripts)
+- [Python Scripts](/scripting/python-scripts)
+- [Headless Analyzer](/scripting/headless)

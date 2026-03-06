@@ -1,0 +1,204 @@
+---
+title: Development Overview
+description: Introduction to Ghidra development environment, tools, and architecture
+---
+
+## Development Environment
+
+Ghidra is built using modern development tools and frameworks:
+
+- **Primary Language**: [Java](https://dev.java) (JDK 21+)
+- **Secondary Languages**: C++, Sleigh, Python 3, Jython 2.7
+- **IDE**: Eclipse (recommended) or Visual Studio Code
+- **Build System**: Gradle 8.5+
+- **Source Control**: Git
+
+## Architecture Overview
+
+### Framework Layer
+
+Ghidra's architecture is built on a modular framework consisting of several core components:
+
+- **DB** - Database management for programs and traces
+- **Docking** - Window and UI docking framework
+- **Generic** - Common utilities and base classes
+- **SoftwareModeling** - Program model, language specifications, and p-code
+- **Project** - Project and domain object management
+- **Emulation** - P-code emulation engine
+
+### Feature Modules
+
+Ghidra features are organized as modules that extend the framework:
+
+- **Base** - Core features including analyzers, loaders, and plugins
+- **Decompiler** - C decompiler engine
+- **Debugger** - Dynamic analysis and debugging support
+- **BSim** - Binary similarity analysis
+- **FunctionID** - Function identification database
+
+### Extension Points
+
+Ghidra provides several extension points for custom functionality:
+
+- **Analyzers** - Automatic program analysis
+- **Loaders** - Binary file format support
+- **Plugins** - UI components and services
+- **File Systems** - Container file format support
+- **Exporters** - Output format generation
+- **Language Modules** - Processor architecture support via Sleigh
+
+## Development Workflow
+
+### Creating Extensions
+
+Extensions can be developed using:
+
+1. **GhidraDev Eclipse Plugin** - Full Eclipse integration with debugging support
+2. **VSCode Integration** - Lightweight script and module development
+3. **Standalone Gradle Projects** - Independent module development
+
+### Project Types
+
+#### Script Projects
+
+Designed for single-file Java scripts:
+- Compiled by Ghidra at runtime
+- Executed via Script Manager or Headless Analyzer
+- Stored in `~/ghidra_scripts` by default
+
+#### Module Projects
+
+For complex features like analyzers and plugins:
+- Built as Gradle projects
+- Exported as installable extensions
+- Distributed as `.zip` archives
+
+## Building Ghidra
+
+### Quick Build
+
+```bash
+# Download dependencies
+gradle -I gradle/support/fetchDependencies.gradle
+
+# Setup development environment
+gradle prepdev
+
+# Build Ghidra distribution
+gradle buildGhidra
+```
+
+### Common Gradle Tasks
+
+| Task | Description |
+|------|-------------|
+| `prepdev` | Download dependencies and setup dev environment |
+| `eclipse` | Generate Eclipse project files |
+| `buildNatives` | Build native components |
+| `sleighCompile` | Compile Sleigh language specifications |
+| `assembleAll` | Build uncompressed distribution |
+| `buildGhidra` | Build compressed distribution |
+| `unitTestReport` | Run unit tests |
+| `integrationTest` | Run integration tests |
+
+### Eclipse Setup
+
+```bash
+# Generate Eclipse projects
+gradle cleanEclipse eclipse
+
+# Build natives
+gradle buildNatives
+```
+
+Then in Eclipse:
+1. **File → Import → General → Existing Projects into Workspace**
+2. Select Ghidra source repository
+3. Check "Search for nested projects"
+4. Click **Finish**
+
+## Extension Development
+
+### Module Structure
+
+```
+MyExtension/
+├── Module.manifest          # Module metadata
+├── extension.properties     # Extension configuration
+├── build.gradle            # Gradle build script
+├── src/
+│   └── main/
+│       └── java/          # Java source files
+├── data/                   # Resources and data files
+└── lib/                    # External dependencies
+```
+
+### Extension Properties
+
+```properties
+name=@extname@
+description=Brief description of the extension
+author=Your Name
+createdOn=01/01/2024
+version=@extversion@
+```
+
+### Build Configuration
+
+```gradle
+apply from: "$rootProject.projectDir/gradle/javaProject.gradle"
+apply from: "$rootProject.projectDir/gradle/distributableGhidraModule.gradle"
+
+apply plugin: 'eclipse'
+
+eclipse.project.name = 'Extensions MyExtension'
+
+dependencies {
+    // Add dependencies here
+}
+```
+
+## Class Naming Conventions
+
+<Warning>
+**Critical**: Ghidra uses reflection to discover extension classes. Follow these naming rules:
+
+- **Analyzers** must end in `Analyzer`
+- **Loaders** must end in `Loader`
+- **Plugins** must end in `Plugin`
+- **Exporters** must end in `Exporter`
+- **File Systems** must end in `FileSystem`
+</Warning>
+
+## Licensing
+
+Ghidra is released under the Apache License 2.0. When contributing:
+
+- Prefer Apache License 2.0 for new code
+- GPL code must reside in top-level `GPL/` directory
+- Use Git commit authorship for credit (not source comments)
+- Ensure Git credentials link to your GitHub account
+
+## Resources
+
+- [DevGuide.md](https://github.com/NationalSecurityAgency/ghidra/blob/master/DevGuide.md) - Complete developer's guide
+- [GhidraClass](https://github.com/NationalSecurityAgency/ghidra/tree/master/GhidraDocs/GhidraClass) - Training materials
+- [API Documentation](https://ghidra.re/ghidra_docs/api/) - Javadoc reference
+- [Ghidra Repository](https://github.com/NationalSecurityAgency/ghidra) - Source code
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Development Setup" icon="wrench" href="./setup">
+    Configure Eclipse or VSCode for Ghidra development
+  </Card>
+  <Card title="Plugin Development" icon="puzzle-piece" href="./plugins">
+    Create custom UI components and services
+  </Card>
+  <Card title="Analyzer Development" icon="magnifying-glass" href="./analyzers">
+    Build automatic program analysis components
+  </Card>
+  <Card title="Loader Development" icon="file-import" href="./loaders">
+    Add support for new binary formats
+  </Card>
+</CardGroup>

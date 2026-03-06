@@ -1,0 +1,607 @@
+---
+title: Symbol Table API  
+description: Interface for managing symbols, labels, and references in a Ghidra program
+---
+
+The `SymbolTable` manages the symbols defined in a program. A symbol is an association between an address and a string name, optionally within a namespace.
+
+## Overview
+
+The Symbol Table provides:
+
+- **Symbol Management** - Create, retrieve, and delete symbols
+- **Labels** - Named locations in memory
+- **Functions** - Function symbols and signatures
+- **Namespaces** - Hierarchical organization
+- **References** - Cross-references between symbols
+- **External Symbols** - Symbols from external libraries
+
+## Key Concepts
+
+### Symbol Types
+
+- **Label** - Simple named location
+- **Function** - Function entry point
+- **Parameter** - Function parameter
+- **Local Variable** - Function local variable  
+- **Class** - Class namespace
+- **Namespace** - Generic namespace
+- **Library** - External library
+
+### Primary vs Non-Primary
+
+Any address can have multiple symbols. One symbol is designated as the **primary** symbol, which is the default symbol displayed for that address.
+
+### Global vs Local
+
+Symbols can be **global** (in the global namespace) or **local** (in another namespace like a function or class).
+
+### Dynamic Symbols
+
+Dynamic symbols are generated automatically by the system based on context (e.g., `FUN_00401000` for unnamed functions).
+
+## Creating Symbols
+
+### Create Labels
+
+<ParamField path="createLabel(Address addr, String name, SourceType source)" type="Symbol">
+  Creates a label in the global namespace.
+  
+  ```java
+  Symbol symbol = symbolTable.createLabel(
+      addr("00401000"),
+      "main",
+      SourceType.USER_DEFINED
+  );
+  println("Created symbol: " + symbol.getName());
+  ```
+</ParamField>
+
+<ParamField path="createLabel(Address addr, String name, Namespace namespace, SourceType source)" type="Symbol">
+  Creates a label in a specific namespace.
+  
+  ```java
+  Namespace myClass = symbolTable.createClass(null, "MyClass", SourceType.USER_DEFINED);
+  Symbol method = symbolTable.createLabel(
+      addr("00402000"),
+      "doSomething",
+      myClass,
+      SourceType.USER_DEFINED
+  );
+  ```
+</ParamField>
+
+### Source Types
+
+- `SourceType.USER_DEFINED` - Created by the user
+- `SourceType.IMPORTED` - Imported from external source
+- `SourceType.ANALYSIS` - Created by analysis
+- `SourceType.DEFAULT` - System-generated default symbol
+
+## Retrieving Symbols
+
+### Get by ID
+
+<ParamField path="getSymbol(long symbolID)" type="Symbol">
+  Returns the symbol with the specified ID.
+  
+  ```java
+  Symbol symbol = symbolTable.getSymbol(symbolID);
+  ```
+</ParamField>
+
+### Get by Address
+
+<ParamField path="getPrimarySymbol(Address addr)" type="Symbol">
+  Returns the primary symbol at the specified address.
+  
+  ```java
+  Symbol symbol = symbolTable.getPrimarySymbol(addr);
+  if (symbol != null) {
+      println("Primary symbol at " + addr + ": " + symbol.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getSymbols(Address addr)" type="Symbol[]">
+  Returns all symbols at the specified address.
+  
+  ```java
+  Symbol[] symbols = symbolTable.getSymbols(addr);
+  for (Symbol symbol : symbols) {
+      println("  " + symbol.getName() + " [" + symbol.getSymbolType() + "]");
+  }
+  ```
+  
+  <Note>
+    The primary symbol is at index 0 in the array.
+  </Note>
+</ParamField>
+
+<ParamField path="getSymbolsAsIterator(Address addr)" type="SymbolIterator">
+  Returns an iterator over symbols at the address (excludes dynamic symbols).
+  
+  Use this instead of `getSymbols()` when searching for a specific symbol to avoid loading all symbols.
+</ParamField>
+
+<ParamField path="getUserSymbols(Address addr)" type="Symbol[]">
+  Returns defined symbols at the address (excludes dynamic symbols).
+</ParamField>
+
+### Get by Name
+
+<ParamField path="getSymbol(String name, Address addr, Namespace namespace)" type="Symbol">
+  Returns the symbol with the specified name, address, and namespace.
+  
+  ```java
+  Symbol symbol = symbolTable.getSymbol("main", addr, globalNamespace);
+  ```
+  
+  <Note>
+    All three parameters are required to uniquely identify a symbol.
+  </Note>
+</ParamField>
+
+<ParamField path="getGlobalSymbol(String name, Address addr)" type="Symbol">
+  Returns the global symbol with the specified name and address.
+  
+  ```java
+  Symbol symbol = symbolTable.getGlobalSymbol("main", addr("00401000"));
+  ```
+</ParamField>
+
+<ParamField path="getGlobalSymbols(String name)" type="List<Symbol>">
+  Returns all global symbols with the specified name.
+  
+  ```java
+  List<Symbol> symbols = symbolTable.getGlobalSymbols("printf");
+  for (Symbol symbol : symbols) {
+      println("printf at " + symbol.getAddress());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getLabelOrFunctionSymbols(String name, Namespace namespace)" type="List<Symbol>">
+  Returns all label or function symbols with the specified name in the namespace.
+  
+  ```java
+  List<Symbol> symbols = symbolTable.getLabelOrFunctionSymbols("method", myClass);
+  ```
+</ParamField>
+
+### Get by Reference
+
+<ParamField path="getSymbol(Reference ref)" type="Symbol">
+  Returns the symbol associated with a reference.
+  
+  ```java
+  Reference ref = refMgr.getReference(fromAddr, toAddr, 0);
+  Symbol symbol = symbolTable.getSymbol(ref);
+  ```
+</ParamField>
+
+## Iterating Symbols
+
+### All Symbols
+
+<ParamField path="getAllSymbols(boolean includeDynamicSymbols)" type="SymbolIterator">
+  Returns an iterator over all symbols.
+  
+  ```java
+  SymbolIterator iter = symbolTable.getAllSymbols(false);
+  while (iter.hasNext()) {
+      Symbol symbol = iter.next();
+      println(symbol.getName() + " @ " + symbol.getAddress());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getSymbolIterator()" type="SymbolIterator">
+  Returns an iterator over all label symbols.
+</ParamField>
+
+<ParamField path="getDefinedSymbols()" type="SymbolIterator">
+  Returns an iterator over all defined symbols (excludes dynamic labels).
+</ParamField>
+
+### By Name
+
+<ParamField path="getSymbols(String name)" type="SymbolIterator">
+  Returns an iterator over all symbols with the specified name.
+  
+  ```java
+  SymbolIterator iter = symbolTable.getSymbols("strcmp");
+  while (iter.hasNext()) {
+      Symbol symbol = iter.next();
+      println("Found strcmp at " + symbol.getAddress());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getSymbolIterator(String searchStr, boolean caseSensitive)" type="SymbolIterator">
+  Returns symbols matching a wildcard query (* and ? supported).
+  
+  ```java
+  // Find all symbols starting with "str"
+  SymbolIterator iter = symbolTable.getSymbolIterator("str*", true);
+  while (iter.hasNext()) {
+      Symbol symbol = iter.next();
+      println(symbol.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="scanSymbolsByName(String startName)" type="SymbolIterator">
+  Returns symbols in lexicographical order starting from the specified name.
+</ParamField>
+
+### By Namespace
+
+<ParamField path="getSymbols(Namespace namespace)" type="SymbolIterator">
+  Returns all symbols in the specified namespace.
+  
+  ```java
+  SymbolIterator iter = symbolTable.getSymbols(myClass);
+  while (iter.hasNext()) {
+      Symbol symbol = iter.next();
+      println("  " + symbol.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getSymbols(String name, Namespace namespace)" type="List<Symbol>">
+  Returns symbols with the specified name in the namespace.
+</ParamField>
+
+### By Type
+
+<ParamField path="getSymbols(AddressSetView addressSet, SymbolType type, boolean forward)" type="SymbolIterator">
+  Returns symbols of the specified type within the address set.
+  
+  ```java
+  AddressSet set = new AddressSet(startAddr, endAddr);
+  SymbolIterator iter = symbolTable.getSymbols(
+      set,
+      SymbolType.FUNCTION,
+      true
+  );
+  ```
+</ParamField>
+
+### By Address
+
+<ParamField path="getSymbolIterator(boolean forward)" type="SymbolIterator">
+  Returns symbols in address order.
+</ParamField>
+
+<ParamField path="getSymbolIterator(Address startAddr, boolean forward)" type="SymbolIterator">
+  Returns symbols starting from the specified address.
+</ParamField>
+
+<ParamField path="getPrimarySymbolIterator(boolean forward)" type="SymbolIterator">
+  Returns primary symbols in address order.
+  
+  ```java
+  SymbolIterator iter = symbolTable.getPrimarySymbolIterator(true);
+  while (iter.hasNext()) {
+      Symbol symbol = iter.next();
+      println(symbol.getAddress() + ": " + symbol.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getPrimarySymbolIterator(AddressSetView addressSet, boolean forward)" type="SymbolIterator">
+  Returns primary symbols within the address set.
+</ParamField>
+
+## Removing Symbols
+
+<ParamField path="removeSymbolSpecial(Symbol sym)" type="boolean">
+  Removes the specified symbol.
+  
+  For non-function symbols, behaves the same as `Symbol.delete()`.
+  
+  For function symbols:
+  - Default function symbols (e.g., FUN_12345678) are not removed
+  - If no other labels exist at the entry point, function is renamed to default
+  - If another label exists, that label is removed and function is renamed to it
+  
+  ```java
+  Symbol symbol = symbolTable.getGlobalSymbol("oldLabel", addr);
+  if (symbol != null) {
+      symbolTable.removeSymbolSpecial(symbol);
+  }
+  ```
+</ParamField>
+
+## Namespace Management
+
+### Create Namespaces
+
+<ParamField path="createNameSpace(Namespace parent, String name, SourceType source)" type="Namespace">
+  Creates a new generic namespace.
+  
+  ```java
+  Namespace ns = symbolTable.createNameSpace(
+      null,  // global namespace
+      "MyNamespace",
+      SourceType.USER_DEFINED
+  );
+  ```
+</ParamField>
+
+<ParamField path="createClass(Namespace parent, String name, SourceType source)" type="GhidraClass">
+  Creates a new class namespace.
+  
+  ```java
+  GhidraClass myClass = symbolTable.createClass(
+      null,
+      "MyClass",
+      SourceType.USER_DEFINED
+  );
+  
+  // Add members to the class
+  symbolTable.createLabel(
+      addr("00402000"),
+      "member",
+      myClass,
+      SourceType.USER_DEFINED
+  );
+  ```
+</ParamField>
+
+<ParamField path="createExternalLibrary(String name, SourceType source)" type="Library">
+  Creates a new external library namespace.
+  
+  ```java
+  Library lib = symbolTable.createExternalLibrary(
+      "kernel32.dll",
+      SourceType.IMPORTED
+  );
+  ```
+</ParamField>
+
+### Get Namespaces
+
+<ParamField path="getNamespace(String name, Namespace namespace)" type="Namespace">
+  Returns the namespace with the specified name in the parent namespace.
+</ParamField>
+
+<ParamField path="getNamespace(Address addr)" type="Namespace">
+  Returns the deepest namespace containing the specified address.
+</ParamField>
+
+<ParamField path="getOrCreateNameSpace(Namespace parent, String name, SourceType source)" type="Namespace">
+  Gets or creates a namespace.
+  
+  ```java
+  Namespace ns = symbolTable.getOrCreateNameSpace(
+      null,
+      "Utils",
+      SourceType.USER_DEFINED
+  );
+  ```
+</ParamField>
+
+### Namespace Queries
+
+<ParamField path="getNamespaceSymbol(String name, Namespace namespace)" type="Symbol">
+  Returns the generic namespace symbol.
+</ParamField>
+
+<ParamField path="getClassSymbol(String name, Namespace namespace)" type="Symbol">
+  Returns the class symbol.
+</ParamField>
+
+<ParamField path="getLibrarySymbol(String name)" type="Symbol">
+  Returns the library symbol.
+</ParamField>
+
+<ParamField path="getClassNamespaces()" type="Iterator<GhidraClass>">
+  Returns an iterator over all class namespaces.
+  
+  ```java
+  Iterator<GhidraClass> iter = symbolTable.getClassNamespaces();
+  while (iter.hasNext()) {
+      GhidraClass cls = iter.next();
+      println("Class: " + cls.getName());
+  }
+  ```
+</ParamField>
+
+## External Symbols
+
+<ParamField path="getExternalSymbols()" type="SymbolIterator">
+  Returns all external symbols.
+  
+  ```java
+  SymbolIterator iter = symbolTable.getExternalSymbols();
+  while (iter.hasNext()) {
+      Symbol symbol = iter.next();
+      println("External: " + symbol.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getExternalSymbol(String name)" type="Symbol">
+  Returns the first external symbol with the specified name.
+</ParamField>
+
+<ParamField path="getExternalSymbols(String name)" type="SymbolIterator">
+  Returns all external symbols with the specified name.
+</ParamField>
+
+## Entry Points
+
+<ParamField path="addExternalEntryPoint(Address addr)" type="void">
+  Adds an address to the external entry points.
+  
+  ```java
+  symbolTable.addExternalEntryPoint(addr("00401000"));
+  ```
+</ParamField>
+
+<ParamField path="removeExternalEntryPoint(Address addr)" type="void">
+  Removes an address from the external entry points.
+</ParamField>
+
+<ParamField path="isExternalEntryPoint(Address addr)" type="boolean">
+  Checks if the address is an external entry point.
+  
+  ```java
+  if (symbolTable.isExternalEntryPoint(addr)) {
+      println(addr + " is an entry point");
+  }
+  ```
+</ParamField>
+
+<ParamField path="getExternalEntryPointIterator()" type="AddressIterator">
+  Returns an iterator over all external entry point addresses.
+</ParamField>
+
+## Label History
+
+<ParamField path="getLabelHistory(Address addr)" type="LabelHistory[]">
+  Returns the label history for the specified address.
+  
+  ```java
+  LabelHistory[] history = symbolTable.getLabelHistory(addr);
+  for (LabelHistory h : history) {
+      println(h.getModificationDate() + ": " + h.getLabelString());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getLabelHistory()" type="Iterator<LabelHistory>">
+  Returns an iterator over the complete label history.
+</ParamField>
+
+<ParamField path="hasLabelHistory(Address addr)" type="boolean">
+  Checks if there is label history at the address.
+</ParamField>
+
+## Symbol Queries
+
+<ParamField path="hasSymbol(Address addr)" type="boolean">
+  Checks if any symbol exists at the address.
+  
+  ```java
+  if (symbolTable.hasSymbol(addr)) {
+      Symbol symbol = symbolTable.getPrimarySymbol(addr);
+      println("Symbol: " + symbol.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getNumSymbols()" type="int">
+  Returns the total number of symbols.
+  
+  ```java
+  int numSymbols = symbolTable.getNumSymbols();
+  println("Total symbols: " + numSymbols);
+  ```
+</ParamField>
+
+<ParamField path="getDynamicSymbolID(Address addr)" type="long">
+  Returns the unique symbol ID for a dynamic symbol at the address.
+  
+  <Note>
+    This ID should not be permanently stored as the encoding may change between releases.
+  </Note>
+</ParamField>
+
+## Example Usage
+
+### Creating and Managing Symbols
+
+```java
+public void manageSymbols(Program program) throws Exception {
+    SymbolTable symbolTable = program.getSymbolTable();
+    
+    // Create a label
+    Symbol mainSymbol = symbolTable.createLabel(
+        addr("00401000"),
+        "main",
+        SourceType.USER_DEFINED
+    );
+    
+    // Create a class and add members
+    GhidraClass myClass = symbolTable.createClass(
+        null,
+        "MyClass",
+        SourceType.USER_DEFINED
+    );
+    
+    Symbol method = symbolTable.createLabel(
+        addr("00402000"),
+        "doSomething",
+        myClass,
+        SourceType.USER_DEFINED
+    );
+    
+    println("Created method: " + method.getName(true));
+    // Output: MyClass::doSomething
+}
+```
+
+### Searching for Symbols
+
+```java
+public void findSymbols(Program program) {
+    SymbolTable symbolTable = program.getSymbolTable();
+    
+    // Find all symbols matching a pattern
+    SymbolIterator iter = symbolTable.getSymbolIterator("str*", true);
+    while (iter.hasNext()) {
+        Symbol symbol = iter.next();
+        println(symbol.getName() + " @ " + symbol.getAddress());
+    }
+    
+    // Find all functions
+    SymbolIterator funcIter = symbolTable.getSymbols(
+        program.getMemory(),
+        SymbolType.FUNCTION,
+        true
+    );
+    while (funcIter.hasNext()) {
+        Symbol funcSymbol = funcIter.next();
+        println("Function: " + funcSymbol.getName());
+    }
+}
+```
+
+### Analyzing Symbol Usage
+
+```java
+public void analyzeSymbolReferences(Program program, Address addr) {
+    SymbolTable symbolTable = program.getSymbolTable();
+    ReferenceManager refMgr = program.getReferenceManager();
+    
+    Symbol symbol = symbolTable.getPrimarySymbol(addr);
+    if (symbol != null) {
+        println("Symbol: " + symbol.getName());
+        println("Type: " + symbol.getSymbolType());
+        println("Namespace: " + symbol.getParentNamespace().getName());
+        
+        // Get references TO this symbol
+        Reference[] refs = refMgr.getReferencesTo(addr);
+        println("References to " + symbol.getName() + ": " + refs.length);
+        
+        for (Reference ref : refs) {
+            println("  From: " + ref.getFromAddress());
+        }
+    }
+}
+```
+
+## Package Location
+
+```
+ghidra.program.model.symbol.SymbolTable
+```
+
+## Related Interfaces
+
+- [Symbol](https://ghidra.re/ghidra_docs/api/ghidra/program/model/symbol/Symbol.html) - Symbol operations
+- [Namespace](https://ghidra.re/ghidra_docs/api/ghidra/program/model/symbol/Namespace.html) - Namespace interface
+- [ReferenceManager](https://ghidra.re/ghidra_docs/api/ghidra/program/model/symbol/ReferenceManager.html) - Reference management

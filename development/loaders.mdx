@@ -1,0 +1,759 @@
+---
+title: Loader Development
+description: Create loaders to import and parse custom binary file formats in Ghidra
+---
+
+## What is a Loader?
+
+Loaders enable Ghidra to import and parse binary file formats. They:
+
+- Identify supported file formats
+- Parse file headers and structures
+- Create memory blocks and segments
+- Define entry points and exports
+- Apply relocations and imports
+- Set up initial program metadata
+
+## Loader Interface
+
+All loaders must implement the `Loader` interface:
+
+<Warning>
+**Critical**: Loader class names must end with `Loader` for automatic discovery.
+</Warning>
+
+```java
+package ghidra.app.util.opinion;
+
+public interface Loader extends ExtensionPoint, Comparable<Loader> {
+    Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) 
+        throws IOException;
+    
+    LoadResults load(LoadConfig config, MessageLog log) 
+        throws IOException, CancelledException;
+    
+    String getName();
+    
+    List<Option> getDefaultOptions(ByteProvider provider, 
+        LoadSpec loadSpec, DomainObject domainObject, 
+        boolean loadIntoProgram, boolean mirrorFsLayout);
+    
+    String validateOptions(ByteProvider provider, LoadSpec loadSpec, 
+        List<Option> options, Program program);
+}
+```
+
+## Loader Base Classes
+
+Ghidra provides several base classes:
+
+### AbstractProgramLoader
+
+For format-specific loaders:
+
+```java
+import ghidra.app.util.opinion.AbstractProgramLoader;
+
+public class MyFormatLoader extends AbstractProgramLoader {
+    // Implement abstract methods
+}
+```
+
+### AbstractProgramWrapperLoader
+
+For wrapper formats (compression, containers):
+
+```java
+import ghidra.app.util.opinion.AbstractProgramWrapperLoader;
+
+public class MyWrapperLoader extends AbstractProgramWrapperLoader {
+    // Implement abstract methods
+}
+```
+
+### AbstractLibrarySupportLoader
+
+For formats with library/import support:
+
+```java
+import ghidra.app.util.opinion.AbstractLibrarySupportLoader;
+
+public class MyLibraryLoader extends AbstractLibrarySupportLoader {
+    // Implement abstract methods
+}
+```
+
+## Creating a Basic Loader
+
+```java
+package com.example.loaders;
+
+import ghidra.app.util.Option;
+import ghidra.app.util.bin.ByteProvider;
+import ghidra.app.util.importer.MessageLog;
+import ghidra.app.util.opinion.*;
+import ghidra.framework.model.DomainObject;
+import ghidra.program.model.listing.Program;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
+
+import java.io.IOException;
+import java.util.*;
+
+public class MyFormatLoader extends AbstractProgramWrapperLoader {
+    
+    public static final String MY_FORMAT_NAME = "My Binary Format";
+    
+    @Override
+    public String getName() {
+        return MY_FORMAT_NAME;
+    }
+    
+    @Override
+    public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) 
+            throws IOException {
+        List<LoadSpec> loadSpecs = new ArrayList<>();
+        
+        // Check file signature/magic bytes
+        if (isMyFormat(provider)) {
+            // Add supported architectures
+            loadSpecs.add(new LoadSpec(this, 0, 
+                new LanguageCompilerSpecPair("x86:LE:32:default", "gcc"), 
+                true));
+        }
+        
+        return loadSpecs;
+    }
+    
+    private boolean isMyFormat(ByteProvider provider) throws IOException {
+        // Check magic bytes or other format identifiers
+        byte[] magic = provider.readBytes(0, 4);
+        return (magic[0] == 0x4D && magic[1] == 0x59 && 
+                magic[2] == 0x46 && magic[3] == 0x4D);  // "MYFM"
+    }
+    
+    @Override
+    protected void load(Program program, ImporterSettings settings)
+            throws IOException, CancelledException {
+        
+        ByteProvider provider = settings.provider();
+        TaskMonitor monitor = settings.monitor();
+        MessageLog log = settings.log();
+        
+        monitor.setMessage("Loading " + MY_FORMAT_NAME + "...");
+        
+        // Parse format and create program structure
+        parseHeader(program, provider, log);
+        createMemoryBlocks(program, provider, monitor, log);
+        defineEntryPoint(program, log);
+    }
+    
+    private void parseHeader(Program program, ByteProvider provider, 
+                            MessageLog log) throws IOException {
+        // Read and parse file header
+    }
+    
+    private void createMemoryBlocks(Program program, ByteProvider provider,
+                                   TaskMonitor monitor, MessageLog log) {
+        // Create memory segments
+    }
+    
+    private void defineEntryPoint(Program program, MessageLog log) {
+        // Set program entry point
+    }
+}
+```
+
+## Format Detection
+
+### Magic Bytes
+
+```java
+@Override
+public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider)
+        throws IOException {
+    List<LoadSpec> loadSpecs = new ArrayList<>();
+    
+    // Check file size
+    if (provider.length() < 16) {
+        return loadSpecs;
+    }
+    
+    // Read magic bytes
+    byte[] magic = provider.readBytes(0, 4);
+    if (!isMagicValid(magic)) {
+        return loadSpecs;
+    }
+    
+    // Read architecture indicator
+    int archType = provider.readInt(4);
+    
+    // Determine language spec
+    LanguageCompilerSpecPair langSpec = getLanguageSpec(archType);
+    if (langSpec != null) {
+        loadSpecs.add(new LoadSpec(this, 0, langSpec, true));
+    }
+    
+    return loadSpecs;
+}
+
+private boolean isMagicValid(byte[] magic) {
+    return magic[0] == (byte) 0x7F && 
+           magic[1] == 'E' && 
+           magic[2] == 'L' && 
+           magic[3] == 'F';  // ELF format
+}
+
+private LanguageCompilerSpecPair getLanguageSpec(int archType) {
+    switch (archType) {
+        case 0x03:  // x86
+            return new LanguageCompilerSpecPair("x86:LE:32:default", "gcc");
+        case 0x3E:  // x86-64
+            return new LanguageCompilerSpecPair("x86:LE:64:default", "gcc");
+        case 0x28:  // ARM
+            return new LanguageCompilerSpecPair("ARM:LE:32:v7", "default");
+        default:
+            return null;
+    }
+}
+```
+
+## Creating Memory Blocks
+
+```java
+import ghidra.program.model.address.*;
+import ghidra.program.model.mem.*;
+
+private void createMemoryBlocks(Program program, ByteProvider provider,
+                               TaskMonitor monitor, MessageLog log) 
+                               throws IOException {
+    Memory memory = program.getMemory();
+    AddressFactory addrFactory = program.getAddressFactory();
+    AddressSpace space = addrFactory.getDefaultAddressSpace();
+    
+    int transactionID = program.startTransaction("Create Memory");
+    try {
+        // Create code segment
+        Address codeStart = space.getAddress(0x00401000);
+        MemoryBlock codeBlock = memory.createInitializedBlock(
+            ".text",               // Block name
+            codeStart,             // Start address
+            provider.getInputStream(0x1000),  // Data source
+            0x10000,               // Length
+            monitor,
+            false                  // Don't overlay
+        );
+        codeBlock.setRead(true);
+        codeBlock.setWrite(false);
+        codeBlock.setExecute(true);
+        
+        // Create data segment
+        Address dataStart = space.getAddress(0x00411000);
+        MemoryBlock dataBlock = memory.createInitializedBlock(
+            ".data",
+            dataStart,
+            provider.getInputStream(0x11000),
+            0x1000,
+            monitor,
+            false
+        );
+        dataBlock.setRead(true);
+        dataBlock.setWrite(true);
+        dataBlock.setExecute(false);
+        
+        // Create BSS (uninitialized data)
+        Address bssStart = space.getAddress(0x00412000);
+        MemoryBlock bssBlock = memory.createUninitializedBlock(
+            ".bss",
+            bssStart,
+            0x1000,
+            false
+        );
+        bssBlock.setRead(true);
+        bssBlock.setWrite(true);
+        bssBlock.setExecute(false);
+        
+        program.endTransaction(transactionID, true);
+    }
+    catch (Exception e) {
+        program.endTransaction(transactionID, false);
+        log.appendException(e);
+    }
+}
+```
+
+## Setting Entry Point
+
+```java
+import ghidra.program.model.symbol.*;
+
+private void defineEntryPoint(Program program, MessageLog log) {
+    try {
+        AddressSpace space = program.getAddressFactory().getDefaultAddressSpace();
+        Address entry = space.getAddress(0x00401000);
+        
+        int transactionID = program.startTransaction("Set Entry Point");
+        try {
+            // Add entry point symbol
+            SymbolTable symbolTable = program.getSymbolTable();
+            symbolTable.addExternalEntryPoint(entry);
+            symbolTable.createLabel(entry, "entry", SourceType.IMPORTED);
+            
+            // Set image base
+            program.setImageBase(space.getAddress(0x00400000), true);
+            
+            program.endTransaction(transactionID, true);
+        }
+        catch (Exception e) {
+            program.endTransaction(transactionID, false);
+            log.appendException(e);
+        }
+    }
+    catch (Exception e) {
+        log.appendException(e);
+    }
+}
+```
+
+## Adding Relocations
+
+```java
+import ghidra.program.model.reloc.*;
+
+private void processRelocations(Program program, ByteProvider provider,
+                               MessageLog log) throws IOException {
+    RelocationTable relocTable = program.getRelocationTable();
+    
+    int transactionID = program.startTransaction("Add Relocations");
+    try {
+        // Read relocation entries from file
+        long relocOffset = 0x2000;
+        int relocCount = provider.readInt(relocOffset);
+        
+        for (int i = 0; i < relocCount; i++) {
+            long offset = relocOffset + 4 + (i * 8);
+            int relocAddr = provider.readInt(offset);
+            int relocType = provider.readInt(offset + 4);
+            
+            Address addr = program.getAddressFactory()
+                .getDefaultAddressSpace()
+                .getAddress(relocAddr);
+            
+            relocTable.add(addr, relocType, null, null, null);
+        }
+        
+        program.endTransaction(transactionID, true);
+    }
+    catch (Exception e) {
+        program.endTransaction(transactionID, false);
+        log.appendException(e);
+    }
+}
+```
+
+## Import/Export Tables
+
+```java
+import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.FunctionManager;
+
+private void processExports(Program program, ByteProvider provider,
+                           MessageLog log) throws IOException {
+    SymbolTable symbolTable = program.getSymbolTable();
+    FunctionManager funcMgr = program.getFunctionManager();
+    
+    int transactionID = program.startTransaction("Add Exports");
+    try {
+        // Read export table from file
+        long exportOffset = 0x3000;
+        int exportCount = provider.readInt(exportOffset);
+        
+        for (int i = 0; i < exportCount; i++) {
+            long offset = exportOffset + 4 + (i * 12);
+            int address = provider.readInt(offset);
+            int nameOffset = provider.readInt(offset + 4);
+            
+            // Read function name
+            String name = readString(provider, nameOffset);
+            
+            Address addr = program.getAddressFactory()
+                .getDefaultAddressSpace()
+                .getAddress(address);
+            
+            // Create function and symbol
+            Function func = funcMgr.createFunction(name, addr, 
+                new AddressSet(addr), SourceType.IMPORTED);
+            
+            Symbol symbol = symbolTable.createLabel(addr, name, 
+                SourceType.IMPORTED);
+            symbol.setPrimary();
+        }
+        
+        program.endTransaction(transactionID, true);
+    }
+    catch (Exception e) {
+        program.endTransaction(transactionID, false);
+        log.appendException(e);
+    }
+}
+
+private String readString(ByteProvider provider, long offset) 
+        throws IOException {
+    StringBuilder sb = new StringBuilder();
+    byte b;
+    while ((b = provider.readByte(offset++)) != 0) {
+        sb.append((char) b);
+    }
+    return sb.toString();
+}
+```
+
+## Loader Options
+
+```java
+@Override
+public List<Option> getDefaultOptions(ByteProvider provider, 
+        LoadSpec loadSpec, DomainObject domainObject, 
+        boolean loadIntoProgram, boolean mirrorFsLayout) {
+    
+    List<Option> options = super.getDefaultOptions(provider, loadSpec, 
+        domainObject, loadIntoProgram, mirrorFsLayout);
+    
+    options.add(new Option("Load Debug Symbols", true));
+    options.add(new Option("Apply Relocations", true));
+    options.add(new Option("Base Address", 0x00400000));
+    
+    return options;
+}
+
+@Override
+public String validateOptions(ByteProvider provider, LoadSpec loadSpec,
+        List<Option> options, Program program) {
+    
+    // Validate custom options
+    for (Option option : options) {
+        String name = option.getName();
+        if (name.equals("Base Address")) {
+            long baseAddr = (Long) option.getValue();
+            if (baseAddr < 0 || baseAddr > 0xFFFFFFFFL) {
+                return "Base address must be between 0 and 0xFFFFFFFF";
+            }
+        }
+    }
+    
+    return super.validateOptions(provider, loadSpec, options, program);
+}
+
+// Access options during load
+@Override
+protected void load(Program program, ImporterSettings settings)
+        throws IOException, CancelledException {
+    
+    boolean loadDebugSymbols = settings.getBoolean("Load Debug Symbols");
+    boolean applyRelocations = settings.getBoolean("Apply Relocations");
+    long baseAddress = settings.getLong("Base Address");
+    
+    // Use options in load process
+}
+```
+
+## Binary Parsing Utilities
+
+Ghidra provides utilities for reading binary structures:
+
+```java
+import ghidra.app.util.bin.BinaryReader;
+import ghidra.app.util.bin.ByteProvider;
+import ghidra.app.util.bin.StructConverter;
+import ghidra.program.model.data.*;
+
+public class MyFormatHeader implements StructConverter {
+    
+    private int magic;
+    private int version;
+    private int archType;
+    private int entryPoint;
+    
+    public MyFormatHeader(BinaryReader reader) throws IOException {
+        magic = reader.readNextInt();
+        version = reader.readNextInt();
+        archType = reader.readNextInt();
+        entryPoint = reader.readNextInt();
+    }
+    
+    public boolean isValid() {
+        return magic == 0x4D59464D;  // "MYFM"
+    }
+    
+    @Override
+    public DataType toDataType() {
+        Structure struct = new StructureDataType("MyFormatHeader", 0);
+        struct.add(DWordDataType.dataType, "magic", null);
+        struct.add(DWordDataType.dataType, "version", null);
+        struct.add(DWordDataType.dataType, "archType", null);
+        struct.add(DWordDataType.dataType, "entryPoint", null);
+        return struct;
+    }
+    
+    public int getEntryPoint() {
+        return entryPoint;
+    }
+}
+
+// Usage in loader
+private void parseHeader(Program program, ByteProvider provider,
+                        MessageLog log) throws IOException {
+    BinaryReader reader = new BinaryReader(provider, true);  // little-endian
+    MyFormatHeader header = new MyFormatHeader(reader);
+    
+    if (!header.isValid()) {
+        throw new IOException("Invalid file format");
+    }
+    
+    // Apply header as data type
+    int transactionID = program.startTransaction("Apply Header");
+    try {
+        Address headerAddr = program.getAddressFactory()
+            .getDefaultAddressSpace()
+            .getAddress(0);
+        
+        program.getListing().createData(headerAddr, header.toDataType());
+        program.endTransaction(transactionID, true);
+    }
+    catch (Exception e) {
+        program.endTransaction(transactionID, false);
+        log.appendException(e);
+    }
+}
+```
+
+## Real-World Example: ELF Loader
+
+Based on Ghidra's `ElfLoader`:
+
+```java
+public class ElfLoader extends AbstractLibrarySupportLoader {
+    
+    public static final String ELF_NAME = "Executable and Linking Format (ELF)";
+    
+    @Override
+    public String getName() {
+        return ELF_NAME;
+    }
+    
+    @Override
+    public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider)
+            throws IOException {
+        List<LoadSpec> loadSpecs = new ArrayList<>();
+        
+        if (!ElfHeader.isElfHeader(provider)) {
+            return loadSpecs;
+        }
+        
+        try {
+            ElfHeader elf = ElfHeader.createElfHeader(
+                RethrowContinuesFactory.INSTANCE, provider);
+            elf.parse();
+            
+            List<LanguageCompilerSpecPair> lcsList = 
+                ElfLoaderOptionsFactory.getLanguageCompilerSpecPairs(elf);
+            
+            for (LanguageCompilerSpecPair lcs : lcsList) {
+                loadSpecs.add(new LoadSpec(this, elf.getImageBase(), lcs, true));
+            }
+        }
+        catch (Exception e) {
+            // Not a valid ELF
+        }
+        
+        return loadSpecs;
+    }
+    
+    @Override
+    protected void load(Program program, ImporterSettings settings)
+            throws IOException, CancelledException {
+        
+        ByteProvider provider = settings.provider();
+        TaskMonitor monitor = settings.monitor();
+        MessageLog log = settings.log();
+        
+        monitor.setMessage("Loading ELF...");
+        
+        ElfHeader elf = ElfHeader.createElfHeader(
+            RethrowContinuesFactory.INSTANCE, provider);
+        elf.parse();
+        
+        ElfProgramBuilder.loadElf(elf, program, settings, log, monitor);
+    }
+}
+```
+
+## Testing Loaders
+
+### From Ghidra GUI
+
+1. Launch Ghidra with your loader extension
+2. **File → Import File...**
+3. Select test binary
+4. Verify your loader appears in format list
+5. Select loader and configure options
+6. Click **OK** and verify results
+
+### Headless Testing
+
+```bash
+./analyzeHeadless <project_path> <project_name> \
+  -import <binary> \
+  -loader MyFormatLoader \
+  -postScript VerifyImport.java
+```
+
+## Complete Example
+
+```java
+package com.example.loaders;
+
+import ghidra.app.util.Option;
+import ghidra.app.util.bin.*;
+import ghidra.app.util.importer.MessageLog;
+import ghidra.app.util.opinion.*;
+import ghidra.framework.model.DomainObject;
+import ghidra.program.model.address.*;
+import ghidra.program.model.listing.Program;
+import ghidra.program.model.mem.*;
+import ghidra.program.model.symbol.*;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
+
+import java.io.IOException;
+import java.util.*;
+
+public class SimpleFormatLoader extends AbstractProgramWrapperLoader {
+    
+    public static final String SIMPLE_FORMAT_NAME = "Simple Binary Format";
+    private static final int MAGIC = 0x53494D50;  // "SIMP"
+    
+    @Override
+    public String getName() {
+        return SIMPLE_FORMAT_NAME;
+    }
+    
+    @Override
+    public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider)
+            throws IOException {
+        List<LoadSpec> loadSpecs = new ArrayList<>();
+        
+        if (provider.length() < 16) {
+            return loadSpecs;
+        }
+        
+        BinaryReader reader = new BinaryReader(provider, true);
+        int magic = reader.readInt(0);
+        
+        if (magic == MAGIC) {
+            loadSpecs.add(new LoadSpec(this, 0,
+                new LanguageCompilerSpecPair("x86:LE:32:default", "gcc"),
+                true));
+        }
+        
+        return loadSpecs;
+    }
+    
+    @Override
+    protected void load(Program program, ImporterSettings settings)
+            throws IOException, CancelledException {
+        
+        ByteProvider provider = settings.provider();
+        TaskMonitor monitor = settings.monitor();
+        MessageLog log = settings.log();
+        
+        monitor.setMessage("Loading Simple Binary Format...");
+        
+        BinaryReader reader = new BinaryReader(provider, true);
+        
+        // Read header
+        int magic = reader.readInt(0);
+        int codeOffset = reader.readInt(4);
+        int codeSize = reader.readInt(8);
+        int entryPoint = reader.readInt(12);
+        
+        log.appendMsg("Magic: 0x" + Integer.toHexString(magic));
+        log.appendMsg("Code offset: 0x" + Integer.toHexString(codeOffset));
+        log.appendMsg("Code size: 0x" + Integer.toHexString(codeSize));
+        log.appendMsg("Entry point: 0x" + Integer.toHexString(entryPoint));
+        
+        // Create memory blocks
+        Memory memory = program.getMemory();
+        AddressSpace space = program.getAddressFactory().getDefaultAddressSpace();
+        
+        int transactionID = program.startTransaction("Load Binary");
+        try {
+            // Create code block
+            Address codeAddr = space.getAddress(0x00401000);
+            MemoryBlock codeBlock = memory.createInitializedBlock(
+                ".text",
+                codeAddr,
+                provider.getInputStream(codeOffset),
+                codeSize,
+                monitor,
+                false
+            );
+            codeBlock.setRead(true);
+            codeBlock.setExecute(true);
+            
+            // Set entry point
+            Address entry = codeAddr.add(entryPoint);
+            SymbolTable symbolTable = program.getSymbolTable();
+            symbolTable.addExternalEntryPoint(entry);
+            symbolTable.createLabel(entry, "entry", SourceType.IMPORTED);
+            
+            // Set image base
+            program.setImageBase(space.getAddress(0x00400000), true);
+            
+            program.endTransaction(transactionID, true);
+            log.appendMsg("Load completed successfully");
+        }
+        catch (Exception e) {
+            program.endTransaction(transactionID, false);
+            log.appendException(e);
+            throw new IOException("Load failed", e);
+        }
+    }
+}
+```
+
+## Best Practices
+
+<Check>**Do:**</Check>
+- Validate file format thoroughly
+- Use transactions for all modifications
+- Log meaningful progress messages
+- Handle errors gracefully
+- Provide useful loader options
+- Document file format structure
+- Create appropriate memory block permissions
+
+<Warning>**Don't:**</Warning>
+- Assume file structure is valid
+- Create overlapping memory blocks
+- Forget to set entry points
+- Hardcode addresses (use options)
+- Ignore endianness
+
+## Resources
+
+- Loader examples: `Ghidra/Features/Base/src/main/java/ghidra/app/util/opinion/`
+- Skeleton template: `GhidraBuild/Skeleton/src/main/java/skeleton/SkeletonLoader.java`
+- Binary utilities: `Ghidra/Features/Base/src/main/java/ghidra/app/util/bin/`
+- API docs: [Loader](https://ghidra.re/ghidra_docs/api/ghidra/app/util/opinion/Loader.html)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Analyzer Development" icon="magnifying-glass" href="./analyzers">
+    Build custom analyzers for your format
+  </Card>
+  <Card title="Sleigh Language" icon="code" href="./sleigh">
+    Define processor instruction sets
+  </Card>
+</CardGroup>

@@ -1,0 +1,377 @@
+---
+title: 'Decompiler Usage'
+description: 'Use the Ghidra decompiler to analyze high-level code representations'
+---
+
+## Decompiler Overview
+
+The Ghidra decompiler translates assembly code into high-level C-like pseudocode for easier analysis.
+
+<Note>
+Implemented by the `DecompilePlugin`, the decompiler provides a high-level interpretation of assembly functions with interactive editing capabilities.
+</Note>
+
+## Opening the Decompiler
+
+<Steps>
+  <Step title="Enable Decompiler Window">
+    Access the decompiler view:
+    - `Window` > `Decompiler`
+    - Default: docked on right side
+    - Can float or dock to any location
+  </Step>
+  
+  <Step title="Navigate to Function">
+    The decompiler automatically displays:
+    - Current function at cursor location
+    - Updates when you navigate in listing
+    - Synchronized with Code Browser
+  </Step>
+  
+  <Step title="Wait for Decompilation">
+    Decompilation is performed on-demand:
+    - Brief delay for complex functions
+    - Progress indicator shown
+    - Results cached for performance
+  </Step>
+</Steps>
+
+## Decompiler Interface
+
+### Main Components
+
+<Tabs>
+  <Tab title="Decompiler View">
+    Primary decompiled code display:
+    - C-like pseudocode representation
+    - Syntax highlighting
+    - Line numbers
+    - Collapsible code blocks
+    - Token-based navigation
+  </Tab>
+  
+  <Tab title="Function Signature">
+    Top of decompiled view shows:
+    - Return type
+    - Function name
+    - Parameter list with types
+    - Calling convention
+    - Can be edited directly
+  </Tab>
+  
+  <Tab title="Local Variables">
+    Function-local variables:
+    - Stack variables
+    - Register variables
+    - Temporary values
+    - Renamed for clarity
+  </Tab>
+</Tabs>
+
+## Synchronization with Listing
+
+<Steps>
+  <Step title="Bidirectional Sync">
+    Decompiler and listing stay synchronized:
+    - Click in decompiler → highlights assembly
+    - Click in assembly → highlights decompiled code
+    - Both views track same location
+  </Step>
+  
+  <Step title="Token Highlighting">
+    Clicking tokens highlights:
+    - All uses of the variable/function
+    - Related assembly instructions
+    - Data flow dependencies
+  </Step>
+  
+  <Step title="Cross-Reference Navigation">
+    Follow references from decompiler:
+    - `Enter` on function calls
+    - `Enter` on global variables
+    - Navigation history maintained
+  </Step>
+</Steps>
+
+## Editing in the Decompiler
+
+### Renaming Variables
+
+<Steps>
+  <Step title="Select Variable">
+    Click on variable name in decompiled code
+  </Step>
+  
+  <Step title="Rename Action">
+    - Press `L` for rename
+    - Right-click > `Rename Variable`
+    - Enter new meaningful name
+  </Step>
+  
+  <Step title="Apply Changes">
+    New name appears:
+    - Throughout decompiled function
+    - In assembly as comments
+    - In function signature if parameter
+  </Step>
+</Steps>
+
+### Retyping Variables
+
+<Steps>
+  <Step title="Select Variable">
+    Click on variable to retype
+  </Step>
+  
+  <Step title="Change Type">
+    - Press `Ctrl + L` for retype
+    - Right-click > `Retype Variable`
+    - Choose from Data Type Manager
+  </Step>
+  
+  <Step title="Propagation">
+    Type changes affect:
+    - Variable declaration
+    - Cast expressions
+    - Decompiler output clarity
+    - Structure member access
+  </Step>
+</Steps>
+
+### Function Signature Editing
+
+<Steps>
+  <Step title="Edit Signature">
+    Modify function signature:
+    - Right-click function name > `Edit Function Signature`
+    - Or press `Ctrl + Shift + G` in listing
+  </Step>
+  
+  <Step title="Modify Components">
+    Change signature elements:
+    - Return type
+    - Parameter types and names
+    - Calling convention
+    - Varargs specification
+  </Step>
+  
+  <Step title="Commit Changes">
+    Changes trigger:
+    - Automatic re-decompilation
+    - Updated call sites
+    - Improved type propagation
+  </Step>
+</Steps>
+
+<Tip>
+Use the `ApplyFunctionSignatureCmd` programmatically to set function signatures from scripts.
+</Tip>
+
+## Decompiler Features
+
+### Hover Tooltips
+
+Multiple hover services provide information:
+
+<Tabs>
+  <Tab title="Data Type Hover">
+    Implemented by `DataTypeDecompilerHoverPlugin`:
+    - Shows full type definition
+    - Structure layouts
+    - Typedef resolution
+  </Tab>
+  
+  <Tab title="Function Signature Hover">
+    Implemented by `FunctionSignatureDecompilerHoverPlugin`:
+    - Complete function prototype
+    - Parameter names and types
+    - Return type information
+  </Tab>
+  
+  <Tab title="Reference Hover">
+    Implemented by `ReferenceDecompilerHoverPlugin`:
+    - Shows reference destinations
+    - Address information
+    - Symbol names
+  </Tab>
+  
+  <Tab title="Scalar Value Hover">
+    Implemented by `ScalarValueDecompilerHoverPlugin`:
+    - Displays constant values
+    - Multiple number formats
+    - Character representations
+  </Tab>
+</Tabs>
+
+### Control Flow Visualization
+
+The decompiler shows control structures:
+- **If/Else**: Conditional logic
+- **Loops**: While, for, do-while patterns
+- **Switch**: Case statement detection
+- **Goto**: Remaining unconditional jumps
+
+<Note>
+The decompiler attempts to structure all assembly into high-level constructs, but complex or obfuscated code may still contain goto statements.
+</Note>
+
+## Decompiler Options
+
+### Configuration Settings
+
+<Steps>
+  <Step title="Access Options">
+    Open decompiler options:
+    - `Edit` > `Tool Options` > `Decompiler`
+    - Configure analysis and display
+  </Step>
+  
+  <Step title="Analysis Options">
+    Control decompilation behavior:
+    - Maximum instruction count
+    - Maximum payload bytes
+    - Simplification style
+    - Eliminate unreachable code
+  </Step>
+  
+  <Step title="Display Options">
+    Customize appearance:
+    - Color scheme
+    - Font settings
+    - Line spacing
+    - Brace style (Allman, K&R, etc.)
+  </Step>
+</Steps>
+
+### Language-Specific Settings
+
+Decompiler uses processor specifications:
+- Calling conventions
+- Register usage
+- Stack frame layout
+- Special instructions
+
+<Tip>
+For best results, ensure the correct processor specification and compiler specification are selected for your binary.
+</Tip>
+
+## Working with Complex Code
+
+### Structures and Arrays
+
+<Steps>
+  <Step title="Structure Access">
+    Decompiler shows structure members:
+    - `struct->member` notation
+    - Offset calculations converted to members
+    - Nested structure access
+  </Step>
+  
+  <Step title="Array Indexing">
+    Arrays displayed with brackets:
+    - `array[index]` notation
+    - Multi-dimensional arrays
+    - Pointer arithmetic simplified
+  </Step>
+  
+  <Step title="Type Propagation">
+    Defining types improves output:
+    - Set parameter types
+    - Define global data types
+    - Create custom structures
+    - Decompiler propagates through code
+  </Step>
+</Steps>
+
+### Pointer Analysis
+
+Decompiler handles pointers:
+- Dereference operators (`*ptr`)
+- Address-of operators (`&var`)
+- Pointer arithmetic
+- Multi-level indirection
+
+### Function Pointers
+
+Indirect calls are shown as:
+- Function pointer variables
+- Casts to function types
+- Indirect call notation
+- Virtual function tables
+
+## Advanced Usage
+
+### Creating Disconnected Decompilers
+
+<Steps>
+  <Step title="Open Secondary Decompiler">
+    Create additional decompiler views:
+    - `Window` > `Decompiler` (creates new instance)
+    - Independent navigation
+    - Compare different functions
+  </Step>
+  
+  <Step title="Compare Views">
+    Use multiple decompilers to:
+    - Compare similar functions
+    - Track related code paths
+    - Analyze caller and callee together
+  </Step>
+</Steps>
+
+### Debugging Decompiler Output
+
+If decompilation quality is poor:
+
+<Steps>
+  <Step title="Check Function Boundaries">
+    Ensure function is properly defined:
+    - Correct entry point
+    - All code included
+    - Return statements identified
+  </Step>
+  
+  <Step title="Fix Data Flow">
+    Improve analysis:
+    - Define parameter types
+    - Set return type
+    - Mark no-return functions
+    - Fix incorrect references
+  </Step>
+  
+  <Step title="Adjust Settings">
+    Try different options:
+    - Increase instruction limit
+    - Disable certain optimizations
+    - Change simplification level
+  </Step>
+</Steps>
+
+## Exporting Decompiled Code
+
+<Steps>
+  <Step title="Copy to Clipboard">
+    Copy decompiled code:
+    - Select code in decompiler
+    - `Ctrl + C` to copy
+    - Paste into external editor
+  </Step>
+  
+  <Step title="Export Function">
+    Export single function:
+    - Right-click > `Export to C`
+    - Choose file location
+    - Includes function signature and body
+  </Step>
+  
+  <Step title="Bulk Export">
+    Export multiple functions:
+    - Use `Exporter` from `File` menu
+    - Select C/C++ format
+    - Exports all or selected functions
+  </Step>
+</Steps>
+
+<Tip>
+For the best decompilation results, run full auto-analysis, define function signatures from library information, and create accurate structure definitions.
+</Tip>

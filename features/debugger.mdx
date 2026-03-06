@@ -1,0 +1,259 @@
+---
+title: 'Debugger'
+description: 'Dynamic analysis framework for debugging native applications'
+icon: 'bug'
+---
+
+## Overview
+
+The Ghidra Debugger is a collection of plugins comprising Ghidra's Dynamic Analysis Framework. It provides a platform for connecting to and controlling third-party debuggers, enabling dynamic analysis of native user-mode applications.
+
+<Note>
+Ghidra is not a debugger itself—it relies on existing back-end debuggers (GDB, LLDB, WinDbg) and their APIs, wire protocols, and command-line interfaces.
+</Note>
+
+## Supported Platforms
+
+The debugger officially supports:
+
+- **Linux**: x86-64 and arm64 via GDB
+- **macOS**: x86-64 and Apple Silicon (arm64) via LLDB  
+- **Windows**: x86-64 via Windows Debugger (`dbgeng.dll`)
+
+<Tip>
+While not official, the debugger also supports other platforms through extensible back-end plugins.
+</Tip>
+
+## Core Capabilities
+
+### Trace Recording
+
+Once a target is launched in the back end, the debugger records the target into a **Ghidra Trace database**:
+
+- Logs all observations made by the framework or user
+- Displays target state in real-time in the UI
+- Supports rewinding to view historical machine state
+- Can be saved, loaded, and analyzed after session termination
+- Supports version control via Ghidra Server (no conflict merging)
+
+### Program Mapping
+
+A system of mappings automatically tracks relationships between:
+
+- Imported Ghidra Program databases
+- Modules recorded in traces
+
+<Info>
+Ghidra synchronizes the cursor between dynamic and static listings, making existing static analysis readily available during debugging sessions.
+</Info>
+
+Target memories include more than program images:
+- Stack and heap space
+- Runtime-modified sections (.bss, .data)
+- All observed information is recorded for immediate or offline analysis
+
+## Getting Started
+
+### Launch Configuration
+
+<Steps>
+  <Step title="Open Your Program">
+    Open (or import) your program into the Debugger tool from the Ghidra Project Window.
+  </Step>
+  
+  <Step title="Import Default Tool">
+    If needed, select **Tools → Import Default Tools...** and choose `defaultTools/Debugger.tool`.
+  </Step>
+  
+  <Step title="Launch Target">
+    Click the **Launch** button (bug icon) in the main toolbar.
+  </Step>
+</Steps>
+
+<Warning>
+The file path must point to the executable on your local system. Verify via **Help → About [program]** that the Executable Location is correct.
+</Warning>
+
+### First-Time Setup
+
+The first time you launch a program, you may be asked to:
+1. Select a specific launcher for your platform
+2. Configure launcher-specific options
+
+New launchers can be added by writing shell scripts.
+
+## Key Components
+
+### Terminal Window
+
+Provides command-line access to the native debugger:
+
+- **Linux**: GDB command line interface
+- **macOS**: LLDB command line interface  
+- **Windows**: WinDbg/kd command set
+
+<Tip>
+While basic tasks may not require the CLI, complex scenarios often need debugger-specific commands not implemented in the generic GUI.
+</Tip>
+
+### Model Window
+
+Displays a directory of objects in the debugging session using a structure determined by the back-end plugin. Provides:
+
+- Overview of debugger and target state
+- Useful diagnostic commands
+- Architecture information
+
+### Dynamic Listing
+
+Analogous to the static listing, but displays:
+
+- **Live bytes** from target memory
+- All valid memory including stacks and heaps
+- Real-time disassembly and data types
+- Synchronized cursor with static listing
+
+```java
+// Source: Debugger.html:14-40
+// The listing shows live target state and supports
+// full markup capabilities like the static CodeBrowser
+```
+
+### Control Toolbar
+
+The main toolbar provides standard debugging controls:
+
+<CardGroup cols={3}>
+  <Card title="Resume" icon="play">
+    Continue execution
+  </Card>
+  <Card title="Step" icon="shoe-prints">
+    Step through code
+  </Card>
+  <Card title="Interrupt" icon="pause">
+    Break execution
+  </Card>
+</CardGroup>
+
+Controls apply to the current thread or frame as defined by the back-end's command set.
+
+### Additional Windows
+
+<AccordionGroup>
+  <Accordion title="Breakpoints">
+    Set and manage breakpoints from the Breakpoints window or directly in the Listing.
+  </Accordion>
+  
+  <Accordion title="Registers">
+    View and edit register values for the current thread.
+  </Accordion>
+  
+  <Accordion title="Stack">
+    Inspect the call stack for the selected thread.
+  </Accordion>
+  
+  <Accordion title="Threads">
+    Select and switch between active threads. The selected thread is typically synced with the back-end debugger's active thread.
+  </Accordion>
+  
+  <Accordion title="Debug Console">
+    Central location for activity reporting, errors, and suggested actions. Check here first when troubleshooting.
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Features
+
+### Time Travel Debugging
+
+Navigate through execution history:
+
+- Rewind to previous states during or after a session
+- View recorded machine state at any point in time
+- Analyze execution flow retroactively
+
+### Control Modes
+
+During or after a session:
+
+- **Live Mode**: Interact with running target
+- **Trace History**: Navigate recorded execution
+- **Emulation Mode**: Simulate execution paths
+
+## Back-End Debugger Agents
+
+Ghidra includes multiple debugger agent plugins:
+
+| Agent | Platform | Description |
+|-------|----------|-------------|
+| **Debugger-agent-gdb** | Linux | GDB integration |
+| **Debugger-agent-lldb** | macOS | LLDB integration |
+| **Debugger-agent-dbgeng** | Windows | WinDbg integration |
+| **Debugger-agent-x64dbg** | Windows | x64dbg support |
+| **Debugger-agent-jpda** | JVM | Java debugging |
+| **Debugger-agent-drgn** | Linux | drgn integration |
+
+```bash
+# Source directory structure at:
+# ~/workspace/source/Ghidra/Debug/
+```
+
+## Plugin Categories
+
+Debugger plugins fall into four categories:
+
+1. **Target Manipulation**: Managing connections and interacting with targets
+2. **Trace Manipulation**: Viewing and manipulating trace databases and machine state
+3. **Global Manipulation**: Aggregating information from multiple targets or traces
+4. **Services**: Background plugins that add actions and manage information
+
+## Troubleshooting
+
+<Warning>
+Many actions are taken automatically on the user's behalf (e.g., reading registers when paused). Errors on automatic actions are logged to the Debug Console rather than shown in dialogs.
+</Warning>
+
+### Pay Attention to Errors
+
+If things don't seem right, check:
+
+1. **Debug Console**: Primary location for error messages
+2. **Terminal**: Back-end debugger output
+3. **Application Log**: Ghidra's log file
+
+### Common Issues
+
+- Verify the Debugger package is enabled: **File → Configure → Debugger**
+- Ensure all required plugins begin with "Debugger" or "TraceRmi"
+- Check that the executable path matches the local filesystem
+- Allow time for initialization on some platforms
+
+## Tool Configuration
+
+To verify and configure plugins:
+
+1. Select **File → Configure**
+2. Choose **Configure All Plugins**
+3. Verify all Debugger-related plugins are selected
+4. Adjust window layout via **Window** menu if needed
+
+<Info>
+The default Debugger tool is pre-configured with plugins relevant to both dynamic and static analysis.
+</Info>
+
+## Source Code References
+
+- Main implementation: `~/workspace/source/Ghidra/Debug/Debugger/`
+- Help documentation: `Debugger/src/main/help/help/topics/Debugger/`
+- API framework: `Debugger-api/`
+- Trace modeling: `Framework-TraceModeling/`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Version Tracking" icon="code-compare" href="/features/version-tracking">
+    Compare and track changes across program versions
+  </Card>
+  <Card title="BSim" icon="fingerprint" href="/features/bsim">
+    Search for similar functions using behavioral analysis
+  </Card>
+</CardGroup>

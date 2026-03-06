@@ -1,0 +1,187 @@
+---
+title: 'Interface Overview'
+description: 'Navigate the Ghidra user interface and understand its core components'
+---
+
+## Main Interface Components
+
+Ghidra's CodeBrowser provides a comprehensive reverse engineering environment with multiple coordinated views and tools.
+
+<Note>
+The CodeBrowser is implemented by the `CodeBrowserPlugin` which serves as the primary program listing display window and coordinates with other plugins.
+</Note>
+
+### Primary Windows
+
+<Tabs>
+  <Tab title="Code Browser">
+    The central listing view displays disassembled code, data, and program information:
+    - **Listing Panel**: Main program view with configurable fields
+    - **Header Component**: Allows rearrangement of program fields
+    - **Field Panel**: Displays addresses, bytes, mnemonics, operands, and comments
+    - **Navigation Controls**: Cursor movement and selection tools
+  </Tab>
+  
+  <Tab title="Decompiler">
+    High-level C representation of assembly code:
+    - Implemented by `DecompilePlugin`
+    - Provides decompilation of functions into readable C-like code
+    - Supports syntax highlighting and token navigation
+    - Interactive editing of variables and types
+  </Tab>
+  
+  <Tab title="Symbol Tree">
+    Hierarchical view of program symbols:
+    - Shows all symbols except the global namespace
+    - Tree-based organization of functions, labels, and namespaces
+    - Supports rename, delete, and reorganization operations
+    - Group threshold option for large symbol sets (default: 200)
+  </Tab>
+  
+  <Tab title="Data Type Manager">
+    Manages data types across the program and archives:
+    - Built-in data types
+    - Program-specific data types
+    - Imported archive data types
+    - Category-based organization
+  </Tab>
+</Tabs>
+
+## Workspace Layout
+
+Ghidra uses a docking window system that allows customization of the interface layout.
+
+<Steps>
+  <Step title="Default Layout">
+    By default, Ghidra opens with:
+    - Code Browser (center)
+    - Symbol Tree (left panel)
+    - Decompiler (right panel)
+    - Function Window (bottom)
+  </Step>
+  
+  <Step title="Customize Layout">
+    Drag window tabs to reposition views:
+    - Dock panels to any edge
+    - Create tabbed groups
+    - Float windows as separate dialogs
+    - Save layouts for different workflows
+  </Step>
+  
+  <Step title="Window Management">
+    Access windows via the `Window` menu:
+    - Toggle visibility of any component
+    - Reset to default layout
+    - Create snapshots of connected or disconnected providers
+  </Step>
+</Steps>
+
+## Navigation Features
+
+### Location Tracking
+
+The CodeBrowser tracks your current location and generates events:
+- **ProgramLocation**: Current cursor position in the program
+- **ProgramSelection**: Selected address ranges
+- **ProgramHighlight**: Highlighted regions for emphasis
+
+<Tip>
+The Navigation History Plugin maintains a history of locations you've visited, accessible via back/forward buttons or keyboard shortcuts.
+</Tip>
+
+### Navigation Actions
+
+<Steps>
+  <Step title="Go To Address">
+    Press `G` to open the Go To dialog:
+    - Enter addresses in hexadecimal
+    - Navigate to labels by name
+    - Jump to file offsets
+  </Step>
+  
+  <Step title="Follow References">
+    Double-click or press `Enter` on:
+    - Function calls to jump to function definition
+    - Data references to navigate to data
+    - Cross-references to explore relationships
+  </Step>
+  
+  <Step title="Return Navigation">
+    Use navigation history:
+    - `Alt + Left Arrow`: Go back
+    - `Alt + Right Arrow`: Go forward
+    - Maintains full navigation trail
+  </Step>
+</Steps>
+
+## Context Actions
+
+Right-click context menus provide location-specific actions based on:
+- Current cursor position
+- Selection type (code, data, or undefined)
+- Available context providers
+
+### Action Contexts
+
+Ghidra uses specialized action contexts:
+- `ListingActionContext`: Actions in the listing view
+- `ProgramActionContext`: Program-wide actions
+- `NavigatableActionContext`: Navigation-specific actions
+- `CodeViewerActionContext`: Code viewer operations
+
+## Service Architecture
+
+The CodeBrowser provides services to other plugins:
+
+**Services Provided:**
+- `CodeViewerService`: Extends basic listing functionality
+- `CodeFormatService`: Manages field formatting
+- `FieldMouseHandlerService`: Handles mouse interactions
+
+**Services Required:**
+- `ProgramManager`: Program lifecycle management
+- `GoToService`: Navigation operations
+- `ClipboardService`: Copy/paste functionality
+
+## Field Configuration
+
+Customize the listing display fields:
+
+<Steps>
+  <Step title="Access Field Manager">
+    Right-click on the field header or use `Edit > Tool Options > Listing Fields`
+  </Step>
+  
+  <Step title="Configure Fields">
+    - Add or remove fields
+    - Reorder field display
+    - Adjust field widths
+    - Configure field-specific options
+  </Step>
+  
+  <Step title="Save Configuration">
+    Field configurations are saved with:
+    - Tool configuration (persists across sessions)
+    - Individual program analysis settings
+  </Step>
+</Steps>
+
+## Event System
+
+Ghidra plugins communicate via events:
+
+**Events Consumed:**
+- `ProgramActivatedPluginEvent`: Program becomes active
+- `ProgramClosedPluginEvent`: Program is closed
+- `ProgramLocationPluginEvent`: Location changes
+- `ProgramSelectionPluginEvent`: Selection changes
+- `ProgramHighlightPluginEvent`: Highlight changes
+- `ViewChangedPluginEvent`: View configuration changes
+
+**Events Produced:**
+- `ProgramLocationPluginEvent`: Broadcasts location to other plugins
+- `ProgramSelectionPluginEvent`: Broadcasts selection to other plugins
+
+<Tip>
+Connected providers (the primary CodeBrowser) broadcast events to coordinate all views. Disconnected providers can be created for independent analysis of different program locations.
+</Tip>

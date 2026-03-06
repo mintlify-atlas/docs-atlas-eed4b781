@@ -1,0 +1,413 @@
+---
+title: Plugin Development
+description: Complete guide to developing plugins for Ghidra's extensible architecture
+---
+
+## Overview
+
+Plugins are the fundamental building blocks in Ghidra's architecture. They bundle features or capabilities into units that can be enabled or disabled by users within their Tool. Plugins expose functionality through menu items, toolbar buttons, service APIs, and PluginEvents.
+
+## Plugin Structure
+
+All plugins must extend the `Plugin` base class located in `ghidra.framework.plugintool.Plugin`.
+
+### Well-Formed Plugins
+
+A properly structured plugin must:
+
+- Derive from `Plugin` (directly or indirectly)
+- Have a class name ending with "Plugin" (required for ClassSearcher discovery)
+- Include a `@PluginInfo` annotation
+- Provide a constructor with exactly one parameter: `PluginTool`
+
+```java
+@PluginInfo(
+    category = "MyCategory",
+    description = "Description of what this plugin does",
+    packageName = MyPluginPackage.NAME,
+    shortDescription = "Short description",
+    status = PluginStatus.RELEASED
+)
+public class MyPlugin extends Plugin {
+    
+    public MyPlugin(PluginTool tool) {
+        super(tool);
+        // Plugin initialization code
+    }
+    
+    @Override
+    protected void init() {
+        // Additional initialization after dependencies are met
+    }
+}
+```
+
+## Plugin Lifecycle
+
+Understanding the plugin lifecycle is crucial for proper initialization and cleanup:
+
+### 1. Construction Phase
+
+```java
+public MyPlugin(PluginTool tool) {
+    super(tool);
+    // Base class constructor is called first
+    // Services from @PluginInfo are added to dependency list
+    // Publish services using registerServiceProvided()
+    // Create actions (optional)
+    // Register options (optional)
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:237`
+
+### 2. Dependency Resolution
+
+Other plugins are constructed and dependencies are evaluated. If your plugin's required services are unavailable, `dispose()` is called and the plugin instance is discarded.
+
+### 3. Initialization
+
+```java
+@Override
+protected void init() {
+    // Called when all dependencies are met
+    // Retrieve service implementations via tool.getService(Class)
+    // Create additional actions
+    // Perform other initialization
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:414`
+
+### 4. Configuration Restoration
+
+```java
+@Override
+public void readConfigState(SaveState saveState) {
+    // Restore plugin configuration from tool state
+}
+```
+
+### 5. Active Phase
+
+During normal operation:
+- `processEvent(PluginEvent)` is called for consumed events
+- Action methods are invoked by user interactions
+- Published service methods are called by other plugins
+- Listener methods receive notifications
+
+### 6. Shutdown Phase
+
+```java
+@Override
+public void writeConfigState(SaveState saveState) {
+    // Save plugin configuration to tool state
+}
+
+@Override
+protected void dispose() {
+    // Free resources and perform cleanup
+    // Services and events are de-registered automatically
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:423`
+
+## Service Dependencies
+
+### Declaring Required Services
+
+Use the `@PluginInfo` annotation to declare service dependencies:
+
+```java
+@PluginInfo(
+    servicesRequired = { ClipboardService.class, ProgramManager.class }
+)
+public class MyPlugin extends Plugin {
+    private ClipboardService clipboardService;
+    
+    @Override
+    protected void init() {
+        // Retrieve services after dependencies are met
+        clipboardService = tool.getService(ClipboardService.class);
+    }
+}
+```
+
+### Providing Services
+
+Plugins can provide services to other plugins in two ways:
+
+#### Direct Implementation
+
+```java
+@PluginInfo(
+    servicesProvided = { MyService.class }
+)
+public class MyPlugin extends Plugin implements MyService {
+    // Service methods are automatically registered
+    // Do NOT call registerServiceProvided() for directly implemented services
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:249`
+
+#### Delegated Implementation
+
+```java
+@PluginInfo(
+    servicesProvided = { MyService.class }
+)
+public class MyPlugin extends Plugin {
+    
+    public MyPlugin(PluginTool tool) {
+        super(tool);
+        MyService serviceObj = new MyServiceImpl();
+        registerServiceProvided(MyService.class, serviceObj);
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:637`
+
+<Warning>
+Cyclic dependencies are not allowed. If PluginA requires a service that PluginB provides, and PluginB requires a service that PluginA provides, both plugins will fail to load.
+</Warning>
+
+## Real-World Example: BSimSearchPlugin
+
+Here's an example from Ghidra's BSim feature:
+
+```java
+@PluginInfo(
+    category = "BSim",
+    description = "This plugin allows users to search selected functions against a database " +
+        "of previously analyzed functions and returns a table of similar functions",
+    packageName = BsimPluginPackage.NAME,
+    shortDescription = "Search Bsim database(s) for similar functions",
+    status = PluginStatus.RELEASED
+)
+public class BSimSearchPlugin extends ProgramPlugin {
+    
+    private BSimSearchService searchService;
+    private BSimServerManager serverManager;
+    
+    public BSimSearchPlugin(PluginTool plugintool) {
+        super(plugintool);
+        searchService = new MyBSimSearchService();
+        serverManager = BSimServerManager.getBSimServerManager();
+    }
+    
+    @Override
+    protected void init() {
+        createActions();
+    }
+    
+    private void createActions() {
+        new ActionBuilder("BSim Search Functions", getName())
+            .menuPath("BSim", "Search Functions...")
+            .toolBarIcon(ICON)
+            .enabledWhen(c -> currentProgram != null)
+            .onAction(c -> showSearchDialog(getSelectedFunctions()))
+            .buildAndInstall(tool);
+    }
+    
+    @Override
+    public void dispose() {
+        closeAllProviders();
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Features/BSim/src/main/java/ghidra/features/bsim/gui/BSimSearchPlugin.java:67`
+
+## Creating Actions
+
+Plugins typically provide user interface through actions:
+
+```java
+private void createActions() {
+    // Menu action
+    new ActionBuilder("My Action", getName())
+        .menuPath("Tools", "My Action")
+        .menuGroup("MyGroup")
+        .keyBinding("ctrl M")
+        .helpLocation(new HelpLocation("MyPlugin", "MyAction"))
+        .enabledWhen(c -> someCondition())
+        .onAction(c -> performAction(c))
+        .buildAndInstall(tool);
+    
+    // Toolbar action
+    new ActionBuilder("Toolbar Action", getName())
+        .toolBarIcon(Icons.MY_ICON)
+        .toolBarGroup("View")
+        .description("Action description")
+        .onAction(c -> doSomething())
+        .buildAndInstall(tool);
+}
+```
+
+## Component Providers
+
+Plugins can supply visual components through `ComponentProvider`:
+
+```java
+public class MyProvider extends ComponentProvider {
+    private JComponent component;
+    
+    public MyProvider(PluginTool tool, String owner) {
+        super(tool, "My Provider", owner);
+        buildComponent();
+    }
+    
+    private void buildComponent() {
+        component = new JPanel();
+        // Build UI
+    }
+    
+    @Override
+    public JComponent getComponent() {
+        return component;
+    }
+}
+```
+
+## Options and Configuration
+
+Plugins can register options with the tool:
+
+```java
+@Override
+protected void init() {
+    ToolOptions options = tool.getOptions("MyPlugin");
+    options.registerOption("My Option", true, null, 
+        "Description of this option");
+    
+    boolean value = options.getBoolean("My Option", true);
+}
+```
+
+Implement `OptionsChangeListener` to respond to option changes:
+
+```java
+public class MyPlugin extends Plugin implements OptionsChangeListener {
+    
+    @Override
+    public void optionsChanged(ToolOptions options, String optionName, 
+                               Object oldValue, Object newValue) {
+        if (optionName.equals("My Option")) {
+            // Handle option change
+        }
+    }
+}
+```
+
+## State Management
+
+### Saving Configuration State
+
+```java
+@Override
+public void writeConfigState(SaveState saveState) {
+    saveState.putString("lastFile", lastFile);
+    saveState.putInt("windowWidth", width);
+}
+```
+
+### Restoring Configuration State
+
+```java
+@Override
+public void readConfigState(SaveState saveState) {
+    lastFile = saveState.getString("lastFile", "");
+    width = saveState.getInt("windowWidth", 800);
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Constructor Responsibilities">
+    - Call super constructor first
+    - Register services provided (if delegated)
+    - Do NOT access other services (dependencies may not be met)
+    - Keep initialization lightweight
+  </Accordion>
+
+  <Accordion title="Initialization Responsibilities">
+    - Access required services via `tool.getService()`
+    - Create actions and UI components
+    - Register event listeners
+    - Register options
+  </Accordion>
+
+  <Accordion title="Disposal Responsibilities">
+    - Close any open resources
+    - Remove listeners you manually added
+    - Clean up UI components
+    - Services and events are automatically de-registered
+  </Accordion>
+
+  <Accordion title="Service Design">
+    - Keep service interfaces focused and cohesive
+    - Document service contracts clearly
+    - Consider using `@ServiceInfo` annotation with `defaultProvider`
+    - Multiple plugins can implement the same service interface
+  </Accordion>
+</AccordionGroup>
+
+## Special Plugin Interfaces
+
+### ApplicationLevelPlugin
+
+Marks a plugin as suitable for inclusion in the application-level tool.
+
+### ApplicationLevelOnlyPlugin
+
+Marks a plugin as application-level only, not usable in sub-tools.
+
+### ProgramaticUseOnly
+
+Marks a plugin as special and not for user configuration. These plugins don't need to follow the standard naming convention.
+
+## Common Patterns
+
+### Managing Multiple Domain Objects
+
+```java
+@Override
+protected void programOpened(Program program) {
+    // Handle new program being opened
+}
+
+@Override
+protected void programClosed(Program program) {
+    // Clean up resources for closed program
+}
+
+@Override
+protected void programActivated(Program program) {
+    // Update UI for newly activated program
+}
+```
+
+### Background Tasks
+
+```java
+private void performLongOperation() {
+    Task task = new Task("My Operation", true, true, false) {
+        @Override
+        public void run(TaskMonitor monitor) {
+            // Perform work with progress monitoring
+            monitor.setMessage("Processing...");
+            // ...
+        }
+    };
+    tool.execute(task);
+}
+```
+
+## Related Documentation
+
+- [Services](/api/services) - Service architecture and interfaces
+- [Events](/api/events) - Event system and communication

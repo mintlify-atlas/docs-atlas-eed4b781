@@ -1,0 +1,415 @@
+---
+title: 'Data Type Management'
+description: 'Manage and apply data types in Ghidra programs'
+---
+
+## Data Type Manager Overview
+
+The Data Type Manager provides a centralized system for managing data types across programs and archives.
+
+<Note>
+Implemented by `DataTypeManagerPlugin`, it manages built-in types, program-specific types, and archived type libraries.
+</Note>
+
+## Opening Data Type Manager
+
+<Steps>
+  <Step title="Access the Window">
+    Open the Data Type Manager:
+    - `Window` > `Data Type Manager`
+    - Default: docked on left side
+    - Shows tree view of all types
+  </Step>
+  
+  <Step title="View Available Types">
+    The tree displays:
+    - Built-in types (always available)
+    - Current program types
+    - Open archive files
+    - Categorized organization
+  </Step>
+</Steps>
+
+## Data Type Categories
+
+<Tabs>
+  <Tab title="Built-in Types">
+    Standard primitive types:
+    - `byte`, `word`, `dword`, `qword`
+    - `char`, `short`, `int`, `long`, `long long`
+    - `float`, `double`
+    - `pointer` (architecture-specific size)
+    - `string`, `unicode`
+    - `undefined`, `undefined1`, `undefined2`, etc.
+  </Tab>
+  
+  <Tab title="Program Types">
+    Types defined in current program:
+    - Custom structures
+    - Unions
+    - Enumerations
+    - Typedefs
+    - Function definitions
+    - Organized in categories
+  </Tab>
+  
+  <Tab title="Archive Types">
+    Types from archive files:
+    - Standard library types
+    - Windows API types
+    - Platform-specific types
+    - Shared across programs
+    - Can be imported/exported
+  </Tab>
+</Tabs>
+
+## Creating Data Types
+
+### Creating Structures
+
+<Steps>
+  <Step title="Create New Structure">
+    Start a structure definition:
+    - Right-click category > `New` > `Structure`
+    - Or press `Insert` in Data Type Manager
+    - Name the structure
+  </Step>
+  
+  <Step title="Add Members">
+    Build the structure:
+    - Opens structure editor
+    - Add fields one by one
+    - Set member names and types
+    - Specify field sizes
+  </Step>
+  
+  <Step title="Configure Layout">
+    Adjust structure properties:
+    - Packing alignment
+    - Explicit size
+    - Bit fields
+    - Nested structures
+  </Step>
+</Steps>
+
+<Tip>
+Use the Structure Editor to visualize memory layout and offsets as you build structures.
+</Tip>
+
+### Creating Unions
+
+<Steps>
+  <Step title="Create Union">
+    Define a union type:
+    - Right-click category > `New` > `Union`
+    - Name the union
+  </Step>
+  
+  <Step title="Add Alternatives">
+    Add union members:
+    - Each member starts at offset 0
+    - Different interpretations of same memory
+    - Union size = largest member
+  </Step>
+</Steps>
+
+### Creating Enumerations
+
+<Steps>
+  <Step title="Create Enum">
+    Define an enumeration:
+    - Right-click category > `New` > `Enum`
+    - Name the enumeration
+  </Step>
+  
+  <Step title="Add Values">
+    Define enum constants:
+    - Add named values
+    - Assign numeric values
+    - Sequential or explicit values
+  </Step>
+  
+  <Step title="Apply to Code">
+    Use enums in code:
+    - Apply to integer values
+    - Create equates from enums
+    - Improve code readability
+  </Step>
+</Steps>
+
+### Creating Typedefs
+
+Create type aliases:
+- Right-click type > `Create Typedef`
+- Give meaningful name
+- Use for clarity (e.g., `HANDLE`, `SIZE_T`)
+
+## Applying Data Types
+
+### In the Listing
+
+<Steps>
+  <Step title="Select Location">
+    Position cursor on bytes to type:
+    - Click on address in listing
+    - Select range for arrays
+  </Step>
+  
+  <Step title="Apply Type">
+    Choose data type:
+    - Press `T` for quick chooser
+    - Drag from Data Type Manager
+    - Right-click > `Data` > type name
+  </Step>
+  
+  <Step title="Verify Layout">
+    Check the result:
+    - Type name shown in mnemonic
+    - Structure members displayed
+    - Operands reference members
+  </Step>
+</Steps>
+
+### In Functions
+
+<Steps>
+  <Step title="Function Parameters">
+    Type function parameters:
+    - Edit function signature
+    - Choose parameter types
+    - Name parameters
+  </Step>
+  
+  <Step title="Return Types">
+    Set return type:
+    - Press `T` on function name
+    - Right-click > `Set Return Type`
+    - Choose from type manager
+  </Step>
+  
+  <Step title="Local Variables">
+    Type stack variables:
+    - In decompiler, retype variables
+    - Or edit in Function Editor
+    - Types propagate through analysis
+  </Step>
+</Steps>
+
+<Note>
+Applying correct types dramatically improves decompiler output by enabling proper type propagation.
+</Note>
+
+## Managing Archives
+
+### Opening Archives
+
+<Steps>
+  <Step title="Open Archive File">
+    Load type archive:
+    - `File` > `Open File Archive`
+    - Browse to `.gdt` file
+    - Archive appears in tree
+  </Step>
+  
+  <Step title="Standard Archives">
+    Access built-in archives:
+    - `File` > `Open File Archive` > `Standard Archive`
+    - Includes common libraries:
+      - `windows_vs12_32.gdt`
+      - `generic_clib.gdt`
+      - Platform-specific types
+  </Step>
+</Steps>
+
+### Creating Archives
+
+<Steps>
+  <Step title="New Archive">
+    Create type library:
+    - `File` > `New` > `File Archive`
+    - Name the archive file
+    - Save as `.gdt` format
+  </Step>
+  
+  <Step title="Populate Archive">
+    Add types to archive:
+    - Create types in archive
+    - Copy from program
+    - Import from other archives
+  </Step>
+  
+  <Step title="Save Archive">
+    Persist changes:
+    - Archives auto-save by default
+    - Manual save via right-click
+    - Share across projects
+  </Step>
+</Steps>
+
+### Importing Types
+
+<Steps>
+  <Step title="Copy from Archive">
+    Import into program:
+    - Drag type from archive to program
+    - Right-click > `Copy`
+    - Dependencies auto-imported
+  </Step>
+  
+  <Step title="Associate with Archive">
+    Link to archive:
+    - Types maintain source reference
+    - Can sync with archive updates
+    - Managed via source archive tracking
+  </Step>
+</Steps>
+
+## Editing Data Types
+
+### Structure Editor
+
+<Tabs>
+  <Tab title="Add Members">
+    Add fields to structure:
+    - Click in editor and type
+    - Drag types from manager
+    - Press `Insert` to add row
+  </Tab>
+  
+  <Tab title="Reorder Members">
+    Rearrange fields:
+    - Drag rows to reorder
+    - Changes offsets automatically
+    - Respects packing rules
+  </Tab>
+  
+  <Tab title="Edit Properties">
+    Modify member properties:
+    - Name
+    - Data type
+    - Comment
+    - Array dimensions
+  </Tab>
+  
+  <Tab title="Set Packing">
+    Control alignment:
+    - Default alignment
+    - Explicit packing (1, 2, 4, 8)
+    - Disabled (use explicit offsets)
+  </Tab>
+</Tabs>
+
+### Searching Data Types
+
+Find types quickly:
+
+<Steps>
+  <Step title="Open Search">
+    Access type search:
+    - Click search icon in Data Type Manager
+    - Press `Ctrl + Shift + E`
+  </Step>
+  
+  <Step title="Search Options">
+    Search by:
+    - Name (wildcards supported)
+    - Category
+    - Contains types (structures with specific members)
+  </Step>
+  
+  <Step title="Use Results">
+    Work with found types:
+    - Double-click to edit
+    - Apply to code
+    - View in tree
+  </Step>
+</Steps>
+
+## Advanced Features
+
+### Finding References
+
+<Steps>
+  <Step title="Find Usage">
+    Locate type usage:
+    - Right-click type > `Find References to`
+    - Shows all locations using type
+    - Results in table view
+  </Step>
+  
+  <Step title="Structure Field References">
+    Find field usage:
+    - Right-click field > `Find References to Field`
+    - Implemented by `FindReferencesToStructureFieldAction`
+    - Shows all accesses to specific field
+  </Step>
+</Steps>
+
+### Data Type Conflicts
+
+When importing conflicting types:
+- **Replace**: Overwrites existing type
+- **Rename**: Creates duplicate with new name
+- **Use Existing**: Keeps current type
+
+<Tip>
+Use conflict resolution carefully to avoid breaking existing type references in your program.
+</Tip>
+
+### Source Archive Tracking
+
+Ghidra tracks type origins:
+- Links types to source archives
+- Detects archive updates
+- Allows type synchronization
+- Managed via `UpdateSourceArchiveNamesAction`
+
+## Data Type Organization
+
+### Category Management
+
+<Steps>
+  <Step title="Create Categories">
+    Organize types:
+    - Right-click > `New Category`
+    - Hierarchical organization
+    - Name by purpose or source
+  </Step>
+  
+  <Step title="Move Types">
+    Reorganize:
+    - Drag types between categories
+    - Move entire categories
+    - Maintain clear organization
+  </Step>
+  
+  <Step title="Naming Conventions">
+    Suggested organization:
+    - `/System/` - OS types
+    - `/Library/` - Standard library
+    - `/Custom/` - Project-specific
+    - `/Imported/` - From archives
+  </Step>
+</Steps>
+
+## Exporting Types
+
+<Steps>
+  <Step title="Export to Archive">
+    Save types for reuse:
+    - Select types to export
+    - Right-click > `Export` > `Archive File`
+    - Choose destination `.gdt` file
+  </Step>
+  
+  <Step title="Export to C Header">
+    Generate C declarations:
+    - Select types
+    - Right-click > `Export` > `C Header`
+    - Creates `.h` file with definitions
+  </Step>
+</Steps>
+
+<Tip>
+Regularly export your custom types to archives for backup and sharing with team members.
+</Tip>

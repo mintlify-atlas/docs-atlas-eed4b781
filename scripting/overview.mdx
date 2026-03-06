@@ -1,0 +1,204 @@
+---
+title: Scripting Overview
+description: Comprehensive guide to Ghidra's scripting capabilities
+---
+
+## Introduction
+
+Ghidra provides powerful scripting capabilities that allow you to automate reverse engineering tasks, perform custom analysis, and extend Ghidra's functionality. Scripts can be written in Java or Python and have full access to the Ghidra API.
+
+## Scripting Languages
+
+Ghidra supports multiple scripting environments:
+
+- **Java**: Full-featured scripting using GhidraScript class
+- **Python (Jython)**: Legacy Python 2.7 scripting within Ghidra GUI
+- **Python (PyGhidra)**: Native CPython 3 scripting with full Ghidra API access
+
+## Script Locations
+
+Ghidra looks for scripts in several locations:
+
+1. **User Scripts Directory**: `~/ghidra_scripts/` (customizable)
+2. **System Scripts**: `<GHIDRA_INSTALL>/Ghidra/Features/Base/ghidra_scripts/`
+3. **Custom Script Paths**: Configurable via Script Manager
+
+## Script Manager
+
+The Script Manager (Window → Script Manager) provides:
+
+- Script organization and categorization
+- Quick script search and filtering
+- Script editor integration
+- Keybinding assignments
+- Script execution and debugging
+
+## Execution Environments
+
+### GUI Mode
+
+Run scripts interactively from within Ghidra:
+
+1. Open Script Manager (Window → Script Manager)
+2. Browse or search for your script
+3. Double-click or press the Run button
+4. View output in the Console window
+
+### Headless Mode
+
+Execute scripts in batch processing mode:
+
+```bash
+analyzeHeadless <project_path> <project_name> -process <file> \
+  -postScript MyScript.java arg1 arg2
+```
+
+### PyGhidra Standalone
+
+Run Python scripts outside Ghidra GUI:
+
+```python
+import pyghidra
+pyghidra.start()
+
+with pyghidra.open_program("binary.exe") as flat_api:
+    program = flat_api.getCurrentProgram()
+    # Your analysis here
+```
+
+## Script State Variables
+
+All GhidraScripts have access to these state variables:
+
+- `currentProgram` - The active program
+- `currentAddress` - Current cursor location
+- `currentLocation` - Program location of cursor
+- `currentSelection` - Current address selection (may be null)
+- `currentHighlight` - Current highlight (may be null)
+- `monitor` - TaskMonitor for progress tracking
+
+## Common Use Cases
+
+### Analysis Automation
+
+Automate repetitive analysis tasks:
+- Apply custom signatures
+- Identify code patterns
+- Annotate binaries with metadata
+
+### Data Extraction
+
+Extract information from programs:
+- Export function signatures
+- Extract strings and constants
+- Generate reports
+
+### Custom Analysis
+
+Implement specialized analysis:
+- Protocol parsing
+- Custom decompilation
+- Vulnerability detection
+
+### Batch Processing
+
+Process multiple binaries:
+- Compare programs
+- Apply consistent annotations
+- Generate aggregate reports
+
+## Script Categories
+
+Scripts are organized by category using the `@category` annotation:
+
+```java
+//@category Analysis
+//@category Examples
+//@category Functions
+//@category Symbol
+```
+
+Common categories:
+- **Analysis** - Custom analyzers
+- **Examples** - Tutorial scripts
+- **Functions** - Function-related operations
+- **Symbol** - Symbol manipulation
+- **Data** - Data type operations
+
+## Best Practices
+
+### Error Handling
+
+Always handle exceptions appropriately:
+
+```java
+public void run() throws Exception {
+    if (currentProgram == null) {
+        println("No program is open");
+        return;
+    }
+    
+    try {
+        // Your code here
+    } catch (Exception e) {
+        printerr("Error: " + e.getMessage());
+    }
+}
+```
+
+### Transactions
+
+Wrap program modifications in transactions:
+
+```java
+int txId = currentProgram.startTransaction("My Changes");
+try {
+    // Modify program
+    currentProgram.endTransaction(txId, true);
+} catch (Exception e) {
+    currentProgram.endTransaction(txId, false);
+    throw e;
+}
+```
+
+### Progress Monitoring
+
+Provide user feedback for long operations:
+
+```java
+monitor.initialize(total);
+for (int i = 0; i < total; i++) {
+    if (monitor.isCancelled()) {
+        break;
+    }
+    // Process item
+    monitor.incrementProgress(1);
+}
+```
+
+## Script Development Workflow
+
+1. **Create** - Use Script Manager to create new script from template
+2. **Edit** - Modify script in Eclipse or external editor
+3. **Test** - Run script on sample binary
+4. **Debug** - Use println() or Java debugger
+5. **Refine** - Optimize and add error handling
+6. **Deploy** - Share or use in production workflows
+
+## Resources
+
+- [Java Scripts](/scripting/java-scripts) - Java GhidraScript development
+- [Python Scripts](/scripting/python-scripts) - Jython scripting guide
+- [PyGhidra](/scripting/pyghidra) - Native Python 3 scripting
+- [Headless Analyzer](/scripting/headless) - Batch processing
+
+## Example Scripts
+
+Ghidra includes numerous example scripts demonstrating common tasks:
+
+- `AddCommentToProgramScript.java` - Basic program modification
+- `AskScript.java` - User input dialogs
+- `ExportFunctionInfoScript.java` - Data extraction
+- `AutoRenameLabelsScript.java` - Batch symbol operations
+
+Explore system scripts at: `<GHIDRA_INSTALL>/Ghidra/Features/Base/ghidra_scripts/`

@@ -1,0 +1,455 @@
+---
+title: 'Function Analysis'
+description: 'Create, analyze, and manage functions in Ghidra'
+---
+
+## Function Overview
+
+Functions are fundamental units of code organization in Ghidra, representing callable subroutines with defined entry points, parameters, and return values.
+
+<Note>
+The `FunctionPlugin` provides comprehensive actions for creating, editing, and deleting functions and their variables.
+</Note>
+
+## Creating Functions
+
+### Manual Function Creation
+
+<Steps>
+  <Step title="Position Cursor">
+    Navigate to function entry point:
+    - Place cursor on first instruction
+    - Should be a typical function prologue
+    - Or known entry point from analysis
+  </Step>
+  
+  <Step title="Create Function">
+    Execute create action:
+    - Press `F` key
+    - Right-click > `Function` > `Create Function`
+    - Menu: `Function` > `Create Function`
+  </Step>
+  
+  <Step title="Verify Boundaries">
+    Check function extent:
+    - Ghidra analyzes code flow
+    - Determines function body
+    - Identifies return points
+    - Marks function in Symbol Tree
+  </Step>
+</Steps>
+
+<Tip>
+For best results, ensure the code is properly disassembled before creating functions.
+</Tip>
+
+### Automatic Function Detection
+
+Auto-analysis creates functions automatically:
+- Entry point analysis
+- Call target analysis
+- Pattern-based detection
+- External references
+
+### Creating Multiple Functions
+
+<Steps>
+  <Step title="Select Range">
+    Select addresses for functions:
+    - Highlight multiple entry points
+    - Can span discontinuous ranges
+  </Step>
+  
+  <Step title="Bulk Create">
+    Use `CreateMultipleFunctionsAction`:
+    - Right-click > `Function` > `Create Multiple Functions`
+    - Creates function at each selected address
+    - Useful for function tables
+  </Step>
+</Steps>
+
+## Function Properties
+
+### Function Signature
+
+A complete function signature includes:
+
+<Tabs>
+  <Tab title="Return Type">
+    Function return value:
+    - Data type returned
+    - `void` for no return
+    - Set via `SetReturnDataTypeCmd`
+    - Affects decompiler output
+  </Tab>
+  
+  <Tab title="Parameters">
+    Function arguments:
+    - Parameter types
+    - Parameter names
+    - Storage locations (registers, stack)
+    - Calling convention determines defaults
+  </Tab>
+  
+  <Tab title="Calling Convention">
+    ABI specification:
+    - `__cdecl`, `__stdcall`, `__fastcall`
+    - Platform-specific conventions
+    - Register usage rules
+    - Stack cleanup responsibility
+  </Tab>
+  
+  <Tab title="Attributes">
+    Special properties:
+    - `noreturn` - function never returns
+    - `inline` - inlining hint
+    - `varargs` - variable arguments
+    - Custom attributes
+  </Tab>
+</Tabs>
+
+### Editing Signatures
+
+<Steps>
+  <Step title="Open Editor">
+    Access function signature editor:
+    - Press `Ctrl + Shift + G` on function
+    - Right-click function > `Edit Function Signature`
+    - Double-click in Function Window
+  </Step>
+  
+  <Step title="Modify Components">
+    Edit signature parts:
+    - Change return type via dropdown
+    - Add/remove/reorder parameters
+    - Rename parameters
+    - Set calling convention
+  </Step>
+  
+  <Step title="Apply Changes">
+    Commit modifications:
+    - Click `OK` to apply
+    - Signature updates immediately
+    - Decompiler refreshes
+    - Call sites may update
+  </Step>
+</Steps>
+
+<Note>
+Use `ApplyFunctionSignatureCmd` programmatically to set signatures from scripts or analysis.
+</Note>
+
+## Function Variables
+
+### Variable Types
+
+<Tabs>
+  <Tab title="Parameters">
+    Function inputs:
+    - Passed in registers or stack
+    - Named in signature
+    - Typed for analysis
+    - Accessed in function body
+  </Tab>
+  
+  <Tab title="Local Variables">
+    Stack-based storage:
+    - Allocated in stack frame
+    - Automatic lifetime
+    - Named during analysis
+    - Can be retyped
+  </Tab>
+  
+  <Tab title="Register Variables">
+    Temporary register storage:
+    - Used for computation
+    - May be unnamed
+    - Compiler optimization results
+    - Can be complex to track
+  </Tab>
+</Tabs>
+
+### Renaming Variables
+
+<Steps>
+  <Step title="Select Variable">
+    Find variable to rename:
+    - In decompiler view
+    - Or in function editor
+    - Click on variable name
+  </Step>
+  
+  <Step title="Rename Action">
+    Execute rename:
+    - Press `L` in decompiler
+    - Right-click > `Rename Variable`
+    - Implemented by `EditNameAction`
+  </Step>
+  
+  <Step title="Enter Name">
+    Provide meaningful name:
+    - Descriptive of purpose
+    - Follows naming conventions
+    - Updates throughout function
+  </Step>
+</Steps>
+
+### Retyping Variables
+
+<Steps>
+  <Step title="Select Variable">
+    Choose variable to retype
+  </Step>
+  
+  <Step title="Choose Type">
+    Select new data type:
+    - Press `Ctrl + L` in decompiler
+    - Browse Data Type Manager
+    - Select appropriate type
+  </Step>
+  
+  <Step title="Observe Propagation">
+    Type changes affect:
+    - Variable declaration
+    - Related casts and conversions
+    - Decompiler structure interpretation
+    - Downstream type inference
+  </Step>
+</Steps>
+
+### Variable Comments
+
+<Steps>
+  <Step title="Add Comment">
+    Document variables:
+    - Right-click variable > `Set Comment`
+    - Implemented by `VariableCommentAction`
+    - Appears in function display
+  </Step>
+  
+  <Step title="Delete Comment">
+    Remove documentation:
+    - Right-click > `Delete Comment`
+    - Uses `VariableCommentDeleteAction`
+  </Step>
+</Steps>
+
+## Function Window
+
+View all functions in a table:
+
+<Steps>
+  <Step title="Open Function Window">
+    Access function list:
+    - `Window` > `Functions`
+    - Shows all program functions
+    - Sortable columns
+  </Step>
+  
+  <Step title="Navigate Functions">
+    Use the table:
+    - Click to navigate to function
+    - Sort by name, address, size
+    - Filter functions
+    - Export function list
+  </Step>
+</Steps>
+
+### Table Columns
+
+Function table displays:
+- **Name**: Function symbol name
+- **Location**: Entry point address
+- **Size**: Function body size in bytes
+- **Parameter Count**: Number of parameters
+- **Namespace**: Containing namespace/class
+- **Source**: Analysis source type
+
+## Advanced Function Operations
+
+### Thunk Functions
+
+Thunks are forwarding functions:
+
+<Steps>
+  <Step title="Identify Thunk">
+    Recognize thunk pattern:
+    - Simple jump to another function
+    - No actual logic
+    - Common in import tables
+  </Step>
+  
+  <Step title="Create Thunk">
+    Mark as thunk:
+    - Right-click > `Function` > `Create Thunk Function`
+    - Implemented by `thunkFunctionAction`
+    - Links to target function
+  </Step>
+  
+  <Step title="Edit Thunk">
+    Modify thunk properties:
+    - Use `EditThunkFunctionAction`
+    - Change thunk target
+    - Update calling convention
+  </Step>
+  
+  <Step title="Revert Thunk">
+    Convert back to normal:
+    - `RevertThunkFunctionAction`
+    - Becomes regular function
+    - Body can be analyzed
+  </Step>
+</Steps>
+
+### External Functions
+
+Functions in external libraries:
+
+<Steps>
+  <Step title="Create External Function">
+    Define library function:
+    - Use `CreateExternalFunctionAction`
+    - Specify library name
+    - Set function name
+  </Step>
+  
+  <Step title="Link to Library">
+    Associate with external:
+    - Links to external symbol
+    - Can import signature
+    - Affects call analysis
+  </Step>
+</Steps>
+
+### Function Purge
+
+For stack cleanup (x86 stdcall):
+- Bytes popped by callee
+- Determined by calling convention
+- Affects stack balance analysis
+
+## Function Analysis
+
+### Call Trees
+
+Visualize function relationships:
+
+<Steps>
+  <Step title="View Callers">
+    See what calls this function:
+    - Right-click function > `References` > `Show Call Trees to...`
+    - Tree view of callers
+    - Navigate call hierarchy
+  </Step>
+  
+  <Step title="View Callees">
+    See what this function calls:
+    - Right-click > `References` > `Show Call Trees from...`
+    - Tree of called functions
+    - Analyze dependencies
+  </Step>
+</Steps>
+
+<Tip>
+Use `PrintFunctionCallTreesScript.java` to export call trees for documentation.
+</Tip>
+
+### Stack Frame Analysis
+
+Ghidra analyzes stack usage:
+- Local variable allocation
+- Stack parameter access
+- Saved registers
+- Stack frame size
+
+### Register Analysis
+
+Register usage tracking:
+- Modified registers
+- Parameter registers
+- Return value registers
+- Preserved registers
+
+## Function Tags
+
+Organize functions with tags:
+
+<Steps>
+  <Step title="Create Tags">
+    Define tag categories:
+    - Via `FunctionTagPlugin`
+    - Custom tag names
+    - Color coding
+  </Step>
+  
+  <Step title="Apply Tags">
+    Tag functions:
+    - Right-click function > `Edit Tags`
+    - Select applicable tags
+    - Multiple tags per function
+  </Step>
+  
+  <Step title="Filter by Tags">
+    Find tagged functions:
+    - Filter in Function Window
+    - Group by tag
+    - Analysis organization
+  </Step>
+</Steps>
+
+## Deleting Functions
+
+<Steps>
+  <Step title="Select Function">
+    Position on function to delete:
+    - Cursor in function body
+    - Or select in Symbol Tree
+  </Step>
+  
+  <Step title="Delete Action">
+    Remove function:
+    - Right-click > `Function` > `Delete Function`
+    - Uses `DeleteFunctionAction`
+    - Confirms deletion
+  </Step>
+  
+  <Step title="Cleanup">
+    After deletion:
+    - Code remains disassembled
+    - Function boundary removed
+    - Symbol deleted
+    - Can recreate if needed
+  </Step>
+</Steps>
+
+<Note>
+Deleting a function doesn't delete the code - only the function metadata. The instructions remain in the program.
+</Note>
+
+## Special Function Types
+
+### No-Return Functions
+
+Functions that never return:
+- `exit()`, `abort()`, exception throwers
+- Mark with no-return attribute
+- Affects control flow analysis
+- Use `FixupNoReturnFunctionsScript.java`
+
+### Inline Functions
+
+Marking for inline expansion:
+- Set inline attribute
+- Use `MakeFunctionsInlineVoidScript.java`
+- Affects call graph display
+
+### Variadic Functions
+
+Variable argument count:
+- `printf`, `sprintf`, etc.
+- Mark with varargs attribute
+- Special parameter handling
+
+<Tip>
+Properly marking special function types significantly improves analysis accuracy and decompiler output quality.
+</Tip>

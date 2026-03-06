@@ -1,0 +1,440 @@
+---
+title: Listing API
+description: Interface for creating, deleting, and retrieving code units, instructions, and data
+---
+
+The `Listing` interface provides all the methods needed to create, delete, retrieve, and modify code level constructs including CodeUnits, Instructions, Data, and Functions.
+
+## Overview
+
+The Listing is the central component for working with disassembled code and data. It provides:
+
+- **Code Units** - Instructions, defined data, and undefined data
+- **Instructions** - Disassembled processor instructions
+- **Data** - Typed data elements  
+- **Functions** - Function creation and management
+- **Comments** - Code annotations
+
+## Code Unit Access
+
+### Get Code Units
+
+<ParamField path="getCodeUnitAt(Address addr)" type="CodeUnit">
+  Returns the code unit that starts at the given address.
+  ```java
+  CodeUnit cu = listing.getCodeUnitAt(addr);
+  if (cu != null) {
+      println(cu.getMnemonicString());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getCodeUnitContaining(Address addr)" type="CodeUnit">
+  Returns the code unit that contains the given address.
+  ```java
+  CodeUnit cu = listing.getCodeUnitContaining(addr);
+  ```
+</ParamField>
+
+<ParamField path="getCodeUnitAfter(Address addr)" type="CodeUnit">
+  Returns the next code unit starting after the given address.
+</ParamField>
+
+<ParamField path="getCodeUnitBefore(Address addr)" type="CodeUnit">
+  Returns the previous code unit starting before the given address.
+</ParamField>
+
+### Iterate Code Units
+
+<ParamField path="getCodeUnits(boolean forward)" type="CodeUnitIterator">
+  Returns an iterator over all code units in the program.
+  ```java
+  CodeUnitIterator iter = listing.getCodeUnits(true);
+  while (iter.hasNext()) {
+      CodeUnit cu = iter.next();
+      // Process code unit
+  }
+  ```
+</ParamField>
+
+<ParamField path="getCodeUnits(Address addr, boolean forward)" type="CodeUnitIterator">
+  Returns an iterator starting at the specified address.
+</ParamField>
+
+<ParamField path="getCodeUnits(AddressSetView addrSet, boolean forward)" type="CodeUnitIterator">
+  Returns an iterator over code units within the given address set.
+</ParamField>
+
+## Instruction Access
+
+### Get Instructions
+
+<ParamField path="getInstructionAt(Address addr)" type="Instruction">
+  Returns the instruction that starts at the given address, or null if none exists.
+  ```java
+  Instruction inst = listing.getInstructionAt(addr);
+  if (inst != null) {
+      String mnemonic = inst.getMnemonicString();
+      int numOperands = inst.getNumOperands();
+  }
+  ```
+</ParamField>
+
+<ParamField path="getInstructionContaining(Address addr)" type="Instruction">
+  Returns the instruction that contains the given address.
+</ParamField>
+
+<ParamField path="getInstructionAfter(Address addr)" type="Instruction">
+  Returns the next instruction after the given address.
+</ParamField>
+
+<ParamField path="getInstructionBefore(Address addr)" type="Instruction">
+  Returns the previous instruction before the given address.
+</ParamField>
+
+### Iterate Instructions
+
+<ParamField path="getInstructions(boolean forward)" type="InstructionIterator">
+  Returns an iterator over all instructions in the program.
+  ```java
+  InstructionIterator iter = listing.getInstructions(true);
+  while (iter.hasNext()) {
+      Instruction inst = iter.next();
+      println(inst.getAddress() + ": " + inst);
+  }
+  ```
+</ParamField>
+
+<ParamField path="getInstructions(Address addr, boolean forward)" type="InstructionIterator">
+  Returns an iterator starting at the specified address.
+</ParamField>
+
+<ParamField path="getInstructions(AddressSetView addrSet, boolean forward)" type="InstructionIterator">
+  Returns an iterator over instructions within the given address set.
+</ParamField>
+
+## Data Access
+
+### Get Data
+
+<ParamField path="getDataAt(Address addr)" type="Data">
+  Returns the data (defined or undefined) that starts at the given address.
+  ```java
+  Data data = listing.getDataAt(addr);
+  if (data != null && data.isDefined()) {
+      DataType dt = data.getDataType();
+      println("Data type: " + dt.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getDataContaining(Address addr)" type="Data">
+  Returns the data object that contains the given address.
+</ParamField>
+
+<ParamField path="getDataAfter(Address addr)" type="Data">
+  Returns the next data object after the given address.
+</ParamField>
+
+<ParamField path="getDataBefore(Address addr)" type="Data">
+  Returns the previous data object before the given address.
+</ParamField>
+
+### Get Defined Data
+
+<ParamField path="getDefinedDataAt(Address addr)" type="Data">
+  Returns the defined data that starts at the given address, or null if no defined data exists.
+  ```java
+  Data data = listing.getDefinedDataAt(addr);
+  ```
+</ParamField>
+
+<ParamField path="getDefinedDataContaining(Address addr)" type="Data">
+  Returns the defined data containing the given address.
+</ParamField>
+
+<ParamField path="getDefinedDataAfter(Address addr)" type="Data">
+  Returns the next defined data after the given address.
+</ParamField>
+
+<ParamField path="getDefinedDataBefore(Address addr)" type="Data">
+  Returns the previous defined data before the given address.
+</ParamField>
+
+### Iterate Data
+
+<ParamField path="getData(boolean forward)" type="DataIterator">
+  Returns an iterator over all data (defined and undefined) in the program.
+</ParamField>
+
+<ParamField path="getDefinedData(boolean forward)" type="DataIterator">
+  Returns an iterator over only defined data in the program.
+  ```java
+  DataIterator iter = listing.getDefinedData(true);
+  while (iter.hasNext()) {
+      Data data = iter.next();
+      println(data.getAddress() + ": " + data.getDataType().getName());
+  }
+  ```
+</ParamField>
+
+## Creating Code Units
+
+### Create Instructions
+
+<ParamField path="createInstruction(Address addr, InstructionPrototype prototype, MemBuffer memBuf, ProcessorContextView context, int length)" type="Instruction">
+  Creates a new instruction at the given address.
+  
+  <Warning>
+    Throws CodeUnitInsertionException if the new instruction would overlap an existing CodeUnit.
+  </Warning>
+  
+  ```java
+  // Usually done by the disassembler
+  Instruction inst = listing.createInstruction(addr, prototype, memBuf, context, 0);
+  ```
+</ParamField>
+
+### Create Data
+
+<ParamField path="createData(Address addr, DataType dataType)" type="Data">
+  Creates a new defined data object at the given address.
+  
+  ```java
+  DataTypeManager dtm = program.getDataTypeManager();
+  DataType intType = dtm.getDataType("/BuiltInTypes/int");
+  
+  Data data = listing.createData(addr, intType);
+  println("Created data at " + addr);
+  ```
+</ParamField>
+
+<ParamField path="createData(Address addr, DataType dataType, int length)" type="Data">
+  Creates a new defined data object with a specified length.
+  
+  ```java
+  DataType stringType = new StringDataType();
+  Data data = listing.createData(addr, stringType, 20);
+  ```
+</ParamField>
+
+## Clearing Code Units
+
+<ParamField path="clearCodeUnits(Address startAddr, Address endAddr, boolean clearContext)" type="void">
+  Clears any code units in the given range, returning everything to undefined bytes.
+  
+  ```java
+  // Clear code units from startAddr to endAddr
+  listing.clearCodeUnits(startAddr, endAddr, false);
+  ```
+</ParamField>
+
+<ParamField path="clearCodeUnits(Address startAddr, Address endAddr, boolean clearContext, TaskMonitor monitor)" type="void">
+  Clears code units with cancellation support.
+</ParamField>
+
+<ParamField path="isUndefined(Address start, Address end)" type="boolean">
+  Checks if the given range consists entirely of undefined data.
+</ParamField>
+
+## Comments
+
+### Get Comments
+
+<ParamField path="getComment(CommentType type, Address address)" type="String">
+  Returns the comment of the specified type at the given address.
+  
+  Comment types: EOL, PRE, POST, PLATE, REPEATABLE
+  
+  ```java
+  String comment = listing.getComment(CommentType.EOL, addr);
+  if (comment != null) {
+      println("EOL Comment: " + comment);
+  }
+  ```
+</ParamField>
+
+<ParamField path="getAllComments(Address address)" type="CodeUnitComments">
+  Returns all comments at the given address.
+</ParamField>
+
+### Set Comments
+
+<ParamField path="setComment(Address address, CommentType type, String comment)" type="void">
+  Sets a comment at the specified address.
+  
+  ```java
+  listing.setComment(addr, CommentType.EOL, "This is the entry point");
+  listing.setComment(addr, CommentType.PRE, "Function prologue");
+  ```
+</ParamField>
+
+### Iterate Comments
+
+<ParamField path="getCommentAddressIterator(CommentType type, AddressSetView addrSet, boolean forward)" type="AddressIterator">
+  Returns an iterator over addresses that have the specified comment type.
+  
+  ```java
+  AddressIterator iter = listing.getCommentAddressIterator(
+      CommentType.EOL, 
+      program.getMemory(), 
+      true
+  );
+  while (iter.hasNext()) {
+      Address addr = iter.next();
+      String comment = listing.getComment(CommentType.EOL, addr);
+      println(addr + ": " + comment);
+  }
+  ```
+</ParamField>
+
+## Function Management
+
+### Create Functions
+
+<ParamField path="createFunction(String name, Address entryPoint, AddressSetView body, SourceType source)" type="Function">
+  Creates a function with an entry point and body.
+  
+  ```java
+  AddressSet body = new AddressSet(entryPoint, endAddr);
+  Function func = listing.createFunction(
+      "myFunction",
+      entryPoint,
+      body,
+      SourceType.USER_DEFINED
+  );
+  ```
+</ParamField>
+
+<ParamField path="createFunction(String name, Namespace nameSpace, Address entryPoint, AddressSetView body, SourceType source)" type="Function">
+  Creates a function in the specified namespace.
+</ParamField>
+
+### Get Functions
+
+<ParamField path="getFunctionAt(Address entryPoint)" type="Function">
+  Returns the function at the given entry point.
+  
+  ```java
+  Function func = listing.getFunctionAt(addr);
+  if (func != null) {
+      println("Function: " + func.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getFunctionContaining(Address addr)" type="Function">
+  Returns the function containing the given address.
+</ParamField>
+
+<ParamField path="getGlobalFunctions(String name)" type="List<Function>">
+  Returns all global functions with the given name.
+</ParamField>
+
+### Iterate Functions
+
+<ParamField path="getFunctions(boolean forward)" type="FunctionIterator">
+  Returns an iterator over all functions.
+  
+  ```java
+  FunctionIterator iter = listing.getFunctions(true);
+  while (iter.hasNext()) {
+      Function func = iter.next();
+      println(func.getName() + " @ " + func.getEntryPoint());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getFunctions(AddressSetView asv, boolean forward)" type="FunctionIterator">
+  Returns an iterator over functions with entry points in the address set.
+</ParamField>
+
+### Remove Functions
+
+<ParamField path="removeFunction(Address entryPoint)" type="void">
+  Removes the function at the given entry point.
+  
+  ```java
+  listing.removeFunction(addr);
+  ```
+</ParamField>
+
+## Statistics
+
+<ParamField path="getNumCodeUnits()" type="long">
+  Returns the total number of code units in the listing.
+</ParamField>
+
+<ParamField path="getNumInstructions()" type="long">
+  Returns the total number of instructions in the listing.
+</ParamField>
+
+<ParamField path="getNumDefinedData()" type="long">
+  Returns the total number of defined data objects in the listing.
+</ParamField>
+
+## Example Usage
+
+### Analyzing Instructions
+
+```java
+public void analyzeInstructions(Program program, AddressSet addressSet) {
+    Listing listing = program.getListing();
+    
+    InstructionIterator iter = listing.getInstructions(addressSet, true);
+    while (iter.hasNext()) {
+        Instruction inst = iter.next();
+        
+        // Get instruction details
+        String mnemonic = inst.getMnemonicString();
+        Address addr = inst.getAddress();
+        int length = inst.getLength();
+        
+        println(String.format("%s: %s (len=%d)", addr, mnemonic, length));
+        
+        // Process operands
+        for (int i = 0; i < inst.getNumOperands(); i++) {
+            println("  Op" + i + ": " + inst.getDefaultOperandRepresentation(i));
+        }
+    }
+}
+```
+
+### Working with Data
+
+```java
+public void processData(Program program, Address start, Address end) {
+    Listing listing = program.getListing();
+    DataTypeManager dtm = program.getDataTypeManager();
+    
+    // Create an array of integers
+    DataType intType = dtm.getDataType("/BuiltInTypes/int");
+    ArrayDataType intArray = new ArrayDataType(intType, 10, 4);
+    
+    try {
+        Data data = listing.createData(start, intArray);
+        println("Created array at " + start);
+        
+        // Access array elements
+        for (int i = 0; i < data.getNumComponents(); i++) {
+            Data component = data.getComponent(i);
+            println("Element " + i + ": " + component.getValue());
+        }
+    } catch (CodeUnitInsertionException e) {
+        println("Error creating data: " + e.getMessage());
+    }
+}
+```
+
+## Package Location
+
+```
+ghidra.program.model.listing.Listing
+```
+
+## Related Interfaces
+
+- [Program API](/api/program) - Program access
+- [Memory API](/api/memory) - Memory operations
+- [Symbol Table API](/api/symbol-table) - Symbol management
+- [Data Types API](/api/data-types) - Type definitions

@@ -1,0 +1,510 @@
+---
+title: Services
+description: Understanding Ghidra's service architecture for inter-plugin communication
+---
+
+## Overview
+
+Services provide a powerful mechanism for plugins to expose functionality to other plugins. The service architecture enables loose coupling between plugins while maintaining strong contracts through Java interfaces.
+
+## Service Architecture
+
+The service system is managed by the `ServiceManager` class, which maintains a registry of service interfaces and their implementations.
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/mgr/ServiceManager.java:35`
+
+### Key Components
+
+- **Service Interface**: A Java interface defining the contract
+- **Service Provider**: A plugin implementing the service interface
+- **Service Consumer**: A plugin using the service
+- **ServiceManager**: Manages registration and lookup
+
+## Defining Service Interfaces
+
+Service interfaces are standard Java interfaces with no special requirements:
+
+```java
+package ghidra.app.services;
+
+public interface ClipboardService {
+    void registerClipboardContentProvider(ClipboardContentProviderService service);
+    void deRegisterClipboardContentProvider(ClipboardContentProviderService service);
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Features/Base/src/main/java/ghidra/app/services/ClipboardService.java:18`
+
+### Service Interface Guidelines
+
+<CardGroup cols={2}>
+  <Card title="Keep It Focused" icon="bullseye">
+    Service interfaces should have a single, well-defined responsibility
+  </Card>
+  <Card title="Document Contracts" icon="file-contract">
+    Clearly document method behavior, parameters, and return values
+  </Card>
+  <Card title="Version Carefully" icon="code-branch">
+    Consider backward compatibility when modifying existing services
+  </Card>
+  <Card title="Use Standard Types" icon="cube">
+    Prefer standard types over plugin-specific classes in signatures
+  </Card>
+</CardGroup>
+
+## Service Annotations
+
+### @ServiceInfo
+
+Optionally annotate service interfaces with `@ServiceInfo` to specify metadata:
+
+```java
+@ServiceInfo(
+    defaultProvider = MyServicePlugin.class,
+    description = "Provides clipboard functionality"
+)
+public interface ClipboardService {
+    // Service methods
+}
+```
+
+The `defaultProvider` property specifies which plugin should be auto-loaded when this service is required but no provider is currently loaded.
+
+## Providing Services
+
+Plugins can provide services in two ways:
+
+### Method 1: Direct Implementation
+
+Implement the service interface directly in your plugin class:
+
+```java
+@PluginInfo(
+    category = "Clipboard",
+    servicesProvided = { ClipboardService.class }
+)
+public class ClipboardPlugin extends Plugin implements ClipboardService {
+    
+    public ClipboardPlugin(PluginTool tool) {
+        super(tool);
+        // Service is automatically registered
+    }
+    
+    @Override
+    public void registerClipboardContentProvider(ClipboardContentProviderService service) {
+        // Implementation
+    }
+    
+    @Override
+    public void deRegisterClipboardContentProvider(ClipboardContentProviderService service) {
+        // Implementation
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:249`
+
+<Warning>
+When your plugin directly implements a service interface, do NOT call `registerServiceProvided()` for that service. The framework automatically registers it.
+</Warning>
+
+### Method 2: Delegated Implementation
+
+Delegate service implementation to a separate object:
+
+```java
+@PluginInfo(
+    category = "Analysis",
+    servicesProvided = { AnalysisService.class }
+)
+public class AnalysisPlugin extends Plugin {
+    
+    public AnalysisPlugin(PluginTool tool) {
+        super(tool);
+        
+        // Create service implementation object
+        AnalysisService serviceImpl = new AnalysisServiceImpl(this);
+        
+        // Register the service
+        registerServiceProvided(AnalysisService.class, serviceImpl);
+    }
+}
+
+class AnalysisServiceImpl implements AnalysisService {
+    private final AnalysisPlugin plugin;
+    
+    AnalysisServiceImpl(AnalysisPlugin plugin) {
+        this.plugin = plugin;
+    }
+    
+    // Implement service methods
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:637`
+
+### Dynamic Service Registration
+
+Services can be registered after plugin construction:
+
+```java
+public class MyPlugin extends Plugin {
+    
+    private void enableFeature() {
+        MyService service = new MyServiceImpl();
+        registerDynamicServiceProvided(MyService.class, service);
+    }
+    
+    private void disableFeature() {
+        deregisterService(MyService.class, serviceInstance);
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:648`
+
+## Consuming Services
+
+### Declaring Dependencies
+
+Declare required services in the `@PluginInfo` annotation:
+
+```java
+@PluginInfo(
+    category = "CodeBrowser",
+    servicesRequired = { 
+        ProgramManager.class,
+        ClipboardService.class,
+        NavigationHistoryService.class 
+    }
+)
+public class CodeBrowserPlugin extends Plugin {
+    private ProgramManager programManager;
+    private ClipboardService clipboardService;
+    
+    @Override
+    protected void init() {
+        // Acquire services after dependencies are met
+        programManager = tool.getService(ProgramManager.class);
+        clipboardService = tool.getService(ClipboardService.class);
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:518`
+
+### Retrieving Services
+
+#### Single Implementation
+
+Get the first available implementation:
+
+```java
+@Override
+protected void init() {
+    MyService service = tool.getService(MyService.class);
+    if (service != null) {
+        service.doSomething();
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/mgr/ServiceManager.java:147`
+
+#### Multiple Implementations
+
+Get all available implementations:
+
+```java
+@Override
+protected void init() {
+    MyService[] services = tool.getServices(MyService.class);
+    for (MyService service : services) {
+        service.doSomething();
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/mgr/ServiceManager.java:163`
+
+## Service Lifecycle
+
+### Service Added Notifications
+
+Plugins can respond when services become available:
+
+```java
+public class MyPlugin extends Plugin {
+    
+    @Override
+    public void serviceAdded(Class<?> interfaceClass, Object service) {
+        if (interfaceClass == ProgramManager.class) {
+            // ProgramManager service is now available
+            setupProgramManager((ProgramManager) service);
+        }
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:493`
+
+### Service Removed Notifications
+
+Handle service removal gracefully:
+
+```java
+public class MyPlugin extends Plugin {
+    private ProgramManager programManager;
+    
+    @Override
+    public void serviceRemoved(Class<?> interfaceClass, Object service) {
+        if (interfaceClass == ProgramManager.class) {
+            // ProgramManager service is being removed
+            cleanupProgramManager();
+            programManager = null;
+        }
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:507`
+
+## Dependency Management
+
+### Automatic Dependency Resolution
+
+Ghidra automatically resolves service dependencies:
+
+1. Plugins are constructed in dependency order
+2. Plugins wait for required services to become available
+3. `init()` is called only when all dependencies are met
+4. Plugins fail to load if dependencies cannot be satisfied
+
+### Checking Service Availability
+
+```java
+if (tool.isService(ProgramManager.class)) {
+    ProgramManager pm = tool.getService(ProgramManager.class);
+    // Use the service
+}
+```
+
+### Optional Dependencies
+
+For optional services, don't declare them in `servicesRequired`:
+
+```java
+@Override
+protected void init() {
+    // Optional service - may be null
+    OptionalService service = tool.getService(OptionalService.class);
+    if (service != null) {
+        enableOptionalFeature(service);
+    }
+}
+```
+
+## Common Service Patterns
+
+### Singleton Services
+
+Most services have a single provider:
+
+```java
+@PluginInfo(
+    servicesProvided = { ProgramManager.class }
+)
+public class ProgramManagerPlugin extends Plugin implements ProgramManager {
+    // Single instance provides the service
+}
+```
+
+### Multiple Provider Services
+
+Some services allow multiple providers:
+
+```java
+// Multiple plugins can provide ContentTypeService
+@PluginInfo(
+    servicesProvided = { ContentTypeService.class }
+)
+public class PdfTypePlugin extends Plugin implements ContentTypeService {
+    // Provides PDF content type support
+}
+
+@PluginInfo(
+    servicesProvided = { ContentTypeService.class }
+)
+public class ImageTypePlugin extends Plugin implements ContentTypeService {
+    // Provides image content type support
+}
+```
+
+Consumers can get all providers:
+
+```java
+ContentTypeService[] providers = tool.getServices(ContentTypeService.class);
+for (ContentTypeService provider : providers) {
+    if (provider.canHandle(file)) {
+        provider.process(file);
+    }
+}
+```
+
+### Layered Services
+
+Services can depend on other services:
+
+```java
+@PluginInfo(
+    servicesRequired = { DataTypeManagerService.class },
+    servicesProvided = { DataTypeAnalysisService.class }
+)
+public class DataTypeAnalysisPlugin extends Plugin 
+        implements DataTypeAnalysisService {
+    
+    private DataTypeManagerService dtmService;
+    
+    @Override
+    protected void init() {
+        dtmService = tool.getService(DataTypeManagerService.class);
+    }
+    
+    @Override
+    public void analyzeDataTypes(Program program) {
+        // Use dtmService to perform analysis
+    }
+}
+```
+
+## Service Best Practices
+
+<AccordionGroup>
+  <Accordion title="Interface Segregation">
+    Keep service interfaces focused. If a service has multiple responsibilities, consider splitting it into multiple services.
+    
+    ```java
+    // Good - focused interfaces
+    interface SearchService { /* search methods */ }
+    interface IndexService { /* indexing methods */ }
+    
+    // Avoid - mixed responsibilities
+    interface SearchAndIndexService { /* both */ }
+    ```
+  </Accordion>
+
+  <Accordion title="Null Safety">
+    Always check for null when retrieving services that aren't required dependencies.
+    
+    ```java
+    OptionalService service = tool.getService(OptionalService.class);
+    if (service != null) {
+        service.doWork();
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Thread Safety">
+    Service methods may be called from multiple threads. Design services to be thread-safe or document threading requirements.
+    
+    ```java
+    public class ThreadSafeService implements MyService {
+        private final Object lock = new Object();
+        
+        @Override
+        public void doWork() {
+            synchronized (lock) {
+                // Thread-safe implementation
+            }
+        }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Error Handling">
+    Document and handle errors appropriately in service methods.
+    
+    ```java
+    /**
+     * Processes the given data.
+     * @param data the data to process
+     * @throws IllegalArgumentException if data is invalid
+     * @throws IOException if processing fails
+     */
+    void processData(Data data) throws IOException;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## ServiceManager API
+
+The `ServiceManager` class provides the core service registry functionality:
+
+```java
+public class ServiceManager {
+    // Add a service to the registry
+    public <T> void addService(Class<? extends T> interfaceClass, T service);
+    
+    // Remove a service from the registry
+    public void removeService(Class<?> interfaceClass, Object service);
+    
+    // Get first service implementation
+    public <T> T getService(Class<T> interfaceClass);
+    
+    // Get all service implementations
+    public <T> T[] getServices(Class<T> interfaceClass);
+    
+    // Check if service exists
+    public boolean isService(Class<?> serviceInterface);
+    
+    // Add/remove service listeners
+    public void addServiceListener(ServiceListener listener);
+    public void removeServiceListener(ServiceListener listener);
+}
+```
+
+## Common Services in Ghidra
+
+Here are some frequently used services:
+
+| Service | Description |
+|---------|-------------|
+| `ProgramManager` | Manages open programs and program state |
+| `ClipboardService` | Provides clipboard operations |
+| `NavigationHistoryService` | Manages navigation history |
+| `GoToService` | Handles navigation to addresses |
+| `CodeViewerService` | Provides code listing views |
+| `DataTypeManagerService` | Manages data types |
+| `BookmarkService` | Manages program bookmarks |
+| `ConsoleService` | Provides console output |
+
+## Troubleshooting
+
+### Plugin Won't Load
+
+If your plugin fails to load due to missing services:
+
+1. Check the `servicesRequired` in `@PluginInfo`
+2. Verify the required service plugins are installed
+3. Check for circular dependencies
+4. Review the application log for specific errors
+
+### Service Returns Null
+
+```java
+// Check if service is required but missing
+MyService service = tool.getService(MyService.class);
+if (service == null) {
+    Msg.warn(this, "MyService is not available");
+    return;
+}
+```
+
+### Multiple Service Providers
+
+When multiple plugins provide the same service, `getService()` returns an arbitrary one. Use `getServices()` to get all providers.
+
+## Related Documentation
+
+- [Plugin Development](/api/plugin-development) - Plugin lifecycle and structure
+- [Events](/api/events) - Event-based communication between plugins

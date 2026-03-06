@@ -1,0 +1,873 @@
+---
+title: ReferenceManager API
+description: API reference for managing references in Ghidra programs
+---
+
+## Overview
+
+The ReferenceManager interface provides methods for creating, retrieving, and managing references between code units in a Ghidra program. References include memory references, stack references, register references, and external references.
+
+## Interface
+
+**Package:** `ghidra.program.model.symbol`  
+**Location:** `Ghidra/Framework/SoftwareModeling/src/main/java/ghidra/program/model/symbol/ReferenceManager.java`
+
+```java
+public interface ReferenceManager
+```
+
+## Constants
+
+### MNEMONIC
+
+Operand index which corresponds to the instruction/data mnemonic.
+
+```java
+public static final int MNEMONIC = Reference.MNEMONIC;
+```
+
+## Adding References
+
+### addReference()
+
+Adds a memory, stack, register, or external reference.
+
+```java
+public Reference addReference(Reference reference);
+```
+
+**Parameters:**
+- `reference` - Reference to be added
+
+**Returns:** New reference
+
+---
+
+### addMemoryReference()
+
+Adds a memory reference. The first memory reference on an operand becomes primary by default.
+
+```java
+public Reference addMemoryReference(Address fromAddr, Address toAddr, RefType type,
+        SourceType source, int opIndex);
+```
+
+**Parameters:**
+- `fromAddr` - Address of the code unit where the reference occurs
+- `toAddr` - Address of the location being referenced (memory, stack, or register)
+- `type` - Reference type (how the location is being referenced)
+- `source` - The source of this reference (e.g., `SourceType.USER_DEFINED`, `SourceType.ANALYSIS`)
+- `opIndex` - The operand index
+
+**Returns:** New memory reference
+
+**Throws:** `IllegalArgumentException` if unsupported RefType is specified
+
+<Note>
+All non-memory references will be removed from the specified operand.
+</Note>
+
+---
+
+### addOffsetMemReference()
+
+Adds an offset memory reference.
+
+```java
+public Reference addOffsetMemReference(Address fromAddr, Address toAddr, boolean toAddrIsBase,
+        long offset, RefType type, SourceType source, int opIndex);
+```
+
+**Parameters:**
+- `fromAddr` - Address for the "from" location
+- `toAddr` - Address of the location being referenced
+- `toAddrIsBase` - If true, toAddr is treated as base address; else treated as (base+offset)
+- `offset` - Value added to a base address to get the toAddr
+- `type` - Reference type
+- `source` - The source of this reference
+- `opIndex` - The operand index
+
+**Returns:** New offset reference
+
+---
+
+### addShiftedMemReference()
+
+Adds a shifted memory reference where the "to" address is computed as a value shifted by some number of bits.
+
+```java
+public Reference addShiftedMemReference(Address fromAddr, Address toAddr, int shiftValue,
+        RefType type, SourceType source, int opIndex);
+```
+
+**Parameters:**
+- `fromAddr` - Source/from memory address
+- `toAddr` - Destination/to memory address
+- `shiftValue` - Number of bits to shift
+- `type` - Reference type
+- `source` - The source of this reference
+- `opIndex` - The operand index
+
+**Returns:** New shifted reference
+
+---
+
+### addStackReference()
+
+Adds a reference to a stack location.
+
+```java
+public Reference addStackReference(Address fromAddr, int opIndex, int stackOffset, RefType type,
+        SourceType source);
+```
+
+**Parameters:**
+- `fromAddr` - "From" address within a function
+- `opIndex` - Operand index
+- `stackOffset` - Stack offset of the reference
+- `type` - Reference type
+- `source` - The source of this reference
+
+**Returns:** New stack reference
+
+<Note>
+If a reference already exists for the fromAddr and opIndex, it will be replaced.
+</Note>
+
+---
+
+### addRegisterReference()
+
+Adds a reference to a register.
+
+```java
+public Reference addRegisterReference(Address fromAddr, int opIndex, Register register,
+        RefType type, SourceType source);
+```
+
+**Parameters:**
+- `fromAddr` - "From" address
+- `opIndex` - Operand index
+- `register` - Register to add the reference to
+- `type` - Reference type
+- `source` - The source of this reference
+
+**Returns:** New register reference
+
+---
+
+### addExternalReference() - By Library Name
+
+Adds an external reference to an external symbol by library name.
+
+```java
+public Reference addExternalReference(Address fromAddr, String libraryName, String extLabel,
+        Address extAddr, SourceType source, int opIndex, RefType type)
+        throws InvalidInputException, DuplicateNameException;
+```
+
+**Parameters:**
+- `fromAddr` - From memory address (source of the reference)
+- `libraryName` - Name of external program
+- `extLabel` - Label within the external program (may be null if extAddr is not null)
+- `extAddr` - Memory address within the external program (may be null)
+- `source` - The source of this reference
+- `opIndex` - Operand index
+- `type` - Reference type
+
+**Returns:** New external space reference
+
+**Throws:**
+- `InvalidInputException` - If libraryName is invalid or null, or invalid extLabel specified
+- `DuplicateNameException` - If another non-Library namespace has the same name
+- `IllegalArgumentException` - If invalid extAddr was specified
+
+---
+
+### addExternalReference() - By Namespace
+
+Adds an external reference using an external namespace.
+
+```java
+public Reference addExternalReference(Address fromAddr, Namespace extNamespace, String extLabel,
+        Address extAddr, SourceType source, int opIndex, RefType type)
+        throws InvalidInputException, DuplicateNameException;
+```
+
+**Parameters:**
+- `fromAddr` - From memory address
+- `extNamespace` - External namespace containing the named external label
+- `extLabel` - Label within the external program (may be null if extAddr is not null)
+- `extAddr` - Address within the external program (may be null)
+- `source` - The source of this reference
+- `opIndex` - Operand index
+- `type` - Reference type
+
+**Returns:** New external space reference
+
+**Throws:**
+- `InvalidInputException` - If invalid extLabel specified
+- `DuplicateNameException` - If another non-Library namespace has the same name
+- `IllegalArgumentException` - If invalid extAddr was specified
+
+---
+
+### addExternalReference() - By External Location
+
+Adds an external reference using an ExternalLocation object.
+
+```java
+public Reference addExternalReference(Address fromAddr, int opIndex, ExternalLocation location,
+        SourceType source, RefType type) throws InvalidInputException;
+```
+
+**Parameters:**
+- `fromAddr` - From memory address
+- `opIndex` - Operand index
+- `location` - External location
+- `source` - The source of this reference
+- `type` - Reference type
+
+**Returns:** External reference
+
+**Throws:** `InvalidInputException` if the input is invalid
+
+---
+
+## Removing References
+
+### removeAllReferencesFrom() - Address Range
+
+Removes all references where "from address" is in the given range.
+
+```java
+public void removeAllReferencesFrom(Address beginAddr, Address endAddr);
+```
+
+**Parameters:**
+- `beginAddr` - The first address in the range
+- `endAddr` - The last address in the range
+
+---
+
+### removeAllReferencesFrom() - Single Address
+
+Removes all stack, external, and memory references from the given address.
+
+```java
+public void removeAllReferencesFrom(Address fromAddr);
+```
+
+**Parameters:**
+- `fromAddr` - The address of the code unit from which to remove all references
+
+---
+
+### removeAllReferencesTo()
+
+Removes all stack, external, and memory references to the given address.
+
+```java
+public void removeAllReferencesTo(Address toAddr);
+```
+
+**Parameters:**
+- `toAddr` - The address for which all references to should be removed
+
+---
+
+### delete()
+
+Deletes the given reference object.
+
+```java
+public void delete(Reference ref);
+```
+
+**Parameters:**
+- `ref` - The reference to be deleted
+
+---
+
+## Retrieving References
+
+### getReference()
+
+Returns the reference with the given from and to addresses and operand index.
+
+```java
+public Reference getReference(Address fromAddr, Address toAddr, int opIndex);
+```
+
+**Parameters:**
+- `fromAddr` - The address of the code unit making the reference
+- `toAddr` - The address being referred to
+- `opIndex` - The operand index
+
+**Returns:** Reference which satisfies the criteria or null
+
+---
+
+### getReferencesFrom() - All References
+
+Returns all references "from" the specified address.
+
+```java
+public Reference[] getReferencesFrom(Address addr);
+```
+
+**Parameters:**
+- `addr` - Address of code-unit making the references
+
+**Returns:** Array of all references "from" the specified address
+
+---
+
+### getReferencesFrom() - By Operand
+
+Returns all references "from" the given fromAddr and operand.
+
+```java
+public Reference[] getReferencesFrom(Address fromAddr, int opIndex);
+```
+
+**Parameters:**
+- `fromAddr` - The address from which to get references
+- `opIndex` - The operand from which to get references
+
+**Returns:** All references from the given fromAddr and operand
+
+---
+
+### getReferencesTo() - Address
+
+Returns an iterator over all references that have the given address as their "to" address.
+
+```java
+public ReferenceIterator getReferencesTo(Address addr);
+```
+
+**Parameters:**
+- `addr` - The address that all references in the iterator refer to
+
+**Returns:** Reference iterator over all references to the specified address
+
+---
+
+### getReferencesTo() - Variable
+
+Returns all references to the given variable.
+
+```java
+public Reference[] getReferencesTo(Variable var);
+```
+
+**Parameters:**
+- `var` - Variable to retrieve references to
+
+**Returns:** Array of variable references, or zero-length array if no references exist
+
+<Note>
+Only data references to storage are considered.
+</Note>
+
+---
+
+### getFlowReferencesFrom()
+
+Returns all flow references from the given address.
+
+```java
+public Reference[] getFlowReferencesFrom(Address addr);
+```
+
+**Parameters:**
+- `addr` - The address of the code unit to get all flows from
+
+**Returns:** All flow references from the given address
+
+---
+
+### getExternalReferences()
+
+Returns an iterator over all external space references.
+
+```java
+public ReferenceIterator getExternalReferences();
+```
+
+**Returns:** Reference iterator over all external space references
+
+---
+
+### getPrimaryReferenceFrom()
+
+Returns the primary reference from the given address and operand index.
+
+```java
+public Reference getPrimaryReferenceFrom(Address addr, int opIndex);
+```
+
+**Parameters:**
+- `addr` - From address
+- `opIndex` - Operand index
+
+**Returns:** The primary reference from the specified address and opIndex, or null
+
+---
+
+## Reference Iterators
+
+### getReferenceIterator()
+
+Returns a forward iterator over references starting with the specified fromAddr.
+
+```java
+public ReferenceIterator getReferenceIterator(Address startAddr);
+```
+
+**Parameters:**
+- `startAddr` - The first from address to consider
+
+**Returns:** A forward memory reference iterator
+
+---
+
+### getReferenceSourceIterator() - Starting Address
+
+Returns an iterator over addresses that are the "from" address in a reference.
+
+```java
+public AddressIterator getReferenceSourceIterator(Address startAddr, boolean forward);
+```
+
+**Parameters:**
+- `startAddr` - Address to position iterator
+- `forward` - `true` to iterate in forward direction
+
+**Returns:** Address iterator where references from exist
+
+---
+
+### getReferenceSourceIterator() - Address Set
+
+Returns an iterator over "from" addresses restricted by the given address set.
+
+```java
+public AddressIterator getReferenceSourceIterator(AddressSetView addrSet, boolean forward);
+```
+
+**Parameters:**
+- `addrSet` - The set of addresses to restrict the iterator (or null for all addresses)
+- `forward` - `true` to iterate in forward direction
+
+**Returns:** Address iterator where references from exist constrained by addrSet
+
+---
+
+### getReferenceDestinationIterator() - Starting Address
+
+Returns an iterator over addresses that are the "to" address in a reference.
+
+```java
+public AddressIterator getReferenceDestinationIterator(Address startAddr, boolean forward);
+```
+
+**Parameters:**
+- `startAddr` - Start of iterator
+- `forward` - `true` to iterate in forward direction
+
+**Returns:** Address iterator where references to exist
+
+---
+
+### getReferenceDestinationIterator() - Address Set
+
+Returns an iterator over "to" addresses restricted by the given address set.
+
+```java
+public AddressIterator getReferenceDestinationIterator(AddressSetView addrSet, boolean forward);
+```
+
+**Parameters:**
+- `addrSet` - The set of addresses to restrict the iterator (or null for all addresses)
+- `forward` - `true` to iterate in forward direction
+
+**Returns:** Address iterator where references to exist constrained by addrSet
+
+---
+
+## Query Methods
+
+### hasReferencesFrom() - By Operand
+
+Checks if there are any memory references at the given address and operand index.
+
+```java
+public boolean hasReferencesFrom(Address fromAddr, int opIndex);
+```
+
+**Parameters:**
+- `fromAddr` - The address of the code unit being tested
+- `opIndex` - The index of the operand being tested
+
+**Returns:** `true` if one or more references are defined
+
+<Note>
+This is a rather inefficient method as it must examine all references from the specified fromAddr.
+</Note>
+
+---
+
+### hasReferencesFrom() - Address
+
+Checks if there are any memory references at the given address.
+
+```java
+public boolean hasReferencesFrom(Address fromAddr);
+```
+
+**Parameters:**
+- `fromAddr` - The address of the code unit being tested
+
+**Returns:** `true` if one or more references are defined
+
+---
+
+### hasReferencesTo()
+
+Checks if a memory reference exists with the given "to" address.
+
+```java
+public boolean hasReferencesTo(Address toAddr);
+```
+
+**Parameters:**
+- `toAddr` - Address being referred to
+
+**Returns:** `true` if specified toAddr has one or more references to it
+
+---
+
+### hasFlowReferencesFrom()
+
+Checks if the given address has flow references from it.
+
+```java
+public boolean hasFlowReferencesFrom(Address addr);
+```
+
+**Parameters:**
+- `addr` - The address to test for flow references
+
+**Returns:** `true` if the address has flow references from it
+
+---
+
+## Reference Counts
+
+### getReferenceCountTo()
+
+Returns the number of references to the specified address.
+
+```java
+public int getReferenceCountTo(Address toAddr);
+```
+
+**Parameters:**
+- `toAddr` - The address being referenced
+
+**Returns:** The number of references to the specified address
+
+---
+
+### getReferenceCountFrom()
+
+Returns the number of references from the specified address.
+
+```java
+public int getReferenceCountFrom(Address fromAddr);
+```
+
+**Parameters:**
+- `fromAddr` - The address of the code unit making the reference
+
+**Returns:** The number of references from the specified address
+
+---
+
+### getReferenceDestinationCount()
+
+Returns the number of references for "to" addresses.
+
+```java
+public int getReferenceDestinationCount();
+```
+
+**Returns:** The total number of reference destinations
+
+---
+
+### getReferenceSourceCount()
+
+Returns the number of references for "from" addresses.
+
+```java
+public int getReferenceSourceCount();
+```
+
+**Returns:** The total number of reference sources
+
+---
+
+## Modifying References
+
+### setPrimary()
+
+Sets the reference's primary attribute.
+
+```java
+public void setPrimary(Reference ref, boolean isPrimary);
+```
+
+**Parameters:**
+- `ref` - The reference to modify
+- `isPrimary` - `true` to make the reference primary, `false` to make it non-primary
+
+---
+
+### updateRefType()
+
+Updates the reference type on a memory reference.
+
+```java
+public Reference updateRefType(Reference ref, RefType refType);
+```
+
+**Parameters:**
+- `ref` - Reference to be updated
+- `refType` - New reference type
+
+**Returns:** Updated reference
+
+---
+
+### setAssociation()
+
+Associates the given reference with the given symbol.
+
+```java
+public void setAssociation(Symbol s, Reference ref);
+```
+
+**Parameters:**
+- `s` - The symbol to associate with the given reference
+- `ref` - The reference to associate with the given symbol
+
+**Throws:** `IllegalArgumentException` if the reference doesn't exist or its "to" address doesn't match the symbol's address
+
+<Note>
+Applies to memory references only where a specified label symbol must have an address matching the reference to-address. Stack and register reference associations to variable symbols are always inferred.
+</Note>
+
+---
+
+### removeAssociation()
+
+Removes any symbol associations with the given reference.
+
+```java
+public void removeAssociation(Reference ref);
+```
+
+**Parameters:**
+- `ref` - The reference for which any symbol association is to be removed
+
+**Throws:** `IllegalArgumentException` if the reference doesn't exist
+
+---
+
+## Variable Methods
+
+### getReferencedVariable()
+
+Returns the referenced function variable.
+
+```java
+public Variable getReferencedVariable(Reference reference);
+```
+
+**Parameters:**
+- `reference` - Variable reference
+
+**Returns:** Function variable or null if variable not found
+
+---
+
+### getReferenceLevel()
+
+Returns the reference level for references to the given address.
+
+```java
+public byte getReferenceLevel(Address toAddr);
+```
+
+**Parameters:**
+- `toAddr` - The address at which to find the highest reference level
+
+**Returns:** Reference level for specified to address
+
+---
+
+## Usage Examples
+
+### Adding Memory References
+
+```java
+import ghidra.program.model.symbol.*;
+import ghidra.program.model.address.*;
+import ghidra.program.model.listing.Program;
+
+public void addMemoryRef(Program program) {
+    ReferenceManager refMgr = program.getReferenceManager();
+    
+    try {
+        Address fromAddr = program.getAddressFactory().getAddress("0x401000");
+        Address toAddr = program.getAddressFactory().getAddress("0x402000");
+        
+        // Add a data reference
+        Reference ref = refMgr.addMemoryReference(
+            fromAddr,
+            toAddr,
+            RefType.DATA,
+            SourceType.USER_DEFINED,
+            0  // operand index
+        );
+        
+        System.out.println("Created reference: " + ref);
+        
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+```
+
+### Adding External References
+
+```java
+import ghidra.util.exception.*;
+
+public void addExternalRef(Program program) {
+    ReferenceManager refMgr = program.getReferenceManager();
+    
+    try {
+        Address fromAddr = program.getAddressFactory().getAddress("0x401050");
+        
+        // Add reference to external function
+        Reference ref = refMgr.addExternalReference(
+            fromAddr,
+            "KERNEL32.DLL",      // library name
+            "CreateFileA",        // external label
+            null,                 // external address (optional)
+            SourceType.USER_DEFINED,
+            0,                    // operand index
+            RefType.UNCONDITIONAL_CALL
+        );
+        
+        System.out.println("Created external reference: " + ref);
+        
+    } catch (InvalidInputException e) {
+        System.err.println("Invalid input: " + e.getMessage());
+    } catch (DuplicateNameException e) {
+        System.err.println("Duplicate name: " + e.getMessage());
+    }
+}
+```
+
+### Querying References
+
+```java
+public void analyzeReferences(Program program, Address addr) {
+    ReferenceManager refMgr = program.getReferenceManager();
+    
+    // Get all references FROM an address
+    Reference[] refsFrom = refMgr.getReferencesFrom(addr);
+    System.out.println("References from " + addr + ": " + refsFrom.length);
+    
+    for (Reference ref : refsFrom) {
+        System.out.println("  -> " + ref.getToAddress() + 
+                         " (" + ref.getReferenceType() + ")");
+    }
+    
+    // Get all references TO an address
+    ReferenceIterator refsTo = refMgr.getReferencesTo(addr);
+    System.out.println("\nReferences to " + addr + ":");
+    
+    while (refsTo.hasNext()) {
+        Reference ref = refsTo.next();
+        System.out.println("  <- " + ref.getFromAddress() +
+                         " (" + ref.getReferenceType() + ")");
+    }
+    
+    // Check reference counts
+    int countFrom = refMgr.getReferenceCountFrom(addr);
+    int countTo = refMgr.getReferenceCountTo(addr);
+    System.out.println("\nCounts: from=" + countFrom + ", to=" + countTo);
+}
+```
+
+### Iterating Over All References
+
+```java
+public void scanAllReferences(Program program) {
+    ReferenceManager refMgr = program.getReferenceManager();
+    
+    // Get iterator starting from first address
+    Address startAddr = program.getMinAddress();
+    AddressIterator iter = refMgr.getReferenceSourceIterator(startAddr, true);
+    
+    System.out.println("Addresses with references:");
+    int count = 0;
+    
+    while (iter.hasNext()) {
+        Address addr = iter.next();
+        Reference[] refs = refMgr.getReferencesFrom(addr);
+        System.out.println(addr + ": " + refs.length + " reference(s)");
+        count++;
+    }
+    
+    System.out.println("\nTotal addresses with references: " + count);
+    System.out.println("Total reference sources: " + 
+                     refMgr.getReferenceSourceCount());
+    System.out.println("Total reference destinations: " + 
+                     refMgr.getReferenceDestinationCount());
+}
+```
+
+### Working with Flow References
+
+```java
+public void analyzeFlowReferences(Program program, Address addr) {
+    ReferenceManager refMgr = program.getReferenceManager();
+    
+    if (refMgr.hasFlowReferencesFrom(addr)) {
+        Reference[] flowRefs = refMgr.getFlowReferencesFrom(addr);
+        
+        System.out.println("Flow references from " + addr + ":");
+        for (Reference ref : flowRefs) {
+            System.out.println("  " + ref.getReferenceType() + 
+                             " -> " + ref.getToAddress());
+            
+            if (ref.isPrimary()) {
+                System.out.println("    (PRIMARY)");
+            }
+        }
+    }
+}
+```
+
+## See Also
+
+- [Function Manager](/api/function-manager) - Managing functions in a program
+- [Analyzers](/api/analyzers) - Creating custom analyzers
+- [Decompiler](/api/decompiler) - Decompiling functions

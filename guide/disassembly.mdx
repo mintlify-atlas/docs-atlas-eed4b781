@@ -1,0 +1,299 @@
+---
+title: 'Disassembly View'
+description: 'Work with disassembled code in the Ghidra listing view'
+---
+
+## Listing View Overview
+
+The listing view is the primary window for examining disassembled code, displaying instructions, data, and program structure.
+
+<Note>
+The listing is rendered using the `ListingPanel` component with a configurable `FormatManager` that controls how program information is displayed.
+</Note>
+
+## Understanding the Listing Display
+
+### Field Layout
+
+The listing displays multiple fields for each code unit:
+
+<Tabs>
+  <Tab title="Address Field">
+    Shows memory addresses where code and data reside:
+    - Hexadecimal format by default
+    - Supports multiple address spaces
+    - Physical and virtual addresses
+    - Overlay address spaces
+  </Tab>
+  
+  <Tab title="Bytes Field">
+    Raw bytes from memory:
+    - Hexadecimal byte values
+    - Configurable number of bytes displayed
+    - Shows instruction encoding
+    - Data representation
+  </Tab>
+  
+  <Tab title="Mnemonic Field">
+    Instruction mnemonics:
+    - Assembly instruction names (MOV, CALL, JMP, etc.)
+    - Processor-specific instructions
+    - Color-coded by instruction type
+    - Shows data type names for defined data
+  </Tab>
+  
+  <Tab title="Operands Field">
+    Instruction operands and parameters:
+    - Register names
+    - Immediate values
+    - Memory references
+    - Symbolic names when available
+  </Tab>
+</Tabs>
+
+## Navigation in Disassembly
+
+<Steps>
+  <Step title="Cursor Movement">
+    Navigate through code using keyboard shortcuts:
+    - `Arrow Keys`: Move cursor up/down/left/right
+    - `Page Up/Down`: Scroll by page
+    - `Ctrl + Home/End`: Jump to program start/end
+    - `Home/End`: Move to line start/end
+  </Step>
+  
+  <Step title="Follow Flow">
+    Track program flow:
+    - `Enter` on a call: Jump to called function
+    - `Enter` on a jump: Follow jump target
+    - `Enter` on data reference: Navigate to referenced data
+    - View flow arrows showing branching
+  </Step>
+  
+  <Step title="Return to Origin">
+    Use navigation history:
+    - `Alt + Left`: Return to previous location
+    - `Alt + Right`: Go forward in history
+    - History maintained across all navigation
+  </Step>
+</Steps>
+
+## Disassembly Actions
+
+### Creating Instructions
+
+<Steps>
+  <Step title="Disassemble">
+    Convert undefined bytes to instructions:
+    - Press `D` on undefined bytes
+    - Right-click > `Disassemble`
+    - Auto-analysis handles most disassembly
+  </Step>
+  
+  <Step title="Clear Code">
+    Remove incorrect disassembly:
+    - Press `C` to clear code units
+    - Right-click > `Clear Code Bytes`
+    - Reverts to undefined bytes
+  </Step>
+  
+  <Step title="Re-disassemble">
+    Fix disassembly errors:
+    - Clear incorrect instructions
+    - Set correct processor context
+    - Disassemble with proper settings
+  </Step>
+</Steps>
+
+<Tip>
+Use the `RepairDisassemblyScript.java` for automated fixing of common disassembly issues.
+</Tip>
+
+### Working with Data
+
+<Steps>
+  <Step title="Define Data">
+    Convert bytes to data types:
+    - Press `B` for byte
+    - Press `W` for word (2 bytes)
+    - Press `D` then `W` for dword (4 bytes)
+    - Press `T` to choose data type
+  </Step>
+  
+  <Step title="Create Arrays">
+    Define array structures:
+    - Select bytes for array
+    - Right-click > `Data` > `Create Array`
+    - Specify element count and type
+  </Step>
+  
+  <Step title="Define Strings">
+    Mark string data:
+    - Right-click > `Data` > `String`
+    - Auto-detection of string termination
+    - Support for Unicode strings
+  </Step>
+</Steps>
+
+## Code Units
+
+Ghidra organizes memory into code units:
+- **Instructions**: Disassembled assembly code
+- **Defined Data**: Typed data (integers, strings, structures)
+- **Undefined**: Raw bytes not yet analyzed
+
+### Iterating Code Units
+
+Programmatic access to code units:
+
+```java
+// From IterateInstructionsScript.java
+Listing listing = currentProgram.getListing();
+InstructionIterator iter = listing.getInstructions(currentAddress, true);
+while (iter.hasNext()) {
+    Instruction inst = iter.next();
+    // Process instruction
+}
+```
+
+## Selection and Highlighting
+
+### Creating Selections
+
+<Steps>
+  <Step title="Select Ranges">
+    Select address ranges:
+    - Click and drag to select
+    - `Shift + Click` to extend selection
+    - `Ctrl + A` to select all
+  </Step>
+  
+  <Step title="Select Functions">
+    Select entire functions:
+    - Right-click in function > `Select` > `Function`
+    - `Ctrl + Shift + F` for current function
+    - Select by function name in Symbol Tree
+  </Step>
+  
+  <Step title="Select by Pattern">
+    Use search to select:
+    - Search for instructions or data
+    - Results table allows selection
+    - Select all matches at once
+  </Step>
+</Steps>
+
+### Highlighting
+
+Highlight code for visual emphasis:
+- **Middle-mouse Highlight**: Click middle mouse on tokens
+- **Search Highlights**: Automatic highlighting of search results
+- **Cursor Highlights**: Related instructions highlighted
+- **Custom Highlights**: Apply via plugins
+
+<Note>
+Highlighting is managed through the `ProgramHighlightPluginEvent` and `FieldSelection` mechanisms in the CodeBrowser.
+</Note>
+
+## Flow Arrows
+
+Visualize program flow with arrows:
+- **Unconditional Jumps**: Solid arrows
+- **Conditional Branches**: Dashed arrows  
+- **Calls**: Different color/style
+- **Active Flow**: Highlighted when cursor on branch
+
+<Tip>
+Enable flow arrows via the margin provider in the Code Browser options.
+</Tip>
+
+## Comments and Annotations
+
+### Comment Types
+
+<Tabs>
+  <Tab title="EOL Comment">
+    End-of-line comment:
+    - Press `;` to add
+    - Appears at end of code line
+    - Brief annotations
+  </Tab>
+  
+  <Tab title="Pre Comment">
+    Comment before code:
+    - Press `Shift + ;` (pre)
+    - Multiple lines supported
+    - Function documentation
+  </Tab>
+  
+  <Tab title="Post Comment">
+    Comment after code:
+    - Detailed explanations
+    - Analysis notes
+    - Algorithm documentation
+  </Tab>
+  
+  <Tab title="Plate Comment">
+    Large separator comment:
+    - Visual section dividers
+    - Major functional blocks
+    - Module boundaries
+  </Tab>
+</Tabs>
+
+## Viewing Options
+
+### Format Configuration
+
+<Steps>
+  <Step title="Customize Display">
+    Configure listing appearance:
+    - `Edit` > `Tool Options` > `Listing Fields`
+    - Enable/disable fields
+    - Adjust field order and width
+  </Step>
+  
+  <Step title="Color Settings">
+    Customize syntax highlighting:
+    - `Edit` > `Tool Options` > `Listing Colors`
+    - Set colors for instructions, data, comments
+    - Configure background colors
+  </Step>
+  
+  <Step title="Font Settings">
+    Adjust text display:
+    - Monospace font required
+    - Configurable font size
+    - Theme-based color schemes
+  </Step>
+</Steps>
+
+## Advanced Features
+
+### Context Register Tracking
+
+For processors with mode changes (ARM/Thumb, etc.):
+- Context registers determine disassembly mode
+- Set via `Set Register Values` action
+- Affects instruction interpretation
+- Tracked by address range
+
+### Memory Blocks
+
+View and navigate memory organization:
+- Initialized vs uninitialized blocks
+- Permissions (read, write, execute)
+- Overlay blocks for multiple mappings
+- Block viewer shows memory layout
+
+### Bookmarks
+
+Mark important locations:
+- Press `Ctrl + D` to add bookmark
+- Categorize by type (analysis, note, warning)
+- Bookmark window shows all marked locations
+- Quick navigation to bookmarked addresses
+
+<Tip>
+Use bookmarks to mark areas requiring further analysis or to document important findings.
+</Tip>

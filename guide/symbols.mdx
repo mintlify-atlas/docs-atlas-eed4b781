@@ -1,0 +1,529 @@
+---
+title: 'Symbol Management'
+description: 'Work with symbols, labels, and namespaces in Ghidra'
+---
+
+## Symbol System Overview
+
+Symbols provide human-readable names for addresses, functions, and data throughout the program.
+
+<Note>
+The `SymbolTreePlugin` and `SymbolTablePlugin` provide comprehensive symbol management through tree and table views.
+</Note>
+
+## Symbol Types
+
+<Tabs>
+  <Tab title="Labels">
+    Named locations in code:
+    - Entry points
+    - Jump targets
+    - Data locations
+    - User-defined markers
+  </Tab>
+  
+  <Tab title="Functions">
+    Callable subroutines:
+    - Function entry points
+    - Named in symbol table
+    - Have signatures
+    - Organized in namespaces
+  </Tab>
+  
+  <Tab title="Parameters">
+    Function parameters:
+    - Named arguments
+    - Part of function signature
+    - Local to function scope
+  </Tab>
+  
+  <Tab title="Local Variables">
+    Function-local symbols:
+    - Stack variables
+    - Register variables
+    - Scoped to function
+  </Tab>
+  
+  <Tab title="Global Variables">
+    Program-wide data:
+    - Static data labels
+    - Global memory locations
+    - Shared across functions
+  </Tab>
+  
+  <Tab title="Namespaces">
+    Organizational containers:
+    - Classes
+    - Modules
+    - Libraries
+    - Hierarchical structure
+  </Tab>
+</Tabs>
+
+## Symbol Tree
+
+### Opening Symbol Tree
+
+<Steps>
+  <Step title="Open Window">
+    Access symbol tree:
+    - `Window` > `Symbol Tree`
+    - Default: docked on left
+    - Hierarchical symbol view
+  </Step>
+  
+  <Step title="View Organization">
+    Tree structure shows:
+    - Global namespace (root)
+    - Organized by namespace
+    - Functions, labels, classes
+    - Expandable hierarchy
+  </Step>
+</Steps>
+
+### Navigating Symbol Tree
+
+<Steps>
+  <Step title="Expand Nodes">
+    Explore hierarchy:
+    - Click triangles to expand
+    - Double-click to navigate to symbol
+    - Shows child symbols
+    - Group threshold: 200 symbols (configurable)
+  </Step>
+  
+  <Step title="Sync with Listing">
+    Tree tracks location:
+    - Current location highlighted
+    - Implemented via `ProgramLocationPluginEvent`
+    - Auto-scrolls to current symbol
+    - Bidirectional sync
+  </Step>
+</Steps>
+
+<Tip>
+Adjust the group threshold in `Edit > Tool Options > Symbol Tree` if dealing with very large symbol sets.
+</Tip>
+
+## Symbol Table
+
+### Symbol Table Window
+
+<Steps>
+  <Step title="Open Table View">
+    Access symbol table:
+    - `Window` > `Symbol Table`
+    - Tabular display of all symbols
+    - Sortable and filterable
+  </Step>
+  
+  <Step title="Use Columns">
+    Table displays:
+    - **Name**: Symbol name
+    - **Location**: Address
+    - **Type**: Symbol type
+    - **Namespace**: Containing namespace
+    - **Source**: Origin (user, analysis, import)
+    - **References**: Reference count
+  </Step>
+  
+  <Step title="Filter and Sort">
+    Organize view:
+    - Click column headers to sort
+    - Use filter bar to search
+    - Select symbols for operations
+  </Step>
+</Steps>
+
+## Creating Symbols
+
+### Creating Labels
+
+<Steps>
+  <Step title="Position Cursor">
+    Navigate to address:
+    - Place cursor on instruction or data
+    - Address to be labeled
+  </Step>
+  
+  <Step title="Add Label">
+    Create label:
+    - Press `L` key
+    - Right-click > `Label` > `Add Label`
+    - Or use label field in listing
+  </Step>
+  
+  <Step title="Enter Name">
+    Name the label:
+    - Type meaningful name
+    - Follow naming conventions
+    - Press Enter to apply
+  </Step>
+</Steps>
+
+<Note>
+Label names must be unique within their namespace. Ghidra will warn if a duplicate name is used.
+</Note>
+
+### Symbol Naming Rules
+
+Valid symbol names:
+- Start with letter or underscore
+- Contain letters, digits, underscores
+- No spaces (use underscores)
+- Case-sensitive
+- Should be descriptive
+
+### Auto-Generated Symbols
+
+Ghidra creates default symbols:
+- `FUN_<address>` for functions
+- `DAT_<address>` for data
+- `LAB_<address>` for labels
+- `SUB_<address>` for subroutines
+
+<Tip>
+Replace auto-generated names with meaningful names to improve code readability.
+</Tip>
+
+## Renaming Symbols
+
+### Interactive Rename
+
+<Steps>
+  <Step title="Select Symbol">
+    Choose symbol to rename:
+    - Click on symbol in listing
+    - Or select in Symbol Tree/Table
+  </Step>
+  
+  <Step title="Rename Action">
+    Execute rename:
+    - Press `L` on existing label
+    - Right-click > `Rename`
+    - In Symbol Tree: right-click > `Rename Symbol`
+  </Step>
+  
+  <Step title="Enter New Name">
+    Provide new name:
+    - Type replacement name
+    - Press Enter
+    - Updates throughout program
+  </Step>
+</Steps>
+
+### Batch Renaming
+
+Rename multiple symbols:
+- Use `BatchRename.java` script
+- Pattern-based renaming
+- Regular expression support
+- Bulk operations
+
+<Steps>
+  <Step title="Select Symbols">
+    Choose symbols to rename:
+    - Select in Symbol Table
+    - Or script-based selection
+  </Step>
+  
+  <Step title="Apply Pattern">
+    Execute batch rename:
+    - Define naming pattern
+    - Preview changes
+    - Apply to selection
+  </Step>
+</Steps>
+
+## Symbol Sources
+
+Symbols have source types:
+
+<Tabs>
+  <Tab title="User Defined">
+    Manually created:
+    - Highest priority
+    - User-specified names
+    - Won't be auto-renamed
+  </Tab>
+  
+  <Tab title="Imported">
+    From external sources:
+    - Import tables
+    - Debug symbols
+    - Symbol files
+    - High priority
+  </Tab>
+  
+  <Tab title="Analysis">
+    Created by analyzers:
+    - Function analysis
+    - Symbol propagation
+    - Pattern matching
+    - Medium priority
+  </Tab>
+  
+  <Tab title="Default">
+    Auto-generated:
+    - Default naming (FUN_, DAT_)
+    - Lowest priority
+    - Replaced by higher priority
+  </Tab>
+</Tabs>
+
+<Note>
+Symbol source determines priority - user symbols won't be overwritten by analysis.
+</Note>
+
+## Namespaces
+
+### Understanding Namespaces
+
+Namespaces organize symbols hierarchically:
+- **Global**: Top-level namespace
+- **Libraries**: External library symbols
+- **Classes**: C++ classes, structures
+- **Functions**: Function-scoped symbols
+- **Custom**: User-defined namespaces
+
+### Creating Namespaces
+
+<Steps>
+  <Step title="Create Namespace">
+    Add new namespace:
+    - Right-click in Symbol Tree
+    - `Create Namespace`
+    - Enter namespace name
+  </Step>
+  
+  <Step title="Organize Symbols">
+    Move symbols to namespace:
+    - Drag symbols in tree
+    - Or change namespace in symbol properties
+    - Creates hierarchy
+  </Step>
+</Steps>
+
+### Namespace Notation
+
+Fully qualified names:
+- Format: `namespace::symbol`
+- Example: `MyClass::myFunction`
+- Multiple levels: `Lib::Module::Function`
+- Global namespace: `::symbol`
+
+## Symbol Operations
+
+### Deleting Symbols
+
+<Steps>
+  <Step title="Select Symbol">
+    Choose symbol to delete:
+    - In Symbol Tree or Table
+    - Or in listing view
+  </Step>
+  
+  <Step title="Delete Action">
+    Remove symbol:
+    - Press `Delete` key
+    - Right-click > `Delete Symbol`
+    - Confirm deletion
+  </Step>
+  
+  <Step title="Result">
+    After deletion:
+    - Symbol name removed
+    - References become addresses
+    - May create default symbol
+  </Step>
+</Steps>
+
+<Note>
+Deleting a function symbol also deletes the function definition, but not the code itself.
+</Note>
+
+### Pinning Symbols
+
+Prevent symbol changes:
+
+<Steps>
+  <Step title="Pin Symbol">
+    Lock symbol name:
+    - Right-click symbol > `Pin Symbol`
+    - Uses `PinSymbolCmd`
+    - Prevents auto-rename
+  </Step>
+  
+  <Step title="Unpin Symbol">
+    Allow changes:
+    - Right-click > `Unpin Symbol`
+    - Symbol can be modified
+    - Analysis can update
+  </Step>
+</Steps>
+
+<Tip>
+Pin important symbols to prevent analysis from changing names you've carefully chosen.
+</Tip>
+
+## Symbol Analysis
+
+### Symbol Analyzers
+
+<Tabs>
+  <Tab title="ARM Symbol Analyzer">
+    `ArmSymbolAnalyzer`:
+    - ARM-specific symbol detection
+    - Thumb mode symbols
+    - ARM/Thumb transitions
+  </Tab>
+  
+  <Tab title="Golang Symbol Analyzer">
+    `GolangSymbolAnalyzer`:
+    - Go language symbols
+    - Package structure
+    - Interface types
+  </Tab>
+  
+  <Tab title="External Symbol Resolver">
+    `ExternalSymbolResolverAnalyzer`:
+    - Resolves imports
+    - Links to libraries
+    - Applies signatures
+  </Tab>
+</Tabs>
+
+### Auto-Rename Operations
+
+Scripts for symbol cleanup:
+
+<Steps>
+  <Step title="Auto Rename Labels">
+    Use naming scripts:
+    - `AutoRenameLabelsScript.java`: Sophisticated renaming
+    - `AutoRenameSimpleLabels.java`: Simple patterns
+    - Creates meaningful names from context
+  </Step>
+  
+  <Step title="Label Data">
+    Name data automatically:
+    - `LabelDataScript.java`: Label data references
+    - `LabelIndirectReferencesScript.java`: Indirect refs
+    - `LabelIndirectStringReferencesScript.java`: String refs
+  </Step>
+</Steps>
+
+## Symbol Search
+
+### Finding Symbols
+
+<Steps>
+  <Step title="Search in Table">
+    Use symbol table filter:
+    - Open Symbol Table window
+    - Type in filter bar
+    - Supports wildcards
+    - Results update live
+  </Step>
+  
+  <Step title="Go To Symbol">
+    Direct navigation:
+    - Press `G` for Go To
+    - Type symbol name
+    - Jump to symbol location
+  </Step>
+  
+  <Step title="Advanced Search">
+    Program text search:
+    - `Search` > `Program Text`
+    - Search in label field
+    - Regular expressions supported
+  </Step>
+</Steps>
+
+## Symbol References
+
+### Viewing Symbol Usage
+
+<Steps>
+  <Step title="Show References">
+    See where symbol is used:
+    - Right-click symbol > `References` > `Show References to`
+    - Lists all uses
+    - Code and data references
+  </Step>
+  
+  <Step title="Navigate Usage">
+    Explore references:
+    - Click reference to navigate
+    - See context of use
+    - Analyze data flow
+  </Step>
+</Steps>
+
+## Symbol Import/Export
+
+### Importing Symbols
+
+<Steps>
+  <Step title="Import Symbol File">
+    Load external symbols:
+    - `File` > `Import File`
+    - Select symbol file format
+    - Map file, symbol file, etc.
+  </Step>
+  
+  <Step title="Import Debug Symbols">
+    Load debug information:
+    - PDB files (Windows)
+    - DWARF symbols (Linux)
+    - Automatically applied
+  </Step>
+</Steps>
+
+### Exporting Symbols
+
+<Steps>
+  <Step title="Export Symbol List">
+    Save symbols to file:
+    - `File` > `Export Program`
+    - Choose symbol format
+    - Save for other tools
+  </Step>
+</Steps>
+
+## Symbol Tree Service
+
+Programmatic symbol access:
+
+```java
+// Symbol tree provides SymbolTreeService
+SymbolTreeService service = tool.getService(SymbolTreeService.class);
+// Access to symbol hierarchy
+// Navigate and manipulate symbols
+```
+
+<Tip>
+Use the `IterateFunctionsScript.java` and similar scripts as templates for programmatic symbol manipulation.
+</Tip>
+
+## Special Symbol Operations
+
+### Symbol Quotes
+
+Handling special characters:
+- Some imports have quoted names
+- Use `RemoveSymbolQuotesScript.java` to clean
+- Improves readability
+
+### Primary Symbols
+
+Multiple symbols at same address:
+- One symbol is "primary"
+- Primary shown in listing
+- Others accessible via references
+- Set via symbol properties
+
+<Note>
+The primary symbol is the default display name for an address. Non-primary symbols are alternate names.
+</Note>

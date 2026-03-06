@@ -1,0 +1,218 @@
+---
+title: Changelog
+description: Ghidra version history and release notes
+---
+
+This page provides information about Ghidra's changelog and how to access release notes for different versions.
+
+## Accessing Release Notes
+
+Ghidra maintains comprehensive release notes that document all changes, improvements, and bug fixes for each version.
+
+### Official Release Notes
+
+The primary source for Ghidra changelog information is maintained in the source repository:
+
+**Location:** `Ghidra/Configurations/Public_Release/src/global/docs/ChangeHistory.md`
+
+**GitHub Link:** [View ChangeHistory.md](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Configurations/Public_Release/src/global/docs/ChangeHistory.md)
+
+### Release-Specific Information
+
+Each Ghidra release on GitHub includes:
+
+1. **Release notes** describing major features and changes
+2. **Assets** including downloadable archives
+3. **Known issues** specific to that release
+
+**View all releases:** [Ghidra Releases Page](https://github.com/NationalSecurityAgency/ghidra/releases)
+
+### What's New Document
+
+For major releases, Ghidra includes a "What's New" document highlighting significant features:
+
+**Location:** `Ghidra/Configurations/Public_Release/src/global/docs/WhatsNew.md`
+
+**GitHub Link:** [View WhatsNew.md](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Configurations/Public_Release/src/global/docs/WhatsNew.md)
+
+## Recent Releases Overview
+
+<Note>
+For complete and up-to-date changelog information, always refer to the official ChangeHistory.md file in the repository or the release notes on GitHub.
+</Note>
+
+### Ghidra 12.0.4 (March 2026)
+
+**Key Improvements:**
+- Updated RTTI Analyzer to better handle classes with names that cannot be demangled
+- Fixed potential zip path traversal vulnerability in theme imports
+- Improved RTTI Windows script vbtable discovery
+
+**Notable Bug Fixes:**
+- Fixed constant propagation issue between functions
+- Corrected thunk function linking in EXTERNAL memory block
+- Fixed bookmark table deletion exception
+- Resolved debugger deadlock when saving traces
+- Fixed memory viewer bugs with multiple address spaces
+
+**Processor Updates:**
+- AARCH64: Fixed ldpsw and ldar instruction semantics, added CSSC instructions
+- MIPS: Fixed sdbbp16 disassembly, added save/restore instructions
+- PIC-18: Fixed double increment/decrement issue
+- PowerPC: Added missing vadduws instruction
+- And many more processor-specific fixes
+
+### Ghidra 12.0.3 (February 2026)
+
+**New Features:**
+- Auto comments no longer render annotations as valid links (security mitigation)
+- Demangler GNU analyzer now has a timeout option
+
+**Key Improvements:**
+- GUI now fails-fast in headless environment
+- `@execute` annotation removed for security
+
+**Notable Bug Fixes:**
+- Fixed multi-user merge issues with non-packed structures
+- Fixed NullPointerException on debugger close
+- Fixed debugger breakpoint duplication issues
+- Corrected decompiler exceptions with void* and optimized string copies
+- Revised Ghidra Server certificate generation for JDK 21.0.10+ compatibility
+
+## Changelog Categories
+
+Ghidra changelogs are organized into the following categories:
+
+### New Features
+Completely new functionality added to Ghidra.
+
+### Improvements
+Enhancements to existing features, performance improvements, and usability updates.
+
+### Bugs
+Bug fixes and corrections to incorrect behavior.
+
+### Notable API Changes
+Breaking changes to the API that may affect extension and script developers.
+
+## Understanding Version Numbers
+
+Ghidra uses semantic versioning:
+
+**Format:** `MAJOR.MINOR.PATCH`
+
+- **MAJOR** - Significant changes, may include breaking changes
+- **MINOR** - New features, backward compatible
+- **PATCH** - Bug fixes and minor improvements
+
+**Example:** `12.0.4`
+- Major version: 12
+- Minor version: 0
+- Patch version: 4
+
+## Issue References
+
+Changelog entries often reference:
+
+- **GP-XXXX** - Internal Ghidra project issue numbers
+- **Issue #XXXX** - Public GitHub issue numbers
+
+You can view public issues at: `https://github.com/NationalSecurityAgency/ghidra/issues/<number>`
+
+## Finding Specific Changes
+
+### By Category
+
+In the ChangeHistory.md file, changes are organized by release and then by category (Improvements, Bugs, etc.).
+
+### By Component
+
+Changelog entries are prefixed with the affected component:
+
+- `Analysis` - Code analysis features
+- `Debugger` - Debugging functionality
+- `Decompiler` - Decompilation engine
+- `GUI` - User interface
+- `Processors` - Processor language specifications
+- `Data Types` - Data type system
+- And many more
+
+**Example:**
+```
+_Processors_. Fixed semantics of AARCH64 `ldar` instruction.
+```
+
+### By Processor Architecture
+
+For processor-specific changes, search for the architecture name (e.g., "AARCH64", "MIPS", "x86").
+
+### By Version
+
+Each release has a clear header in the ChangeHistory.md file:
+
+```markdown
+# Ghidra 12.0.4 Change History (March 2026)
+```
+
+## Staying Updated
+
+### Watch the Repository
+
+On GitHub, click "Watch" on the [Ghidra repository](https://github.com/NationalSecurityAgency/ghidra) to receive notifications:
+
+- **Releases only** - Get notified of new releases
+- **All activity** - Watch all repository activity
+- **Custom** - Choose specific events
+
+### Subscribe to Release RSS
+
+GitHub provides an RSS feed for releases:
+
+`https://github.com/NationalSecurityAgency/ghidra/releases.atom`
+
+### Check Security Advisories
+
+<Warning>
+Always review security advisories before upgrading or deploying Ghidra.
+</Warning>
+
+**Security Advisories:** [GitHub Security Advisories](https://github.com/NationalSecurityAgency/ghidra/security/advisories)
+
+## Migration Guides
+
+When upgrading between major or minor versions, check for:
+
+1. **Notable API Changes** in the changelog
+2. **Breaking changes** that may affect your scripts or extensions
+3. **Database migration** requirements for projects
+
+<Tip>
+Always backup your Ghidra projects before upgrading to a new version.
+</Tip>
+
+## Contributing to the Changelog
+
+When contributing to Ghidra:
+
+- The Ghidra team maintains the official changelog
+- Your contribution will be documented in the release where it's merged
+- Include clear descriptions in your pull requests to help with changelog creation
+
+## Additional Resources
+
+- **Release Downloads:** [GitHub Releases](https://github.com/NationalSecurityAgency/ghidra/releases)
+- **Source Repository:** [GitHub Repository](https://github.com/NationalSecurityAgency/ghidra)
+- **Issue Tracker:** [GitHub Issues](https://github.com/NationalSecurityAgency/ghidra/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/NationalSecurityAgency/ghidra/discussions)
+
+## Historical Archives
+
+For older versions and historical information:
+
+1. Browse the ChangeHistory.md file in the repository
+2. Check the releases page for archived versions
+3. Use Git tags to view specific release snapshots:
+   ```bash
+   git tag -l
+   git checkout <tag-name>
+   ```

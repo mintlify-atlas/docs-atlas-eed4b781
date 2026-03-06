@@ -1,0 +1,286 @@
+---
+title: Installing Ghidra
+description: Complete guide to installing and configuring Ghidra on Windows, macOS, and Linux
+---
+
+## Platforms Supported
+
+Ghidra supports the following operating systems:
+
+- **Windows** 10 (build 1809 or later)
+- **Linux** (64-bit distributions)
+- **macOS** 10.13 or later
+
+<Note>
+All 32-bit OS installations are now deprecated. Please contact the Ghidra team if you have a specific need for 32-bit support.
+</Note>
+
+## System Requirements
+
+### Hardware Requirements
+
+- **RAM**: 4 GB minimum (8 GB or more recommended)
+- **Storage**: 1 GB for installed Ghidra binaries
+- **Display**: Dual monitors strongly suggested for optimal workflow
+
+### Software Requirements
+
+<Steps>
+  <Step title="Java Development Kit (JDK) 21">
+    A 64-bit JDK 21 is required. Free long-term support (LTS) versions are available from:
+    
+    - [Adoptium Temurin](https://adoptium.net/temurin/releases)
+    - [Amazon Corretto](https://docs.aws.amazon.com/corretto/latest/corretto-21-ug/downloads-list.html)
+  </Step>
+  
+  <Step title="Python 3.9-3.13 (Optional)">
+    Required for:
+    - Debugger support
+    - PyGhidra integration
+    
+    Available from [Python.org](https://python.org) or your operating system's package manager.
+  </Step>
+</Steps>
+
+## Installing JDK 21
+
+### Windows
+
+<Steps>
+  <Step title="Download JDK">
+    Download the JDK 21 Windows installer (.msi or .exe) or zip file from Adoptium or Amazon Corretto
+  </Step>
+  
+  <Step title="Extract or Install">
+    If using a zip file:
+    - Right-click on the zip file and click `Extract All...`
+    - Click `Extract`
+  </Step>
+  
+  <Step title="Configure PATH">
+    Add the JDK to your system PATH:
+    
+    1. Right-click on Windows start button, and click `System`
+    2. Click `Advanced system settings`
+    3. Click `Environment variables...`
+    4. Under `System variables`, highlight `Path` and click `Edit...`
+    5. Click `New` and add `<path-to-jdk>\bin`
+    6. Click `OK` on all dialogs
+  </Step>
+  
+  <Step title="Verify Installation">
+    Open a new Command Prompt and run:
+    
+    ```cmd
+    java -version
+    ```
+    
+    You should see Java version 21.x.x
+  </Step>
+</Steps>
+
+### Linux and macOS
+
+<Steps>
+  <Step title="Download JDK">
+    Download the JDK 21 tar.gz file from Adoptium or Amazon Corretto, or use your package manager:
+    
+    ```bash
+    # Ubuntu/Debian
+    sudo apt update
+    sudo apt install openjdk-21-jdk
+    
+    # macOS with Homebrew
+    brew install openjdk@21
+    ```
+  </Step>
+  
+  <Step title="Extract (if manual install)">
+    ```bash
+    tar xvf <jdk-distribution.tar.gz>
+    ```
+  </Step>
+  
+  <Step title="Configure PATH">
+    Add to your `~/.bashrc` or `~/.zshrc`:
+    
+    ```bash
+    export PATH=<path-to-jdk>/bin:$PATH
+    ```
+    
+    Save the file and reload your shell:
+    
+    ```bash
+    source ~/.bashrc
+    ```
+  </Step>
+  
+  <Step title="Verify Installation">
+    ```bash
+    java -version
+    ```
+    
+    You should see Java version 21.x.x
+  </Step>
+</Steps>
+
+## Installing Ghidra
+
+<Steps>
+  <Step title="Download Ghidra">
+    Download a Ghidra release from the [official GitHub releases page](https://github.com/NationalSecurityAgency/ghidra/releases)
+    
+    <Warning>
+    Download the file named `ghidra_<version>_PUBLIC_<date>.zip` under the "Assets" drop-down. Do NOT download the "Source Code" files for installation.
+    </Warning>
+  </Step>
+  
+  <Step title="Extract Ghidra">
+    Extract the Ghidra distribution to your desired location using any unzip program:
+    
+    ```bash
+    # Linux/macOS
+    unzip ghidra_*_PUBLIC_*.zip
+    cd ghidra_*_PUBLIC
+    
+    # Windows: Use built-in extraction or 7-Zip, WinZip, WinRAR
+    ```
+    
+    <Warning>
+    Do NOT extract Ghidra on top of an existing installation. Always extract to a new directory.
+    </Warning>
+  </Step>
+  
+  <Step title="macOS: Remove Quarantine (if needed)">
+    On macOS, you may need to remove the quarantine attribute before extraction:
+    
+    ```bash
+    xattr -d com.apple.quarantine ghidra_*_PUBLIC_*.zip
+    ```
+  </Step>
+</Steps>
+
+## Installation Notes
+
+<Note>
+Ghidra does not use a traditional installer program. It is simply extracted in-place on the filesystem. This means:
+
+- ✅ No administrative privileges required for personal use
+- ✅ No OS registry or system configuration changes
+- ✅ Easy removal by deleting the installation directory
+- ❌ No automatic desktop shortcuts or start menu entries
+</Note>
+
+## First Launch
+
+<Steps>
+  <Step title="Navigate to Installation Directory">
+    ```bash
+    cd <GhidraInstallDir>
+    ```
+  </Step>
+  
+  <Step title="Launch Ghidra">
+    ```bash
+    # Linux/macOS
+    ./ghidraRun
+    
+    # Windows
+    ghidraRun.bat
+    ```
+  </Step>
+  
+  <Step title="Accept User Agreement">
+    On first launch, you'll be prompted to accept the user agreement
+  </Step>
+  
+  <Step title="Wait for Initialization">
+    Ghidra will initialize and create necessary configuration directories
+  </Step>
+</Steps>
+
+<Note>
+Ghidra will automatically locate a compatible JDK on your system. If multiple Java versions are installed, Ghidra will use the one on your PATH or specified by the `JAVA_HOME` environment variable.
+</Note>
+
+## Building Native Components (Optional)
+
+Ghidra includes pre-built native binaries for common platforms. If you're on an unsupported platform or the pre-built binaries don't work, you can build them yourself.
+
+### Requirements for Building
+
+- JDK 21
+- Gradle 8.5+ (or use the included wrapper)
+- C/C++ compiler:
+  - **Windows**: Microsoft Visual Studio 2017+ with MSVC, Windows SDK, and C++ ATL
+  - **Linux/FreeBSD**: GCC or Clang, and make
+  - **macOS**: Xcode or Command Line Tools for Xcode
+
+### Build Commands
+
+```bash
+cd <GhidraInstallDir>/support/gradle/
+
+# If Gradle is installed
+gradle buildNatives
+
+# Or use the Gradle wrapper (requires internet)
+./gradlew buildNatives  # Linux/macOS
+gradlew.bat buildNatives  # Windows
+```
+
+## Troubleshooting
+
+### Java Not Found
+
+**Problem**: "The 'java' command could not be found in your PATH or with JAVA_HOME."
+
+**Solution**: Install JDK 21 and ensure it's on your PATH or set the JAVA_HOME environment variable.
+
+### Failed to Find Supported JDK
+
+**Problem**: "Failed to find a supported JDK."
+
+**Solution**: Ghidra requires JDK 21. Install a compatible version from Adoptium or Amazon Corretto.
+
+### Launch Fails Silently
+
+**Problem**: "Exited with error. Run in foreground (fg) mode for more details."
+
+**Solution**: Run Ghidra in debug mode to see error messages:
+
+```bash
+./support/ghidraDebug
+```
+
+### Windows: Path Contains Special Characters
+
+<Warning>
+Ghidra will not launch when its path contains a `!` or `^` character. Choose an installation path without these characters.
+</Warning>
+
+## Optional: Installing Python for Debugger Support
+
+To use Ghidra's integrated debugger and PyGhidra:
+
+```bash
+# Install Python 3.9-3.13
+# Linux (Ubuntu/Debian)
+sudo apt install python3 python3-pip
+
+# macOS
+brew install python@3.11
+
+# Windows: Download from python.org
+```
+
+The debugger requires additional packages:
+
+```bash
+pip install protobuf>=3.20.3
+pip install Pybag>=2.2.16  # For WinDbg support on Windows
+```
+
+## Next Steps
+
+With Ghidra installed, you're ready to start analyzing binaries. Continue to the quickstart guide to learn how to create your first project and import a binary for analysis.

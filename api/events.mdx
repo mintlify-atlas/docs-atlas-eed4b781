@@ -1,0 +1,620 @@
+---
+title: Events
+description: Plugin event system for inter-plugin communication in Ghidra
+---
+
+## Overview
+
+Ghidra's event system provides a publish-subscribe mechanism for plugins to communicate. Events enable loose coupling between plugins, allowing them to broadcast notifications and respond to changes without direct dependencies.
+
+## Event Architecture
+
+The event system consists of:
+
+- **PluginEvent**: Base class for all events
+- **Event Producers**: Plugins that fire events
+- **Event Consumers**: Plugins that process events
+- **EventManager**: Manages event registration and distribution
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/PluginEvent.java:26`
+
+## Creating Plugin Events
+
+### Basic Event Structure
+
+All plugin events must extend `PluginEvent`:
+
+```java
+package ghidra.app.events;
+
+import ghidra.framework.plugintool.PluginEvent;
+import ghidra.program.model.listing.Program;
+import java.lang.ref.WeakReference;
+
+public class ProgramActivatedPluginEvent extends PluginEvent {
+    
+    static final String NAME = "Program Activated";
+    private WeakReference<Program> programRef;
+    
+    /**
+     * Construct a new plugin event.
+     * @param source name of the plugin that created this event
+     * @param activeProgram the program associated with this event
+     */
+    public ProgramActivatedPluginEvent(String source, Program activeProgram) {
+        super(source, NAME);
+        this.programRef = new WeakReference<>(activeProgram);
+    }
+    
+    /**
+     * Returns the Program that is being activated.
+     * @return the Program, or null if it has been garbage collected
+     */
+    public Program getActiveProgram() {
+        return programRef.get();
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Features/Base/src/main/java/ghidra/app/events/ProgramActivatedPluginEvent.java:28`
+
+### Event Naming Conventions
+
+<CardGroup cols={2}>
+  <Card title="Descriptive Names" icon="tag">
+    Event class names should clearly describe what happened (e.g., `ProgramActivatedPluginEvent`)
+  </Card>
+  <Card title="Past Tense" icon="clock">
+    Use past tense to indicate the event has occurred (e.g., "Activated", not "Activate")
+  </Card>
+  <Card title="PluginEvent Suffix" icon="code">
+    Always end class names with `PluginEvent`
+  </Card>
+  <Card title="Package Organization" icon="folder">
+    Place events in appropriate packages (e.g., `ghidra.app.events`)
+  </Card>
+</CardGroup>
+
+### Cross-Tool Events
+
+Events can be passed between tools using the `@ToolEventName` annotation:
+
+```java
+@ToolEventName("Program Opened")
+public class OpenProgramPluginEvent extends PluginEvent {
+    // Event implementation
+}
+```
+
+This annotation enables events to be transmitted across tool boundaries via `ToolConnection`.
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/PluginEvent.java:62`
+
+## Producing Events
+
+### Declaring Events
+
+Declare events your plugin produces in the `@PluginInfo` annotation:
+
+```java
+@PluginInfo(
+    category = "Navigation",
+    eventsProduced = {
+        ProgramActivatedPluginEvent.class,
+        ProgramLocationPluginEvent.class,
+        ProgramSelectionPluginEvent.class
+    }
+)
+public class NavigationPlugin extends Plugin {
+    // Plugin implementation
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:261`
+
+### Firing Events
+
+Fire events using the `firePluginEvent()` method:
+
+```java
+public class ProgramManagerPlugin extends Plugin {
+    private Program currentProgram;
+    
+    public void activateProgram(Program program) {
+        this.currentProgram = program;
+        
+        // Fire event to notify other plugins
+        ProgramActivatedPluginEvent event = 
+            new ProgramActivatedPluginEvent(getName(), program);
+        firePluginEvent(event);
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:468`
+
+### Event Firing Best Practices
+
+<AccordionGroup>
+  <Accordion title="Fire After State Change">
+    Always fire events AFTER the state change is complete to ensure consistency.
+    
+    ```java
+    public void setSelection(ProgramSelection selection) {
+        // Update state first
+        this.currentSelection = selection;
+        
+        // Then notify listeners
+        firePluginEvent(new ProgramSelectionPluginEvent(
+            getName(), selection, currentProgram));
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use Weak References">
+    For events containing large objects, use `WeakReference` to avoid memory leaks.
+    
+    ```java
+    public class MyEvent extends PluginEvent {
+        private WeakReference<LargeObject> objectRef;
+        
+        public MyEvent(String source, LargeObject obj) {
+            super(source, "My Event");
+            this.objectRef = new WeakReference<>(obj);
+        }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Avoid Excessive Events">
+    Don't fire events for every minor change. Batch updates when possible.
+    
+    ```java
+    // Bad - fires many events
+    for (Item item : items) {
+        firePluginEvent(new ItemChangedEvent(getName(), item));
+    }
+    
+    // Good - single event for batch
+    firePluginEvent(new ItemsChangedEvent(getName(), items));
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Consuming Events
+
+### Declaring Event Consumption
+
+Declare events your plugin consumes in the `@PluginInfo` annotation:
+
+```java
+@PluginInfo(
+    category = "CodeBrowser",
+    eventsConsumed = {
+        ProgramActivatedPluginEvent.class,
+        ProgramLocationPluginEvent.class,
+        ProgramSelectionPluginEvent.class,
+        ProgramHighlightPluginEvent.class
+    }
+)
+public class CodeBrowserPlugin extends Plugin {
+    // Plugin implementation
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:265`
+
+### Processing Events
+
+Override the `processEvent()` method to handle events:
+
+```java
+@Override
+public void processEvent(PluginEvent event) {
+    if (event instanceof ProgramActivatedPluginEvent) {
+        handleProgramActivated((ProgramActivatedPluginEvent) event);
+    }
+    else if (event instanceof ProgramLocationPluginEvent) {
+        handleLocationChanged((ProgramLocationPluginEvent) event);
+    }
+    else if (event instanceof ProgramSelectionPluginEvent) {
+        handleSelectionChanged((ProgramSelectionPluginEvent) event);
+    }
+}
+
+private void handleProgramActivated(ProgramActivatedPluginEvent event) {
+    Program program = event.getActiveProgram();
+    if (program != null) {
+        updateDisplay(program);
+    }
+}
+
+private void handleLocationChanged(ProgramLocationPluginEvent event) {
+    ProgramLocation location = event.getLocation();
+    navigateTo(location);
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:317`
+
+### Event Filtering
+
+Events from the source plugin are automatically filtered out:
+
+```java
+@Override
+public final void eventSent(PluginEvent event) {
+    // Don't process events we generated ourselves
+    if (!SystemUtilities.isEqual(event.getSourceName(), getName())) {
+        processEvent(event);
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:306`
+
+## Common Event Types
+
+### Program Events
+
+Events related to program lifecycle:
+
+```java
+// Program opened
+public class OpenProgramPluginEvent extends PluginEvent {
+    private Program program;
+}
+
+// Program closed
+public class CloseProgramPluginEvent extends PluginEvent {
+    private Program program;
+}
+
+// Program activated (switched to)
+public class ProgramActivatedPluginEvent extends PluginEvent {
+    private WeakReference<Program> programRef;
+}
+```
+
+### Location Events
+
+Events for navigation and cursor movement:
+
+```java
+public abstract class AbstractLocationPluginEvent extends PluginEvent {
+    protected ProgramLocation location;
+    protected WeakReference<Program> programRef;
+    
+    public ProgramLocation getLocation() {
+        return location;
+    }
+    
+    public Program getProgram() {
+        return programRef.get();
+    }
+}
+
+public class ProgramLocationPluginEvent extends AbstractLocationPluginEvent {
+    public ProgramLocationPluginEvent(String source, 
+                                     ProgramLocation location,
+                                     Program program) {
+        super(source, location, program);
+    }
+}
+```
+
+### Selection Events
+
+Events for selection changes:
+
+```java
+public class ProgramSelectionPluginEvent extends PluginEvent {
+    private ProgramSelection selection;
+    private WeakReference<Program> programRef;
+    
+    public ProgramSelection getSelection() {
+        return selection;
+    }
+    
+    public Program getProgram() {
+        return programRef.get();
+    }
+}
+```
+
+### Highlight Events
+
+Events for highlighting code:
+
+```java
+public class ProgramHighlightPluginEvent extends PluginEvent {
+    private ProgramSelection highlight;
+    private WeakReference<Program> programRef;
+}
+```
+
+## Event Patterns
+
+### State Synchronization
+
+Multiple plugins can stay synchronized through events:
+
+```java
+// Plugin A changes state and fires event
+public class PluginA extends Plugin {
+    public void changeState(String newState) {
+        this.state = newState;
+        firePluginEvent(new StateChangedEvent(getName(), newState));
+    }
+}
+
+// Plugin B responds to state change
+public class PluginB extends Plugin {
+    @Override
+    public void processEvent(PluginEvent event) {
+        if (event instanceof StateChangedEvent) {
+            StateChangedEvent stateEvent = (StateChangedEvent) event;
+            updateUI(stateEvent.getNewState());
+        }
+    }
+}
+```
+
+### Event Cascading
+
+Events can trigger other events:
+
+```java
+public class AnalysisPlugin extends Plugin {
+    
+    @Override
+    public void processEvent(PluginEvent event) {
+        if (event instanceof ProgramActivatedPluginEvent) {
+            Program program = ((ProgramActivatedPluginEvent) event).getActiveProgram();
+            if (shouldAnalyze(program)) {
+                performAnalysis(program);
+                // Fire follow-up event
+                firePluginEvent(new AnalysisCompletedEvent(getName(), program));
+            }
+        }
+    }
+}
+```
+
+### Trigger Event Tracking
+
+Events can track what triggered them:
+
+```java
+public void processEvent(PluginEvent event) {
+    if (event instanceof ProgramLocationPluginEvent) {
+        ProgramLocationPluginEvent locEvent = (ProgramLocationPluginEvent) event;
+        
+        // Respond to the location change
+        navigateTo(locEvent.getLocation());
+        
+        // Create a follow-up event linked to the trigger
+        ProgramSelectionPluginEvent selEvent = 
+            new ProgramSelectionPluginEvent(getName(), selection, program);
+        selEvent.setTriggerEvent(event);
+        firePluginEvent(selEvent);
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/PluginEvent.java:99`
+
+## EventManager API
+
+The `EventManager` handles event distribution within a tool:
+
+```java
+// Register event listener
+tool.addEventListener(ProgramActivatedPluginEvent.class, this);
+
+// Remove event listener
+tool.removeEventListener(ProgramActivatedPluginEvent.class, this);
+
+// Listen to all events
+tool.addListenerForAllPluginEvents(this);
+
+// Fire an event
+tool.firePluginEvent(event);
+
+// Get last events (for debugging)
+PluginEvent[] lastEvents = tool.getLastEvents();
+```
+
+## Dynamic Event Registration
+
+Plugins can register for events dynamically:
+
+```java
+public class MyPlugin extends Plugin {
+    
+    private void enableFeature() {
+        // Register for events not in @PluginInfo
+        internalRegisterEventConsumed(CustomPluginEvent.class);
+    }
+    
+    @Override
+    public void processEvent(PluginEvent event) {
+        if (event instanceof CustomPluginEvent) {
+            // Handle dynamically registered event
+        }
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/Plugin.java:568`
+
+## Event System Best Practices
+
+<AccordionGroup>
+  <Accordion title="Event Granularity">
+    Create specific event types rather than generic ones. This makes code more maintainable and type-safe.
+    
+    ```java
+    // Good - specific events
+    ProgramOpenedEvent
+    ProgramClosedEvent
+    ProgramActivatedEvent
+    
+    // Avoid - generic events requiring type checking
+    ProgramStateChangedEvent(StateType type)
+    ```
+  </Accordion>
+
+  <Accordion title="Immutable Event Data">
+    Make event data immutable to prevent modification by consumers.
+    
+    ```java
+    public class MyEvent extends PluginEvent {
+        private final String data;
+        private final List<Item> items;
+        
+        public MyEvent(String source, String data, List<Item> items) {
+            super(source, "My Event");
+            this.data = data;
+            this.items = Collections.unmodifiableList(new ArrayList<>(items));
+        }
+        
+        public String getData() { return data; }
+        public List<Item> getItems() { return items; }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Event Documentation">
+    Document when events are fired and what information they carry.
+    
+    ```java
+    /**
+     * Fired when a program is activated in the tool.
+     * <p>
+     * This event is fired after the program becomes the active program
+     * but before any UI updates occur.
+     * 
+     * @see ProgramActivatedPluginEvent#getActiveProgram()
+     */
+    public class ProgramActivatedPluginEvent extends PluginEvent {
+        // ...
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Avoid Blocking Operations">
+    Event handlers should be fast. Move long operations to background tasks.
+    
+    ```java
+    @Override
+    public void processEvent(PluginEvent event) {
+        if (event instanceof DataChangedEvent) {
+            // Good - schedule work for later
+            SwingUtilities.invokeLater(() -> updateUI());
+            
+            // Bad - blocks event processing
+            // performLengthyOperation();
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Debugging Events
+
+### Logging Events
+
+```java
+@Override
+public void processEvent(PluginEvent event) {
+    Msg.debug(this, "Received event: " + event);
+    
+    // Process event
+}
+```
+
+### Event Details
+
+Override `getDetails()` for better debugging:
+
+```java
+public class MyEvent extends PluginEvent {
+    private String data;
+    
+    @Override
+    protected String getDetails() {
+        return "Data: " + data;
+    }
+}
+```
+
+**Reference**: `~/workspace/source/Ghidra/Framework/Project/src/main/java/ghidra/framework/plugintool/PluginEvent.java:122`
+
+### Viewing Last Events
+
+The tool maintains a history of recent events:
+
+```java
+PluginEvent[] lastEvents = tool.getLastEvents();
+for (PluginEvent event : lastEvents) {
+    System.out.println(event);
+}
+```
+
+## Event vs Service Communication
+
+When to use events vs services:
+
+| Use Events When | Use Services When |
+|----------------|------------------|
+| Broadcasting to multiple listeners | Direct method invocation needed |
+| Loose coupling desired | Strong contract required |
+| State changes to announce | Requesting data or operations |
+| One-way notification | Two-way communication needed |
+| Temporal decoupling needed | Immediate response required |
+
+## Common Patterns
+
+### Observer Pattern
+
+```java
+// Subject fires events
+public class DataModel extends Plugin {
+    public void updateData(Data newData) {
+        this.data = newData;
+        firePluginEvent(new DataChangedEvent(getName(), newData));
+    }
+}
+
+// Observers consume events
+public class DataView extends Plugin {
+    @Override
+    public void processEvent(PluginEvent event) {
+        if (event instanceof DataChangedEvent) {
+            refreshView(((DataChangedEvent) event).getData());
+        }
+    }
+}
+```
+
+### Event Filtering
+
+```java
+@Override
+public void processEvent(PluginEvent event) {
+    if (event instanceof ProgramLocationPluginEvent) {
+        ProgramLocationPluginEvent locEvent = (ProgramLocationPluginEvent) event;
+        
+        // Only process events for current program
+        if (locEvent.getProgram() == currentProgram) {
+            handleLocationChange(locEvent.getLocation());
+        }
+    }
+}
+```
+
+## Related Documentation
+
+- [Plugin Development](/api/plugin-development) - Plugin lifecycle and structure
+- [Services](/api/services) - Service-based communication

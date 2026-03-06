@@ -1,0 +1,653 @@
+---
+title: Headless Analyzer
+description: Automate Ghidra analysis in batch mode without the GUI
+---
+
+## Introduction
+
+The Ghidra Headless Analyzer (`analyzeHeadless`) enables batch processing of binaries without launching the GUI. This is essential for:
+
+- Automated analysis pipelines
+- CI/CD integration
+- Large-scale binary processing
+- Server-side analysis
+- Scripted workflows
+
+## Basic Usage
+
+### Command Syntax
+
+```bash
+analyzeHeadless <project_path> <project_name> [options]
+```
+
+### Simple Analysis
+
+Analyze a single binary:
+
+```bash
+analyzeHeadless /tmp/projects MyProject \
+  -import /path/to/binary.exe \
+  -postScript ExportFunctionInfo.java output.json
+```
+
+### Batch Processing
+
+Process multiple binaries:
+
+```bash
+analyzeHeadless /tmp/projects BatchAnalysis \
+  -import /samples \
+  -recursive
+```
+
+## Command-Line Options
+
+### Project Options
+
+**Create or use existing project:**
+
+```bash
+# Project is created if it doesn't exist
+analyzeHeadless /projects MyProject -import binary.exe
+```
+
+**Delete project after processing:**
+
+```bash
+analyzeHeadless /projects TempProject \
+  -import binary.exe \
+  -deleteProject
+```
+
+**Read-only mode:**
+
+```bash
+analyzeHeadless /projects ExistingProject \
+  -process binary.exe \
+  -readOnly
+```
+
+### Import Options
+
+**Import file or directory:**
+
+```bash
+# Import single file
+-import /path/to/binary.exe
+
+# Import directory
+-import /path/to/binaries/
+
+# Import recursively
+-import /path/to/binaries/ -recursive
+```
+
+**Overwrite existing:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -overwrite
+```
+
+**Specify processor/language:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import firmware.bin \
+  -processor x86:LE:64:default \
+  -cspec gcc
+```
+
+**Specify loader:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import data.bin \
+  -loader BinaryLoader
+```
+
+### Analysis Options
+
+**Disable analysis:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -noanalysis
+```
+
+**Analysis timeout:**
+
+```bash
+# Timeout per file (in seconds)
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -analysisTimeoutPerFile 300
+```
+
+**CPU core limit:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import /samples/ \
+  -recursive \
+  -max-cpu 4
+```
+
+### Script Options
+
+**Pre-script (runs before analysis):**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -preScript SetupEnvironment.java
+```
+
+**Post-script (runs after analysis):**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -postScript ExportData.java output.json
+```
+
+**Script with arguments:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -postScript ProcessFunctions.java arg1 arg2 arg3
+```
+
+**Custom script path:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -scriptPath "/custom/scripts:/more/scripts" \
+  -postScript MyCustomScript.java
+```
+
+**Script log:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -postScript MyScript.java \
+  -scriptlog /tmp/script.log
+```
+
+### Process Options
+
+**Process existing program:**
+
+```bash
+# Process specific file in project
+analyzeHeadless /projects MyProject \
+  -process binary.exe \
+  -postScript AnalyzeSymbols.java
+
+# Process all programs in project
+analyzeHeadless /projects MyProject \
+  -process \
+  -postScript ExportAll.java
+```
+
+### Logging Options
+
+**Log file:**
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -log /tmp/analysis.log
+```
+
+### Server Options
+
+**Connect to Ghidra Server:**
+
+```bash
+analyzeHeadless ghidra://server/Repository ProjectName \
+  -connect username \
+  -p \
+  -process binary.exe
+```
+
+**Commit changes:**
+
+```bash
+analyzeHeadless ghidra://server/Repository ProjectName \
+  -connect username \
+  -commit "Analysis completed"
+```
+
+## Real-World Examples
+
+### Example 1: Batch Malware Analysis
+
+```bash
+#!/bin/bash
+
+# Analyze all executables in malware directory
+analyzeHeadless /analysis/projects MalwareBatch \
+  -import /malware/samples/ \
+  -recursive \
+  -overwrite \
+  -analysisTimeoutPerFile 300 \
+  -max-cpu 8 \
+  -postScript ExtractIOCs.java /output/iocs.json \
+  -log /logs/malware_analysis.log \
+  -deleteProject
+
+echo "Analysis complete. IOCs extracted to /output/iocs.json"
+```
+
+### Example 2: Function Signature Export
+
+```bash
+#!/bin/bash
+
+# Export function signatures from existing project
+for binary in /projects/MyProject/*.exe; do
+    basename=$(basename "$binary" .exe)
+    
+    analyzeHeadless /projects MyProject \
+      -process "$basename.exe" \
+      -readOnly \
+      -postScript ExportFunctionInfo.java "/output/${basename}_funcs.json" \
+      -log "/logs/${basename}.log"
+done
+```
+
+### Example 3: Differential Analysis
+
+```bash
+#!/bin/bash
+
+# Compare two versions of a binary
+analyzeHeadless /analysis/diff DiffProject \
+  -import /samples/app_v1.exe \
+  -import /samples/app_v2.exe \
+  -postScript CompareBinaries.java app_v1.exe app_v2.exe /output/diff.txt \
+  -log /logs/diff_analysis.log
+```
+
+### Example 4: Custom Loader Analysis
+
+```bash
+#!/bin/bash
+
+# Analyze raw firmware with specific loader
+analyzeHeadless /projects Firmware \
+  -import firmware.bin \
+  -processor ARM:LE:32:v7 \
+  -cspec default \
+  -loader BinaryLoader \
+  -loader-baseAddr 0x8000000 \
+  -postScript AnnotatePeripherals.java \
+  -log firmware_analysis.log
+```
+
+### Example 5: CI/CD Integration
+
+```bash
+#!/bin/bash
+# CI pipeline script for automated analysis
+
+set -e  # Exit on error
+
+BUILD_ARTIFACT="$1"
+PROJECT_DIR="/tmp/ci_analysis"
+PROJECT_NAME="CI_Build_$(date +%s)"
+
+# Analyze the build artifact
+analyzeHeadless "$PROJECT_DIR" "$PROJECT_NAME" \
+  -import "$BUILD_ARTIFACT" \
+  -analysisTimeoutPerFile 600 \
+  -postScript SecurityChecks.java /tmp/security_report.json \
+  -log /tmp/analysis.log \
+  -deleteProject
+
+# Check for security issues
+if grep -q '"vulnerabilities": \[' /tmp/security_report.json; then
+    echo "Security issues found!"
+    cat /tmp/security_report.json
+    exit 1
+fi
+
+echo "Analysis passed"
+exit 0
+```
+
+## Script Development for Headless
+
+### Headless-Compatible Scripts
+
+Scripts must handle absence of GUI:
+
+```java
+import ghidra.app.script.GhidraScript;
+import ghidra.app.util.headless.HeadlessScript;
+import java.io.*;
+
+public class HeadlessExport extends GhidraScript {
+    
+    @Override
+    public void run() throws Exception {
+        // Check if running headless
+        if (!isRunningHeadless()) {
+            println("This script is designed for headless mode");
+        }
+        
+        // Get output path from script arguments
+        String[] args = getScriptArgs();
+        if (args.length < 1) {
+            printerr("Usage: script.java <output_file>");
+            return;
+        }
+        
+        String outputPath = args[0];
+        File outputFile = new File(outputPath);
+        
+        // Export data
+        try (PrintWriter writer = new PrintWriter(outputFile)) {
+            writer.println("# Function Export");
+            
+            FunctionIterator iter = currentProgram.getListing().getFunctions(true);
+            while (iter.hasNext() && !monitor.isCancelled()) {
+                Function func = iter.next();
+                writer.printf("%s,%s%n", 
+                    func.getName(), 
+                    func.getEntryPoint());
+            }
+        }
+        
+        println("Exported to: " + outputPath);
+    }
+}
+```
+
+### Using .properties Files
+
+Provide default values for headless execution:
+
+**MyScript.properties:**
+
+```properties
+outputDir=/tmp/output
+verbose=true
+maxFunctions=1000
+```
+
+**MyScript.java:**
+
+```java
+public class MyScript extends GhidraScript {
+    @Override
+    public void run() throws Exception {
+        // Properties file values are auto-loaded
+        String outputDir = askString("outputDir", "Output directory:");
+        boolean verbose = askYesNo("verbose", "Verbose output?");
+        int maxFuncs = askInt("maxFunctions", "Max functions:");
+        
+        // Script logic using these values
+    }
+}
+```
+
+## Python Scripts in Headless Mode
+
+### PyGhidra Headless
+
+Use PyGhidra for pure Python headless analysis:
+
+```python
+#!/usr/bin/env python3
+import pyghidra
+import sys
+
+if len(sys.argv) < 2:
+    print("Usage: analyze.py <binary>")
+    sys.exit(1)
+
+binary_path = sys.argv[1]
+
+pyghidra.start()
+
+with pyghidra.open_program(binary_path, analyze=True) as flat_api:
+    program = flat_api.getCurrentProgram()
+    listing = program.getListing()
+    
+    print(f"Analyzing: {program.getName()}")
+    print(f"Functions: {listing.getFunctions(True).size()}")
+    
+    # Export function list
+    with open('functions.txt', 'w') as f:
+        for func in listing.getFunctions(True):
+            f.write(f"{func.getName()} @ {func.getEntryPoint()}\n")
+    
+    print("Export complete")
+```
+
+### Jython Scripts
+
+Jython scripts work in headless mode:
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -postScript analyze.py
+```
+
+**analyze.py:**
+
+```python
+# @category Analysis
+
+listing = currentProgram.getListing()
+funcs = listing.getFunctions(True)
+
+count = 0
+while funcs.hasNext():
+    func = funcs.next()
+    println("%s @ %s" % (func.getName(), func.getEntryPoint()))
+    count += 1
+
+println("Total functions: %d" % count)
+```
+
+## Performance Optimization
+
+### Parallel Processing
+
+```bash
+#!/bin/bash
+
+# Process binaries in parallel
+find /samples -name "*.exe" | parallel -j 4 \
+  analyzeHeadless /tmp/projects Project_{#} \
+    -import {} \
+    -postScript Export.java {.}.json \
+    -deleteProject
+```
+
+### Resource Limits
+
+```bash
+# Limit memory and CPU
+export MAXMEM=4G
+
+analyzeHeadless /projects MyProject \
+  -import /samples/ \
+  -recursive \
+  -max-cpu 2 \
+  -analysisTimeoutPerFile 300
+```
+
+### Analysis Control
+
+Disable unnecessary analyzers for speed:
+
+```java
+// Pre-script to disable slow analyzers
+import ghidra.app.script.GhidraScript;
+import ghidra.framework.options.Options;
+
+public class DisableAnalyzers extends GhidraScript {
+    public void run() throws Exception {
+        Options options = currentProgram.getOptions("Analyzers");
+        options.setBoolean("Non-Returning Functions - Discovered", false);
+        options.setBoolean("Decompiler Switch Analysis", false);
+    }
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Script not found:**
+
+```bash
+# Add script path
+analyzeHeadless /projects MyProject \
+  -scriptPath "/path/to/scripts" \
+  -postScript MyScript.java
+```
+
+**Analysis timeout:**
+
+```bash
+# Increase timeout or disable analysis
+-analysisTimeoutPerFile 3600  # 1 hour
+# OR
+-noanalysis
+```
+
+**Memory errors:**
+
+```bash
+# Increase JVM heap
+export MAXMEM=8G
+analyzeHeadless ...
+```
+
+**Import fails:**
+
+```bash
+# Specify processor explicitly
+-processor x86:LE:64:default
+-loader BinaryLoader
+```
+
+### Debug Mode
+
+Enable verbose output:
+
+```bash
+analyzeHeadless /projects MyProject \
+  -import binary.exe \
+  -log /tmp/debug.log
+
+# Check log for details
+tail -f /tmp/debug.log
+```
+
+## Environment Variables
+
+```bash
+# Ghidra installation
+export GHIDRA_INSTALL_DIR=/opt/ghidra
+
+# JVM heap size
+export MAXMEM=4G
+
+# Script paths
+export GHIDRA_SCRIPT_PATHS="/custom/scripts:/more/scripts"
+
+# Temporary directory
+export TMPDIR=/fast/storage/tmp
+```
+
+## Integration Examples
+
+### Docker Container
+
+```dockerfile
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    openjdk-17-jdk \
+    wget \
+    unzip
+
+# Install Ghidra
+WORKDIR /opt
+RUN wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4_build/ghidra_11.4_PUBLIC_20250620.zip \
+    && unzip ghidra_11.4_PUBLIC_20250620.zip \
+    && rm ghidra_11.4_PUBLIC_20250620.zip
+
+ENV GHIDRA_INSTALL_DIR=/opt/ghidra_11.4_PUBLIC
+ENV PATH="$GHIDRA_INSTALL_DIR/support:$PATH"
+
+# Copy analysis scripts
+COPY scripts/ /scripts/
+
+# Entry point
+ENTRYPOINT ["analyzeHeadless"]
+```
+
+### GitHub Actions
+
+```yaml
+name: Binary Analysis
+
+on: [push]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Ghidra
+        run: |
+          wget https://github.com/.../ghidra_11.4_PUBLIC.zip
+          unzip ghidra_11.4_PUBLIC.zip
+          echo "GHIDRA_INSTALL_DIR=$PWD/ghidra_11.4_PUBLIC" >> $GITHUB_ENV
+      
+      - name: Analyze Binary
+        run: |
+          analyzeHeadless /tmp/projects Analysis \
+            -import ${{ github.workspace }}/binary.exe \
+            -postScript ExportReport.java report.json \
+            -deleteProject
+      
+      - name: Upload Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: analysis-report
+          path: report.json
+```
+
+## Best Practices
+
+1. **Use -deleteProject** for temporary analysis to save disk space
+2. **Set timeouts** to prevent hung analysis jobs
+3. **Log output** for debugging and audit trails
+4. **Validate inputs** in scripts before processing
+5. **Handle errors** gracefully in scripts
+6. **Use -max-cpu** to control resource usage
+7. **Test scripts** in GUI before headless deployment
+8. **Version control** scripts and configurations
+
+## Related Topics
+
+- [Java Scripts](/scripting/java-scripts)
+- [Python Scripts](/scripting/python-scripts)
+- [PyGhidra](/scripting/pyghidra)

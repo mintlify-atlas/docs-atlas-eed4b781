@@ -1,0 +1,700 @@
+---
+title: Data Types API
+description: Interface for working with data types in Ghidra's type system
+---
+
+The `DataType` interface is the foundation of Ghidra's type system. All datatypes implement this interface, providing methods for type metadata, encoding/decoding, and type operations.
+
+## Overview
+
+Data types in Ghidra represent:
+
+- **Primitive Types** - Built-in types (int, char, float, etc.)
+- **Pointer Types** - References to other types
+- **Array Types** - Fixed-size sequences of elements
+- **Structure Types** - Composite types with named fields
+- **Union Types** - Overlapping field storage
+- **Function Signatures** - Function prototypes
+- **Typedef** - Type aliases
+
+## Core Properties
+
+### Type Identity
+
+<ParamField path="getName()" type="String">
+  Returns the name of the datatype.
+  
+  ```java
+  DataType intType = dtm.getDataType("/BuiltInTypes/int");
+  println(intType.getName());  // "int"
+  ```
+</ParamField>
+
+<ParamField path="getDisplayName()" type="String">
+  Returns the display name for this datatype.
+  
+  ```java
+  String displayName = dataType.getDisplayName();
+  ```
+</ParamField>
+
+<ParamField path="getPathName()" type="String">
+  Returns the full category path including the datatype name.
+  
+  ```java
+  String pathName = dataType.getPathName();
+  // e.g., "/MyTypes/MyStruct"
+  ```
+</ParamField>
+
+<ParamField path="setName(String name)" type="void">
+  Sets the name of the datatype.
+  
+  ```java
+  dataType.setName("MyCustomType");
+  ```
+  
+  <Warning>
+    Throws InvalidNameException if the name is invalid, or DuplicateNameException if the name conflicts with another type in the same category.
+  </Warning>
+</ParamField>
+
+### Size and Alignment
+
+<ParamField path="getLength()" type="int">
+  Returns the length of this datatype as a number of 8-bit bytes.
+  
+  For primitive types, this is the raw data length (smallest varnode size).
+  Dynamic and factory datatypes return -1.
+  
+  ```java
+  DataType intType = dtm.getDataType("/BuiltInTypes/int");
+  int size = intType.getLength();  // Usually 4
+  ```
+  
+  <Note>
+    No datatype except VoidDataType should ever return 0. Zero-length types should return 1 and have isZeroLength() return true.
+  </Note>
+</ParamField>
+
+<ParamField path="getAlignedLength()" type="int">
+  Returns the aligned length, equivalent to C/C++ sizeof().
+  
+  For most types this equals getLength(). For some primitives it may differ due to alignment requirements.
+  
+  ```java
+  // x86 32-bit gcc: 80-bit long double
+  DataType longDouble = dtm.getDataType("/BuiltInTypes/long double");
+  int rawLen = longDouble.getLength();        // 10 bytes (80 bits)
+  int alignedLen = longDouble.getAlignedLength();  // 12 bytes (for alignment)
+  ```
+</ParamField>
+
+<ParamField path="getAlignment()" type="int">
+  Returns the alignment requirement when this type is used within another type.
+  
+  ```java
+  int alignment = dataType.getAlignment();
+  ```
+</ParamField>
+
+<ParamField path="isZeroLength()" type="boolean">
+  Returns true if this datatype is defined with zero length.
+  
+  ```java
+  if (dataType.isZeroLength()) {
+      println("Zero-length type");
+  }
+  ```
+  
+  <Note>
+    Zero-length types still return 1 from getLength().
+  </Note>
+</ParamField>
+
+<ParamField path="isNotYetDefined()" type="boolean">
+  Returns true if this datatype has not yet been fully defined (e.g., empty structure).
+  
+  ```java
+  if (dataType.isNotYetDefined()) {
+      println("Type is incomplete");
+  }
+  ```
+</ParamField>
+
+### Category and Path
+
+<ParamField path="getCategoryPath()" type="CategoryPath">
+  Returns the category path for this datatype.
+  
+  ```java
+  CategoryPath category = dataType.getCategoryPath();
+  println("Category: " + category.getPath());
+  ```
+</ParamField>
+
+<ParamField path="setCategoryPath(CategoryPath path)" type="void">
+  Sets the category path for this datatype.
+  
+  ```java
+  CategoryPath newCategory = new CategoryPath("/MyTypes");
+  dataType.setCategoryPath(newCategory);
+  ```
+</ParamField>
+
+<ParamField path="getDataTypePath()" type="DataTypePath">
+  Returns the complete datatype path.
+  
+  ```java
+  DataTypePath path = dataType.getDataTypePath();
+  ```
+</ParamField>
+
+### Description
+
+<ParamField path="getDescription()" type="String">
+  Returns a brief description of this datatype.
+  
+  ```java
+  String desc = dataType.getDescription();
+  ```
+</ParamField>
+
+<ParamField path="setDescription(String description)" type="void">
+  Sets a brief description for this datatype.
+  
+  ```java
+  dataType.setDescription("Custom structure for network packets");
+  ```
+</ParamField>
+
+## Data Type Manager
+
+<ParamField path="getDataTypeManager()" type="DataTypeManager">
+  Returns the DataTypeManager containing this datatype.
+  
+  ```java
+  DataTypeManager dtm = dataType.getDataTypeManager();
+  ```
+</ParamField>
+
+<ParamField path="hasLanguageDependantLength()" type="boolean">
+  Returns true if the length is determined by the DataOrganization.
+  
+  ```java
+  if (dataType.hasLanguageDependantLength()) {
+      println("Length depends on compiler/architecture");
+  }
+  ```
+</ParamField>
+
+## Type Operations
+
+### Clone and Copy
+
+<ParamField path="clone(DataTypeManager dtm)" type="DataType">
+  Returns an instance using the specified DataTypeManager, retaining unique identity.
+  
+  ```java
+  DataType cloned = dataType.clone(programDTM);
+  ```
+  
+  <Note>
+    Returns the same instance if the DataTypeManager matches.
+  </Note>
+</ParamField>
+
+<ParamField path="copy(DataTypeManager dtm)" type="DataType">
+  Returns a new instance (shallow copy) with a new identity.
+  
+  ```java
+  DataType copy = dataType.copy(programDTM);
+  ```
+</ParamField>
+
+### Equivalence
+
+<ParamField path="isEquivalent(DataType dt)" type="boolean">
+  Checks if the given datatype is equivalent to this datatype.
+  
+  The meaning of "equivalent" is datatype-dependent.
+  
+  ```java
+  if (dataType1.isEquivalent(dataType2)) {
+      println("Types are equivalent");
+  }
+  ```
+</ParamField>
+
+<ParamField path="dependsOn(DataType dt)" type="boolean">
+  Checks if this datatype depends on the existence of the given datatype.
+  
+  ```java
+  // byte[] depends on byte
+  ArrayDataType byteArray = new ArrayDataType(byteType, 10, 1);
+  boolean depends = byteArray.dependsOn(byteType);  // true
+  ```
+</ParamField>
+
+### Replace
+
+<ParamField path="replaceWith(DataType dataType)" type="void">
+  Replaces the internals of this datatype with the internals of the given datatype.
+  
+  ```java
+  // Update existing type with new definition
+  existingStruct.replaceWith(newStructDefinition);
+  ```
+  
+  <Warning>
+    Throws UnsupportedOperationException if the datatype does not support change.
+  </Warning>
+</ParamField>
+
+## Value Operations
+
+### Get Value
+
+<ParamField path="getValue(MemBuffer buf, Settings settings, int length)" type="Object">
+  Returns the interpreted data value.
+  
+  For pointers, returns an Address. For integers, returns a Scalar.
+  
+  ```java
+  Data data = listing.getDataAt(addr);
+  DataType dt = data.getDataType();
+  Object value = dt.getValue(data, data.getDefaultSettings(), data.getLength());
+  
+  if (value instanceof Scalar) {
+      Scalar scalar = (Scalar) value;
+      println("Value: " + scalar.getValue());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getValueClass(Settings settings)" type="Class<?>">
+  Returns the Class of the value object returned by getValue().
+  
+  ```java
+  Class<?> valueClass = dataType.getValueClass(null);
+  if (valueClass == Address.class) {
+      println("This is a pointer type");
+  }
+  ```
+</ParamField>
+
+### Representation
+
+<ParamField path="getRepresentation(MemBuffer buf, Settings settings, int length)" type="String">
+  Returns a string representation of the data.
+  
+  ```java
+  Data data = listing.getDataAt(addr);
+  String repr = data.getDataType().getRepresentation(
+      data,
+      data.getDefaultSettings(),
+      data.getLength()
+  );
+  println("Value: " + repr);
+  ```
+</ParamField>
+
+### Encoding
+
+<ParamField path="isEncodable()" type="boolean">
+  Returns true if this type supports encoding (patching).
+  
+  ```java
+  if (dataType.isEncodable()) {
+      // Can use encodeValue() and encodeRepresentation()
+  }
+  ```
+</ParamField>
+
+<ParamField path="encodeValue(Object value, MemBuffer buf, Settings settings, int length)" type="byte[]">
+  Encodes a value object to bytes.
+  
+  ```java
+  if (dataType.isEncodable()) {
+      Scalar value = new Scalar(32, 0x12345678);
+      byte[] bytes = dataType.encodeValue(value, buf, settings, 4);
+  }
+  ```
+  
+  <Warning>
+    Throws DataTypeEncodeException if encoding fails.
+  </Warning>
+</ParamField>
+
+<ParamField path="encodeRepresentation(String repr, MemBuffer buf, Settings settings, int length)" type="byte[]">
+  Encodes a string representation to bytes.
+  
+  ```java
+  if (dataType.isEncodable()) {
+      byte[] bytes = dataType.encodeRepresentation("0x12345678", buf, settings, 4);
+  }
+  ```
+</ParamField>
+
+## Mnemonic and Labels
+
+<ParamField path="getMnemonic(Settings settings)" type="String">
+  Returns the mnemonic for this datatype.
+  
+  ```java
+  String mnemonic = dataType.getMnemonic(null);
+  ```
+</ParamField>
+
+<ParamField path="getDefaultLabelPrefix()" type="String">
+  Returns the default label prefix for this datatype.
+  
+  ```java
+  String prefix = dataType.getDefaultLabelPrefix();
+  // e.g., "DAT_" for data, "PTR_" for pointers
+  ```
+</ParamField>
+
+<ParamField path="getDefaultAbbreviatedLabelPrefix()" type="String">
+  Returns an abbreviated label prefix.
+  
+  ```java
+  String abbrev = dataType.getDefaultAbbreviatedLabelPrefix();
+  ```
+</ParamField>
+
+<ParamField path="getDefaultLabelPrefix(MemBuffer buf, Settings settings, int len, DataTypeDisplayOptions options)" type="String">
+  Returns the context-aware default label prefix.
+  
+  ```java
+  String prefix = dataType.getDefaultLabelPrefix(
+      data,
+      settings,
+      data.getLength(),
+      DataTypeDisplayOptions.DEFAULT
+  );
+  ```
+</ParamField>
+
+## Settings
+
+<ParamField path="getDefaultSettings()" type="Settings">
+  Returns the default settings for this datatype.
+  
+  ```java
+  Settings settings = dataType.getDefaultSettings();
+  ```
+</ParamField>
+
+<ParamField path="getSettingsDefinitions()" type="SettingsDefinition[]">
+  Returns the settings definitions available for this datatype.
+  
+  ```java
+  SettingsDefinition[] defs = dataType.getSettingsDefinitions();
+  for (SettingsDefinition def : defs) {
+      println("Setting: " + def.getName());
+  }
+  ```
+</ParamField>
+
+<ParamField path="getTypeDefSettingsDefinitions()" type="TypeDefSettingsDefinition[]">
+  Returns settings definitions for use with TypeDef.
+</ParamField>
+
+## Type Metadata
+
+### Universal ID
+
+<ParamField path="getUniversalID()" type="UniversalID">
+  Returns the universal ID for this datatype.
+  
+  This is a unique identifier across all programs and archives.
+  
+  ```java
+  UniversalID uid = dataType.getUniversalID();
+  ```
+</ParamField>
+
+### Source Archive
+
+<ParamField path="getSourceArchive()" type="SourceArchive">
+  Returns the source archive where this type originated.
+  
+  ```java
+  SourceArchive archive = dataType.getSourceArchive();
+  ```
+</ParamField>
+
+<ParamField path="setSourceArchive(SourceArchive archive)" type="void">
+  Sets the source archive.
+</ParamField>
+
+### Timestamps
+
+<ParamField path="getLastChangeTime()" type="long">
+  Returns the timestamp of the last change within the datatype manager.
+  
+  ```java
+  long timestamp = dataType.getLastChangeTime();
+  ```
+</ParamField>
+
+<ParamField path="setLastChangeTime(long lastChangeTime)" type="void">
+  Sets the last change timestamp.
+</ParamField>
+
+<ParamField path="getLastChangeTimeInSourceArchive()" type="long">
+  Returns the timestamp of the last sync with the source archive.
+</ParamField>
+
+<ParamField path="setLastChangeTimeInSourceArchive(long timestamp)" type="void">
+  Sets the source archive sync timestamp.
+</ParamField>
+
+## Type Relationships
+
+<ParamField path="getParents()" type="Collection<DataType>">
+  Returns the parent datatypes that reference this datatype.
+  
+  ```java
+  Collection<DataType> parents = dataType.getParents();
+  for (DataType parent : parents) {
+      println("Parent: " + parent.getName());
+  }
+  ```
+  
+  <Note>
+    This method is intended for DB-managed datatypes only.
+  </Note>
+</ParamField>
+
+<ParamField path="addParent(DataType dt)" type="void">
+  Informs this datatype of a parent relationship.
+  
+  <Warning>
+    Reserved for internal use.
+  </Warning>
+</ParamField>
+
+<ParamField path="removeParent(DataType dt)" type="void">
+  Removes a parent datatype relationship.
+  
+  <Warning>
+    Reserved for internal use.
+  </Warning>
+</ParamField>
+
+## State Checks
+
+<ParamField path="isDeleted()" type="boolean">
+  Returns true if this datatype has been deleted.
+  
+  ```java
+  if (dataType.isDeleted()) {
+      println("Type has been deleted");
+  }
+  ```
+</ParamField>
+
+## Data Organization
+
+<ParamField path="getDataOrganization()" type="DataOrganization">
+  Returns the DataOrganization associated with this datatype.
+  
+  ```java
+  DataOrganization dataOrg = dataType.getDataOrganization();
+  int ptrSize = dataOrg.getPointerSize();
+  ```
+</ParamField>
+
+## Common Data Types
+
+### Built-in Types
+
+```java
+// Access built-in types
+DataTypeManager dtm = program.getDataTypeManager();
+
+DataType byteType = dtm.getDataType("/BuiltInTypes/byte");
+DataType charType = dtm.getDataType("/BuiltInTypes/char");
+DataType shortType = dtm.getDataType("/BuiltInTypes/short");
+DataType intType = dtm.getDataType("/BuiltInTypes/int");
+DataType longType = dtm.getDataType("/BuiltInTypes/long");
+DataType floatType = dtm.getDataType("/BuiltInTypes/float");
+DataType doubleType = dtm.getDataType("/BuiltInTypes/double");
+```
+
+### Creating Arrays
+
+```java
+DataTypeManager dtm = program.getDataTypeManager();
+DataType intType = dtm.getDataType("/BuiltInTypes/int");
+
+// Create array of 10 ints
+ArrayDataType intArray = new ArrayDataType(intType, 10, 4);
+
+Listing listing = program.getListing();
+listing.createData(addr, intArray);
+```
+
+### Creating Pointers
+
+```java
+DataTypeManager dtm = program.getDataTypeManager();
+DataType charType = dtm.getDataType("/BuiltInTypes/char");
+
+// Create char pointer
+PointerDataType charPtr = new PointerDataType(charType);
+
+listing.createData(addr, charPtr);
+```
+
+### Creating Structures
+
+```java
+StructureDataType struct = new StructureDataType("MyStruct", 0);
+
+DataTypeManager dtm = program.getDataTypeManager();
+DataType intType = dtm.getDataType("/BuiltInTypes/int");
+DataType charType = dtm.getDataType("/BuiltInTypes/char");
+
+// Add fields
+struct.add(intType, 4, "id", "Unique identifier");
+struct.add(charType, 1, "flag", "Status flag");
+struct.add(new ArrayDataType(charType, 32, 1), "name", "Name string");
+
+// Add to data type manager
+DataType addedStruct = dtm.addDataType(struct, DataTypeConflictHandler.DEFAULT_HANDLER);
+
+// Use the structure
+listing.createData(addr, addedStruct);
+```
+
+### Creating Unions
+
+```java
+UnionDataType union = new UnionDataType("MyUnion");
+
+DataType intType = dtm.getDataType("/BuiltInTypes/int");
+DataType floatType = dtm.getDataType("/BuiltInTypes/float");
+
+union.add(intType, "asInt", null);
+union.add(floatType, "asFloat", null);
+
+DataType addedUnion = dtm.addDataType(union, DataTypeConflictHandler.DEFAULT_HANDLER);
+```
+
+## Example Usage
+
+### Working with Data Types
+
+```java
+public void analyzeDataTypes(Program program) {
+    DataTypeManager dtm = program.getDataTypeManager();
+    Listing listing = program.getListing();
+    
+    // Get all structures
+    Iterator<Structure> structs = dtm.getAllStructures();
+    while (structs.hasNext()) {
+        Structure struct = structs.next();
+        
+        println("Structure: " + struct.getName());
+        println("  Size: " + struct.getLength());
+        println("  Alignment: " + struct.getAlignment());
+        
+        // List components
+        DataTypeComponent[] components = struct.getComponents();
+        for (DataTypeComponent comp : components) {
+            println("    " + comp.getFieldName() + ": " + comp.getDataType().getName());
+        }
+    }
+}
+```
+
+### Creating Custom Types
+
+```java
+public void createCustomTypes(Program program) throws Exception {
+    DataTypeManager dtm = program.getDataTypeManager();
+    
+    // Create a structure for a file header
+    StructureDataType fileHeader = new StructureDataType("FileHeader", 0);
+    
+    DataType intType = dtm.getDataType("/BuiltInTypes/int");
+    DataType shortType = dtm.getDataType("/BuiltInTypes/short");
+    
+    fileHeader.add(intType, "magic", "Magic number");
+    fileHeader.add(shortType, "version", "Version number");
+    fileHeader.add(shortType, "flags", "Flags");
+    fileHeader.add(intType, "dataOffset", "Offset to data");
+    fileHeader.add(intType, "dataSize", "Size of data");
+    
+    // Add to data type manager
+    DataType added = dtm.addDataType(fileHeader, DataTypeConflictHandler.DEFAULT_HANDLER);
+    
+    // Use the type
+    Listing listing = program.getListing();
+    Data headerData = listing.createData(addr("00400000"), added);
+    
+    // Access components
+    Data magicData = headerData.getComponent(0);
+    Object magicValue = magicData.getValue();
+    println("Magic: 0x" + Integer.toHexString(((Scalar) magicValue).getIntValue()));
+}
+```
+
+### Applying Types to Memory
+
+```java
+public void applyDataTypes(Program program, Address addr) throws Exception {
+    DataTypeManager dtm = program.getDataTypeManager();
+    Listing listing = program.getListing();
+    
+    // Apply integer
+    DataType intType = dtm.getDataType("/BuiltInTypes/int");
+    Data intData = listing.createData(addr, intType);
+    println("Int value: " + intData.getValue());
+    
+    // Apply string
+    DataType stringType = new StringDataType();
+    Data strData = listing.createData(addr.add(4), stringType, 32);
+    println("String value: " + strData.getValue());
+    
+    // Apply array
+    ArrayDataType byteArray = new ArrayDataType(
+        dtm.getDataType("/BuiltInTypes/byte"),
+        16,
+        1
+    );
+    Data arrayData = listing.createData(addr.add(36), byteArray);
+    println("Array has " + arrayData.getNumComponents() + " elements");
+}
+```
+
+## Package Location
+
+```
+ghidra.program.model.data.DataType
+```
+
+## Related Interfaces
+
+- [DataTypeManager](https://ghidra.re/ghidra_docs/api/ghidra/program/model/data/DataTypeManager.html) - Type manager
+- [Structure](https://ghidra.re/ghidra_docs/api/ghidra/program/model/data/Structure.html) - Structure types
+- [Union](https://ghidra.re/ghidra_docs/api/ghidra/program/model/data/Union.html) - Union types
+- [Array](https://ghidra.re/ghidra_docs/api/ghidra/program/model/data/Array.html) - Array types
+- [Pointer](https://ghidra.re/ghidra_docs/api/ghidra/program/model/data/Pointer.html) - Pointer types
+
+## Constants
+
+<ResponseField name="DEFAULT" type="DataType">
+  Singleton instance of default datatype
+</ResponseField>
+
+<ResponseField name="VOID" type="DataType">
+  Instance of void datatype (deprecated, use VoidDataType.dataType)
+</ResponseField>
+
+<ResponseField name="CONFLICT_SUFFIX" type="String">
+  Datatype name conflict suffix: `".conflict"`
+</ResponseField>

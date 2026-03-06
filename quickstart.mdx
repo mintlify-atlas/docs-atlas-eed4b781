@@ -1,80 +1,351 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart Guide
+description: Get started with Ghidra by creating a project, importing a binary, and performing your first analysis
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
+This quickstart guide will walk you through the essential steps of using Ghidra:
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+1. Launching Ghidra
+2. Creating a new project
+3. Importing a binary file
+4. Running analysis
+5. Navigating the CodeBrowser interface
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+This guide assumes you have already installed Ghidra and JDK 21. If not, please refer to the [Installation Guide](/installation) first.
 </Note>
+
+## Step 1: Launch Ghidra
+
+<Steps>
+  <Step title="Open Terminal or Command Prompt">
+    Navigate to your Ghidra installation directory:
+    
+    ```bash
+    cd <GhidraInstallDir>
+    ```
+  </Step>
+  
+  <Step title="Run the Launch Script">
+    ```bash
+    # Linux/macOS
+    ./ghidraRun
+    
+    # Windows
+    ghidraRun.bat
+    ```
+    
+    The Ghidra Project Manager window will appear after a brief initialization period.
+  </Step>
+</Steps>
+
+## Step 2: Create a New Project
+
+<Steps>
+  <Step title="Start Project Creation">
+    In the Ghidra Project Manager window:
+    - Click **File → New Project**
+    - Or press `Ctrl+N` (Windows/Linux) or `Cmd+N` (macOS)
+  </Step>
+  
+  <Step title="Choose Project Type">
+    Select **Non-Shared Project** and click **Next**
+    
+    <Note>
+    Non-Shared projects are stored locally on your machine. Shared projects use a Ghidra Server for team collaboration.
+    </Note>
+  </Step>
+  
+  <Step title="Configure Project Settings">
+    - **Project Directory**: Choose where to store your project files
+    - **Project Name**: Enter a name (e.g., "MyFirstProject")
+    - Click **Finish**
+  </Step>
+</Steps>
+
+## Step 3: Import a Binary
+
+<Steps>
+  <Step title="Start Import Process">
+    In the Project Manager window:
+    - Click **File → Import File**
+    - Or press `I`
+    - Or drag and drop a file into the project window
+  </Step>
+  
+  <Step title="Select Binary File">
+    Choose an executable file to analyze:
+    - Windows: `.exe`, `.dll`, `.sys`
+    - Linux: ELF executables
+    - macOS: Mach-O executables
+    - Or any raw binary file
+    
+    Click **Select File To Import**
+  </Step>
+  
+  <Step title="Review Import Summary">
+    Ghidra will automatically detect the file format. Review the import details:
+    - Format (PE, ELF, Mach-O, etc.)
+    - Language (processor architecture)
+    - Compiler (if detected)
+    
+    Click **OK** to proceed
+  </Step>
+  
+  <Step title="Import Results">
+    After import completes, click **OK** on the import results dialog
+    
+    Your binary now appears in the project file listing
+  </Step>
+</Steps>
+
+<CodeGroup>
+```bash Linux Example
+# Import a system binary
+ls /bin/ls  # Verify file exists
+# Then import /bin/ls through Ghidra GUI
+```
+
+```cmd Windows Example
+# Import a Windows executable
+dir C:\Windows\System32\notepad.exe
+# Then import notepad.exe through Ghidra GUI
+```
+
+```bash macOS Example
+# Import a macOS binary
+ls /bin/ls  # Verify file exists
+# Then import /bin/ls through Ghidra GUI
+```
+</CodeGroup>
+
+## Step 4: Open in CodeBrowser and Analyze
+
+<Steps>
+  <Step title="Open CodeBrowser">
+    Double-click the imported file in the project listing
+    
+    The Ghidra CodeBrowser tool will open
+  </Step>
+  
+  <Step title="Start Analysis">
+    You'll be prompted: "Would you like to analyze [filename] now?"
+    
+    - Click **Yes**
+    - Or click **No** to analyze later via **Analysis → Auto Analyze**
+  </Step>
+  
+  <Step title="Configure Analysis Options">
+    The Analysis Options dialog appears with recommended analyzers pre-selected:
+    
+    **Common analyzers include:**
+    - Decompiler Parameter ID
+    - Function Start Search
+    - Stack
+    - Reference
+    - Data Reference
+    - Disassemble Entry Points
+    - Subroutine References
+    
+    <Note>
+    For your first analysis, the default options are fine. Click **Analyze** to proceed.
+    </Note>
+  </Step>
+  
+  <Step title="Wait for Analysis to Complete">
+    Analysis progress is shown in the bottom-right corner
+    
+    - Small binaries: seconds to minutes
+    - Large binaries: several minutes to hours
+    
+    You can work with the binary during analysis, but some features may be limited
+  </Step>
+</Steps>
+
+## Step 5: Navigate the CodeBrowser Interface
+
+The CodeBrowser is divided into several key windows:
+
+### Main Windows
+
+<CardGroup cols={2}>
+  <Card title="Listing Window" icon="list">
+    **Center-left**: Shows disassembly with addresses, bytes, mnemonics, and operands
+    
+    - Assembly instructions
+    - Function boundaries
+    - Comments and labels
+  </Card>
+  
+  <Card title="Decompiler Window" icon="code">
+    **Center-right**: Shows decompiled C-like pseudocode
+    
+    - High-level code representation
+    - Variable names and types
+    - Control flow structures
+  </Card>
+  
+  <Card title="Program Trees" icon="folder-tree">
+    **Top-left**: Hierarchical view of program structure
+    
+    - Memory blocks
+    - Imports/Exports
+    - Functions
+  </Card>
+  
+  <Card title="Symbol Tree" icon="sitemap">
+    **Bottom-left**: Lists all symbols, functions, and labels
+    
+    - Navigate to functions
+    - Find global variables
+    - View imports/exports
+  </Card>
+</CardGroup>
+
+### Navigation Basics
+
+<Steps>
+  <Step title="Navigate to Entry Point">
+    The entry point is typically displayed automatically after analysis
+    
+    Or navigate manually:
+    - Press `G` (Go To)
+    - Enter `entry` or an address
+    - Click **OK**
+  </Step>
+  
+  <Step title="Follow Code References">
+    Click on a function call or data reference:
+    - Double-click to jump to the target
+    - Right-click for more options
+    - Use **Back** arrow to return (or `Alt+Left`)
+  </Step>
+  
+  <Step title="View Function Graph">
+    To see a visual representation of the current function:
+    - Press `Ctrl+F` or click the graph icon
+    - Displays control flow as a graph with basic blocks
+  </Step>
+  
+  <Step title="Search for Strings">
+    Find interesting strings in the binary:
+    - Go to **Search → For Strings**
+    - Review the strings window
+    - Double-click a string to see where it's referenced
+  </Step>
+</Steps>
+
+## Essential Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `G` | Go to address/symbol |
+| `L` | Rename label/function |
+| `C` | Clear code |
+| `D` | Disassemble |
+| `F` | Create function |
+| `;` | Add comment (pre or post) |
+| `Ctrl+F` | Show function graph |
+| `Ctrl+Shift+E` | Edit function signature |
+| `X` | Show cross-references |
+
+## Basic Analysis Workflow Example
+
+<Steps>
+  <Step title="Find the Main Function">
+    1. Look in the Symbol Tree under **Functions**
+    2. Search for `main`, `_main`, or `WinMain`
+    3. Double-click to navigate to the function
+  </Step>
+  
+  <Step title="Examine the Decompiler Output">
+    Review the decompiled pseudocode:
+    - Understand the function's logic
+    - Identify interesting function calls
+    - Note data references
+  </Step>
+  
+  <Step title="Rename Variables and Functions">
+    Make the code more readable:
+    - Click on a variable or function name
+    - Press `L` to rename
+    - Enter a descriptive name
+    - Press `Enter`
+  </Step>
+  
+  <Step title="Add Comments">
+    Document your findings:
+    - Position cursor at an instruction
+    - Press `;` for pre-comment or `Shift+;` for post-comment
+    - Type your comment
+    - Press `Enter`
+  </Step>
+  
+  <Step title="Follow Interesting Calls">
+    Investigate function calls:
+    - Double-click on a function call
+    - Analyze the called function
+    - Use **Back** to return
+  </Step>
+  
+  <Step title="Check Cross-References">
+    See where code or data is used:
+    - Click on a function or variable
+    - Press `X` to view cross-references
+    - Navigate to interesting references
+  </Step>
+</Steps>
+
+<Warning>
+Always save your work! Press `Ctrl+S` or click **File → Save** regularly to preserve your analysis, comments, and renamed symbols.
+</Warning>
+
+## Running Scripts
+
+Ghidra includes powerful scripting capabilities:
+
+<Steps>
+  <Step title="Open Script Manager">
+    Click **Window → Script Manager** or press `F11`
+  </Step>
+  
+  <Step title="Browse Available Scripts">
+    Ghidra includes hundreds of pre-built scripts:
+    - Search by name or description
+    - Organized by category
+  </Step>
+  
+  <Step title="Run a Script">
+    Select a script and click the green **Run** button
+    
+    Scripts can automate tasks like:
+    - Finding patterns
+    - Applying labels
+    - Exporting data
+    - Custom analysis
+  </Step>
+</Steps>
+
+## Next Steps
+
+Now that you've completed your first analysis, explore more advanced features:
+
+- **Function Comparison**: Compare functions across binaries
+- **Data Type Manager**: Create custom structures and types
+- **Debugging**: Use the integrated debugger for dynamic analysis
+- **BSim**: Find similar functions across multiple binaries
+- **Custom Scripts**: Write your own Python or Java scripts
+- **Version Tracking**: Track changes between binary versions
+
+<Note>
+For comprehensive documentation, tutorials, and reference materials, check the `docs` directory in your Ghidra installation or access **Help → Topics** within Ghidra.
+</Note>
+
+## Additional Resources
+
+- **Cheat Sheet**: `<GhidraInstallDir>/docs/CheatSheet.html`
+- **Ghidra Class Materials**: `<GhidraInstallDir>/docs/GhidraClass/`
+- **API Documentation**: `<GhidraInstallDir>/docs/GhidraAPI_javadoc.zip`
+- **Community**: [GitHub Discussions](https://github.com/NationalSecurityAgency/ghidra/discussions)

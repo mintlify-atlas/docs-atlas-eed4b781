@@ -1,0 +1,522 @@
+---
+title: 'Search Capabilities'
+description: 'Search and find code, data, and patterns in Ghidra'
+---
+
+## Search Overview
+
+Ghidra provides powerful search capabilities to locate code patterns, data values, text strings, and program elements.
+
+<Note>
+The `SearchTextPlugin` provides comprehensive search functionality for program text, while specialized plugins handle memory, instructions, and other search types.
+</Note>
+
+## Search Types
+
+<Tabs>
+  <Tab title="Program Text">
+    Search displayed text in listing:
+    - Searches rendered fields
+    - Comments, labels, mnemonics
+    - Regular expression support
+    - Database search or display match
+  </Tab>
+  
+  <Tab title="Memory">
+    Search raw bytes:
+    - Hexadecimal patterns
+    - Byte sequences
+    - Masked searches
+    - Binary patterns
+  </Tab>
+  
+  <Tab title="Instructions">
+    Search for instruction patterns:
+    - Mnemonic sequences
+    - Operand patterns
+    - Combined criteria
+    - Flexible matching
+  </Tab>
+  
+  <Tab title="Scalars">
+    Find numeric values:
+    - Immediate values
+    - Constants in code
+    - Address values
+    - Data values
+  </Tab>
+</Tabs>
+
+## Program Text Search
+
+### Basic Text Search
+
+<Steps>
+  <Step title="Open Search Dialog">
+    Access text search:
+    - `Search` > `Program Text`
+    - Press `Ctrl + Shift + E`
+    - Implemented by `SearchTextPlugin`
+  </Step>
+  
+  <Step title="Enter Search String">
+    Configure search:
+    - Type search text
+    - Choose search fields
+    - Set options (case sensitive, regex)
+  </Step>
+  
+  <Step title="Execute Search">
+    Run the search:
+    - Click `Search All` for all matches
+    - Or `Next`/`Previous` for incremental
+    - Results appear in table
+  </Step>
+</Steps>
+
+### Search Options
+
+<Tabs>
+  <Tab title="Search Fields">
+    Select fields to search:
+    - **Instruction Mnemonics**: Assembly instructions
+    - **Instruction Operands**: Instruction arguments
+    - **Data Mnemonics**: Data type names
+    - **Data Operands**: Data values
+    - **Comments**: All comment types
+    - **Labels**: Symbol names
+    - **Functions**: Function names
+  </Tab>
+  
+  <Tab title="Search Modes">
+    Two search strategies:
+    
+    **Database Search**:
+    - Fast, searches program database
+    - Limited to database content
+    - Implemented by `ProgramDatabaseSearcher`
+    
+    **Listing Display Match**:
+    - Slower, renders each address
+    - Searches as displayed in listing
+    - Matches exact visual output
+    - May take time on large programs
+  </Tab>
+  
+  <Tab title="Regular Expressions">
+    Pattern matching:
+    - Enable regex option
+    - Full regex syntax support
+    - Example: `mov.*eax` finds MOV instructions with EAX
+    - Example: `str_\w+` finds labels starting with "str_"
+  </Tab>
+  
+  <Tab title="Case Sensitivity">
+    Control case matching:
+    - Case-sensitive: exact match
+    - Case-insensitive: ignores case
+    - Depends on search needs
+  </Tab>
+</Tabs>
+
+### Search Scope
+
+<Steps>
+  <Step title="Set Search Range">
+    Define where to search:
+    - **All Blocks**: Entire program
+    - **Selection**: Current selection only
+    - **Current Block**: Active memory block
+    - **Custom Range**: Specify addresses
+  </Step>
+  
+  <Step title="Memory Block Filter">
+    Choose blocks to search:
+    - Filter by block name
+    - Include/exclude specific regions
+    - Focus on code vs data sections
+  </Step>
+</Steps>
+
+<Tip>
+Use selection-based search to narrow results when you know the approximate location of your target.
+</Tip>
+
+### Search Results
+
+<Steps>
+  <Step title="View Results Table">
+    Results displayed in table:
+    - Uses `ProgramDatabaseSearchTableModel`
+    - Columns: Location, Preview, Type
+    - Sortable and filterable
+  </Step>
+  
+  <Step title="Navigate Results">
+    Use the results:
+    - Double-click to jump to location
+    - Select multiple for bulk operations
+    - Export results to file
+  </Step>
+  
+  <Step title="Highlight Matches">
+    Visual emphasis:
+    - Option to highlight in listing
+    - Search marker icons
+    - Uses `SEARCH_MARKER_ICON`
+    - Configurable highlight colors
+  </Step>
+</Steps>
+
+## Memory Search
+
+### Byte Pattern Search
+
+<Steps>
+  <Step title="Open Memory Search">
+    Access memory search:
+    - `Search` > `Memory`
+    - Direct byte-level searching
+  </Step>
+  
+  <Step title="Enter Pattern">
+    Define byte pattern:
+    - Hexadecimal bytes (e.g., `48 8B 45 F8`)
+    - Wildcards: `?` for nibble, `..` for byte
+    - Example: `48 8B ?? ??` matches MOV with any operands
+  </Step>
+  
+  <Step title="Search Memory">
+    Execute search:
+    - Click `Search All`
+    - Results show all matches
+    - Navigate to findings
+  </Step>
+</Steps>
+
+### Advanced Memory Search
+
+<Tabs>
+  <Tab title="String Search">
+    Find string values:
+    - Enter text string
+    - Specify encoding (ASCII, Unicode)
+    - Automatically converted to bytes
+    - Null terminator optional
+  </Tab>
+  
+  <Tab title="Value Search">
+    Search for numeric values:
+    - Decimal or hexadecimal
+    - Specify size (1, 2, 4, 8 bytes)
+    - Endianness settings
+    - Example: Find all `0xDEADBEEF` values
+  </Tab>
+  
+  <Tab title="Regex Memory Search">
+    Pattern search in strings:
+    - Use `SearchMemoryForStringsRegExScript.java`
+    - Regular expressions on memory strings
+    - Find complex string patterns
+  </Tab>
+</Tabs>
+
+<Note>
+Memory search is case-sensitive for byte patterns. Use appropriate byte values for ASCII text searches.
+</Note>
+
+## Instruction Search
+
+### Instruction Pattern Search
+
+<Steps>
+  <Step title="Open Instruction Search">
+    Access instruction search:
+    - Implemented by `InstructionSearchPlugin`
+    - `Search` > `Instruction Patterns`
+    - Opens `InstructionSearchDialog`
+  </Step>
+  
+  <Step title="Build Pattern">
+    Create instruction pattern:
+    - Add instruction criteria
+    - Specify mnemonics
+    - Define operand constraints
+    - Set sequence requirements
+  </Step>
+  
+  <Step title="Execute Search">
+    Find matches:
+    - `SearchInstructionsTask` runs search
+    - Results in table
+    - Preview shows context
+  </Step>
+</Steps>
+
+### Mnemonic Search Scripts
+
+Script-based mnemonic searches:
+
+<Tabs>
+  <Tab title="Mnemonics Only">
+    `SearchMnemonicsNoOpsNoConstScript.java`:
+    - Search instruction mnemonics only
+    - No operand matching
+    - Fast basic search
+  </Tab>
+  
+  <Tab title="Mnemonics with Operands">
+    `SearchMnemonicsOpsNoConstScript.java`:
+    - Match mnemonics and operands
+    - No constant value matching
+    - Structure-based search
+  </Tab>
+  
+  <Tab title="Mnemonics with Constants">
+    `SearchMnemonicsOpsConstScript.java`:
+    - Match mnemonics, operands, and constants
+    - Precise pattern matching
+    - Most specific search
+  </Tab>
+</Tabs>
+
+### YARA Integration
+
+YARA rule-based searching:
+- Use `InstructionSearchApi_Yara.java`
+- Define YARA rules
+- Apply to instruction patterns
+- Advanced malware analysis
+
+## Scalar Search
+
+### Finding Scalar Values
+
+<Steps>
+  <Step title="Access Scalar Search">
+    Open scalar search:
+    - `Search` > `Scalars`
+    - Find immediate values and constants
+  </Step>
+  
+  <Step title="Enter Value">
+    Specify search value:
+    - Decimal or hexadecimal
+    - Exact value match
+    - Range searches supported
+  </Step>
+  
+  <Step title="Review Results">
+    Examine matches:
+    - Instructions with immediate values
+    - Data containing values
+    - Potential addresses or constants
+  </Step>
+</Steps>
+
+### Image Base Offsets
+
+Search for relocated addresses:
+- Use `SearchForImageBaseOffsetsScript.java`
+- Finds values that are image base + offset
+- Identifies potential addresses
+- Helps with position-independent code
+
+## Label and Symbol Search
+
+### Finding Labels
+
+<Steps>
+  <Step title="Go To Dialog">
+    Quick symbol navigation:
+    - Press `G`
+    - Type label name
+    - Supports wildcards
+    - Jump to symbol
+  </Step>
+  
+  <Step title="Symbol Table Search">
+    Advanced symbol search:
+    - Open Symbol Table
+    - Use filter bar
+    - Regular expressions supported
+    - Sort and organize results
+  </Step>
+</Steps>
+
+### Search by Address
+
+<Steps>
+  <Step title="Address Navigation">
+    Jump to specific address:
+    - Press `G`
+    - Enter hexadecimal address
+    - Navigate to location
+  </Step>
+  
+  <Step title="File Offset Search">
+    Find memory address from file offset:
+    - Use `LocateMemoryAddressesForFileOffset.java`
+    - Converts file position to memory address
+    - Handles multiple mappings
+  </Step>
+</Steps>
+
+## Specialized Searches
+
+### Function Search
+
+<Tabs>
+  <Tab title="Function Window">
+    Search all functions:
+    - `Window` > `Functions`
+    - Filter by name, size, location
+    - Sort by various criteria
+    - Export function lists
+  </Tab>
+  
+  <Tab title="Function Selection">
+    Select functions by criteria:
+    - Use `SelectFunctionsScript.java`
+    - Filter by properties
+    - Bulk operations on results
+  </Tab>
+</Tabs>
+
+### Data Type Search
+
+<Steps>
+  <Step title="Search Data Type Manager">
+    Find types:
+    - Open Data Type Manager
+    - Use search field
+    - Filter by name or category
+  </Step>
+  
+  <Step title="Find Applied Types">
+    Locate type usage:
+    - Right-click type > `Find References to`
+    - Shows all applications
+    - Uses `FindReferencesToDataTypeAction`
+  </Step>
+</Steps>
+
+### Equate Search
+
+Find equate usage:
+- Use `ShowEquatesInSelectionScript.java`
+- Displays all equates in range
+- Helps understand constants
+
+## Search Performance
+
+### Optimizing Searches
+
+<Tabs>
+  <Tab title="Database vs Display">
+    Choose appropriate mode:
+    - Database: Fast, limited fields
+    - Display: Slow, comprehensive
+    - Use database when possible
+  </Tab>
+  
+  <Tab title="Narrow Scope">
+    Reduce search range:
+    - Search selections instead of all
+    - Focus on specific memory blocks
+    - Exclude irrelevant regions
+  </Tab>
+  
+  <Tab title="Progressive Search">
+    Iterative refinement:
+    - Start with broad search
+    - Refine with additional criteria
+    - Use results to narrow scope
+  </Tab>
+</Tabs>
+
+<Tip>
+For large programs, use database search with selections to significantly improve search speed.
+</Tip>
+
+## Search Integration
+
+### Combining Searches
+
+<Steps>
+  <Step title="Multiple Criteria">
+    Layer search results:
+    - Perform first search
+    - Create selection from results
+    - Search within selection
+    - Iteratively narrow results
+  </Step>
+  
+  <Step title="Cross-Reference Search">
+    Use XREFs in search workflow:
+    - Search for pattern
+    - Find references to results
+    - Build call or data flow graph
+  </Step>
+</Steps>
+
+### Search and Replace
+
+Bulk modifications:
+- `ReplaceInComments.java` script
+- Text replacement in comments
+- Batch symbol renaming
+- Careful with irreversible changes
+
+## Search Results Management
+
+### Working with Results
+
+<Steps>
+  <Step title="Export Results">
+    Save search results:
+    - Results table export
+    - CSV or text format
+    - Documentation purposes
+  </Step>
+  
+  <Step title="Create Selection">
+    Convert to selection:
+    - Select results in table
+    - Create program selection
+    - Apply operations to matches
+  </Step>
+  
+  <Step title="Apply Actions">
+    Bulk operations:
+    - Comment all matches
+    - Apply data types
+    - Create bookmarks
+    - Set symbol properties
+  </Step>
+</Steps>
+
+<Note>
+Search results are dynamic - program changes may invalidate results. Re-run searches after modifications.
+</Note>
+
+## Advanced Search Techniques
+
+### GUI Search Tools
+
+Custom search interfaces:
+- `SearchGuiSingle.java`: Single pattern GUI
+- `SearchGuiMulti.java`: Multiple pattern search
+- Custom search dialogs for specific needs
+
+### Quick Search
+
+Rapid searching:
+- Quick searcher in search text plugin
+- Located in `quicksearcher` package
+- Fast incremental search
+- Real-time results
+
+<Tip>
+Create custom search scripts using the `InstructionSearchApi` for project-specific search patterns that you use frequently.
+</Tip>

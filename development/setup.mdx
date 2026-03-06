@@ -1,0 +1,304 @@
+---
+title: Development Setup
+description: Configure your development environment for Ghidra extension development
+---
+
+## Requirements
+
+### Minimum Requirements
+
+- **JDK 21 64-bit** - [Adoptium Temurin](https://adoptium.net/temurin/releases)
+- **Gradle 8.5+** - [Download](https://gradle.org/releases/) (or use Gradle wrapper)
+- **Python 3.9-3.13** - For PyGhidra and build scripts
+- **Ghidra 11.2+** - [Release](https://github.com/NationalSecurityAgency/ghidra/releases)
+
+### Platform-Specific Requirements
+
+<Tabs>
+  <Tab title="Linux/macOS">
+    - GCC or Clang compiler
+    - make build system
+    - Git version control
+  </Tab>
+  <Tab title="Windows">
+    - Microsoft Visual Studio 2017+ OR
+    - Microsoft C++ Build Tools with:
+      - MSVC compiler
+      - Windows SDK
+      - C++ ATL libraries
+    - Git for Windows
+  </Tab>
+</Tabs>
+
+## Eclipse Setup
+
+### Install Eclipse
+
+1. Download [Eclipse IDE for Java Developers](https://www.eclipse.org/downloads/packages/)
+2. Extract and launch Eclipse
+3. Choose a workspace directory (avoid spaces in path)
+
+### Install GhidraDev Plugin
+
+<AccordionGroup>
+  <Accordion title="Method 1: Manual Installation (Offline)">
+    From Eclipse:
+    1. **Help → Install New Software...**
+    2. Click **Add...**
+    3. Click **Archive...**
+    4. Select `<GhidraInstallDir>/Extensions/Eclipse/GhidraDev/GhidraDev-x.x.x.zip`
+    5. Click **OK** (name field can be blank)
+    6. Check **Ghidra** category
+    7. Click **Next** → **Next**
+    8. Accept license agreement
+    9. Click **Finish**
+    10. Trust unsigned content when prompted
+    11. Click **Restart Now**
+  </Accordion>
+
+  <Accordion title="Method 2: Online Installation">
+    From Eclipse:
+    1. **Help → Install New Software...**
+    2. Work with: `https://github.com/NationalSecurityAgency/ghidra-data/raw/main/Eclipse/GhidraDev/latest`
+    3. Press **Enter**
+    4. Check **Ghidra** category
+    5. Click **Next** → **Next**
+    6. Accept license agreement
+    7. Click **Finish**
+    8. Trust unsigned content when prompted
+    9. Click **Restart Now**
+  </Accordion>
+
+  <Accordion title="Method 3: Automatic via Ghidra">
+    Ghidra will automatically install GhidraDev to Eclipse's `dropins` directory when:
+    - You configure Eclipse path in Ghidra settings
+    - You click the Eclipse icon in Script Manager
+    - GhidraDev is not already installed
+  </Accordion>
+</AccordionGroup>
+
+### Configure Ghidra Installation
+
+1. **GhidraDev → Preferences → Ghidra Installations**
+2. Click **Add...**
+3. Browse to Ghidra installation directory
+4. Click **OK**
+
+### Import Ghidra Source (Optional)
+
+For developing Ghidra itself:
+
+```bash
+# Clone Ghidra repository
+git clone https://github.com/NationalSecurityAgency/ghidra.git
+cd ghidra
+
+# Download dependencies
+gradle -I gradle/support/fetchDependencies.gradle
+
+# Setup development environment
+gradle prepdev eclipse buildNatives
+```
+
+Then in Eclipse:
+1. **File → Import... → General → Existing Projects into Workspace**
+2. Select Ghidra source root directory
+3. Check **Search for nested projects**
+4. Click **Finish**
+
+## VSCode Setup
+
+### Install VSCode
+
+1. Download [Visual Studio Code](https://code.visualstudio.com/)
+2. Install the **Extension Pack for Java**
+
+### Configure Ghidra Integration
+
+From Ghidra CodeBrowser:
+1. **Tools → Create VSCode Module Project**
+2. Follow the wizard to create a new project
+3. Open the project in VSCode
+
+### Edit Scripts
+
+- Click the VSCode icon in Ghidra's Script Manager
+- VSCode will open with the selected script
+- Edit and save (Ghidra will detect changes)
+
+<Note>
+VSCode integration is best for script development. For complex modules with analyzers and plugins, Eclipse with GhidraDev is recommended.
+</Note>
+
+## Creating Projects
+
+### Ghidra Script Project
+
+1. **GhidraDev → New → Ghidra Script Project**
+2. Enter project name and location
+3. Select Ghidra installation
+4. Choose script directories:
+   - **Home scripts** - `~/ghidra_scripts` (recommended)
+   - **Installation scripts** - Ghidra installation directory
+5. (Optional) Enable Python support with PyDev
+6. (Optional) Create run configuration
+7. Click **Finish**
+
+### Ghidra Module Project
+
+1. **GhidraDev → New → Ghidra Module Project**
+2. Enter project name and location
+3. Select Ghidra installation
+4. Choose template (optional):
+   - **Analyzer** - Auto-analysis component
+   - **Plugin** - UI component
+   - **Loader** - Binary format support
+   - **Exporter** - Output format
+   - **File System** - Container format
+5. (Optional) Enable Python support
+6. (Optional) Create run configuration
+7. Click **Finish**
+
+### Import Existing Module
+
+1. **GhidraDev → Import Ghidra Module Source**
+2. Browse to module source directory
+3. Select Ghidra installation
+4. Click **Finish**
+
+## PyDev Setup (Python Support)
+
+### Install PyDev
+
+<Warning>
+**Version Requirements**:
+- PyDev 9.3.0 - For Jython 2.7 support
+- PyDev 10.0+ - For PyGhidra support only (no Jython)
+</Warning>
+
+1. Download PyDev from [official site](https://www.pydev.org)
+2. In Eclipse: **Help → Install New Software...**
+3. Click **Add... → Local...**
+4. Select PyDev directory
+5. Click **OK**
+6. Uncheck "Group items by category"
+7. Check **PyDev for Eclipse**
+8. Click **Next** → **Next**
+9. Accept license
+10. Click **Finish** → **Restart Now**
+
+### Configure Python Interpreter
+
+<Tabs>
+  <Tab title="PyGhidra">
+    1. Launch PyGhidra at least once
+    2. In Eclipse project creation wizard, click **+** icon (PyGhidra)
+    3. GhidraDev will auto-detect the interpreter
+  </Tab>
+  <Tab title="Jython">
+    1. In Eclipse project creation wizard, click **+** icon (Jython)
+    2. GhidraDev will find `<GhidraInstallDir>/Ghidra/Features/Python/lib/Jython/jython-standalone-x.x.x.jar`
+    3. Click **OK**
+  </Tab>
+</Tabs>
+
+## Launching and Debugging
+
+### Run Configurations
+
+GhidraDev provides two run configurations:
+
+1. **Ghidra** - Launch GUI
+2. **Ghidra Headless** - Batch processing
+
+### Create Run Configuration
+
+**Method 1: From Project**
+1. Right-click project → **Run As → Ghidra**
+2. Configuration is created automatically
+
+**Method 2: Manual**
+1. **Run → Run Configurations...**
+2. Right-click **Ghidra** → **New**
+3. **Main** tab → Browse to select project
+4. (Optional) Rename configuration
+5. Click **Apply** → **Run**
+
+### Debug Configuration
+
+1. Right-click project → **Debug As → Ghidra**
+2. Eclipse switches to Debug perspective
+3. Set breakpoints in your code
+4. Use standard Eclipse debugging tools
+
+### Headless Configuration
+
+For Ghidra Headless runs:
+1. Create run configuration (as above)
+2. **Arguments** tab → **Program arguments**
+3. Add headless options:
+
+```bash
+<project_path> <project_name> -process <program_name> -postScript <script.java>
+```
+
+See `<GhidraInstallDir>/support/analyzeHeadlessREADME.html` for complete options.
+
+## Environment Variables
+
+### Heap Memory
+
+Increase Java heap for large programs:
+
+1. In run configuration → **Arguments** tab
+2. **VM arguments**: `-Xmx4G` (or higher)
+
+### Headless Linux CI
+
+For CI/Docker environments:
+
+```bash
+Xvfb :99 -nolisten tcp &
+export DISPLAY=:99
+```
+
+## Troubleshooting
+
+### Eclipse Compilation Errors
+
+1. Collapse all projects in Package Explorer
+2. Delete projects with **?** icons (check "Delete contents on disk")
+3. Delete remaining projects (leave contents on disk)
+4. Run: `gradle prepdev cleanEclipse eclipse buildNatives`
+5. Re-import projects
+
+### Missing Run Configurations
+
+- Verify `.launch` files exist in module directories
+- Close and reopen Eclipse
+- Never manually import launch configurations
+
+### Extension Not Discovered
+
+If new extensions aren't detected:
+1. Right-click project → **GhidraDev → Link Ghidra...**
+2. Select Ghidra installation
+3. Click **OK**
+
+### Python Build Errors
+
+If Python support fails:
+- Ensure Python has `pip` installed
+- Consider using a [Python virtual environment](https://docs.python.org/3/tutorial/venv.html)
+- Check system locale: `export LC_MESSAGES=en_US.UTF-8`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Plugin Development" icon="puzzle-piece" href="./plugins">
+    Create your first Ghidra plugin
+  </Card>
+  <Card title="Analyzer Development" icon="magnifying-glass" href="./analyzers">
+    Build custom analyzers
+  </Card>
+</CardGroup>

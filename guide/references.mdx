@@ -1,0 +1,443 @@
+---
+title: 'Cross-References'
+description: 'Understand and navigate program cross-references in Ghidra'
+---
+
+## Cross-Reference Overview
+
+Cross-references (XREFs) show relationships between code and data, tracking how addresses are accessed throughout a program.
+
+<Note>
+Ghidra's reference system is powered by multiple analyzers including `OperandReferenceAnalyzer` and `DataOperandReferenceAnalyzer`.
+</Note>
+
+## Types of References
+
+<Tabs>
+  <Tab title="Code References">
+    References from instructions to addresses:
+    - **Call**: Function call instructions
+    - **Jump**: Unconditional and conditional jumps
+    - **Callother**: Special processor operations
+    - **Computed**: Indirect or calculated references
+  </Tab>
+  
+  <Tab title="Data References">
+    References from instructions to data:
+    - **Read**: Data is read/loaded
+    - **Write**: Data is written/stored
+    - **Read/Write**: Data is both read and written
+    - **Param**: Data passed as parameter
+  </Tab>
+  
+  <Tab title="Stack References">
+    References to stack variables:
+    - Local variable access
+    - Parameter access
+    - Stack pointer relative
+    - Frame pointer relative
+  </Tab>
+  
+  <Tab title="External References">
+    References to external locations:
+    - Import table entries
+    - External library functions
+    - External data symbols
+    - Resolved by `ExternalSymbolResolverAnalyzer`
+  </Tab>
+</Tabs>
+
+## Viewing References
+
+### Reference Display in Listing
+
+<Steps>
+  <Step title="Enable XREF Field">
+    Show references in listing:
+    - `Edit` > `Tool Options` > `Listing Fields`
+    - Enable `XRef` field
+    - Shows reference indicators
+  </Step>
+  
+  <Step title="Reference Indicators">
+    Visual cues in listing:
+    - Arrow icons for references
+    - `XREF[n]` showing reference count
+    - Color coding by type
+  </Step>
+</Steps>
+
+### XRef Window
+
+<Steps>
+  <Step title="Open XRef Window">
+    View all references to/from location:
+    - Position cursor on address
+    - Right-click > `References` > `Show References to...`
+    - Or press `Ctrl + Shift + F`
+  </Step>
+  
+  <Step title="Navigate References">
+    Use the XRef panel:
+    - Lists all references
+    - Click to navigate to source
+    - Shows reference type
+    - Displays context
+  </Step>
+  
+  <Step title="References From">
+    View outgoing references:
+    - Right-click > `References` > `Show References from...`
+    - Shows what this code references
+    - Useful for data flow analysis
+  </Step>
+</Steps>
+
+<Tip>
+Use hover tooltips from `ReferenceListingHoverPlugin` to quickly preview references without opening the full XRef window.
+</Tip>
+
+## Creating References
+
+### Manual Reference Creation
+
+<Steps>
+  <Step title="Position Cursor">
+    Select operand to reference:
+    - Click on instruction operand
+    - Must be a value that could be an address
+  </Step>
+  
+  <Step title="Add Reference">
+    Create the reference:
+    - Right-click > `References` > `Add/Edit References`
+    - Or press `R` key
+    - Opens reference editor
+  </Step>
+  
+  <Step title="Configure Reference">
+    Set reference properties:
+    - Target address
+    - Reference type (read, write, call, etc.)
+    - Primary/non-primary status
+    - Operand index
+  </Step>
+  
+  <Step title="Apply">
+    Commit the reference:
+    - Click `OK`
+    - Reference appears in XRef display
+    - Target address may be created if needed
+  </Step>
+</Steps>
+
+### Removing References
+
+<Steps>
+  <Step title="Select Reference">
+    Open reference editor on operand:
+    - Press `R` on operand with references
+    - Shows existing references
+  </Step>
+  
+  <Step title="Delete Reference">
+    Remove unwanted reference:
+    - Select reference in list
+    - Click `Delete` button
+    - Confirm removal
+  </Step>
+</Steps>
+
+## Reference Analysis
+
+### Automatic Reference Creation
+
+Analyzers create references automatically:
+
+<Tabs>
+  <Tab title="Operand References">
+    `OperandReferenceAnalyzer` creates:
+    - Direct address operands
+    - Immediate values as addresses
+    - PC-relative references
+    - Call and jump targets
+  </Tab>
+  
+  <Tab title="Data References">
+    `DataOperandReferenceAnalyzer` creates:
+    - Pointer data types
+    - String references
+    - Data table entries
+    - Constant pools
+  </Tab>
+  
+  <Tab title="Stack References">
+    Stack analysis creates:
+    - Local variable references
+    - Parameter references  
+    - Stack pointer operations
+    - Use `MakeStackRefs.java` for repair
+  </Tab>
+</Tabs>
+
+### Finding Possible References
+
+<Steps>
+  <Step title="Run Analysis">
+    Find potential references:
+    - `Analysis` > `Auto Analyze`
+    - Enable `Find Possible References`
+    - Implemented by `FindPossibleReferencesPlugin`
+  </Step>
+  
+  <Step title="Review Results">
+    Check found references:
+    - Shows in results table (`FindReferencesTableModel`)
+    - Lists constants that might be addresses
+    - Requires manual verification
+  </Step>
+  
+  <Step title="Apply References">
+    Create verified references:
+    - Review each potential reference
+    - Add valid references manually
+    - Discard false positives
+  </Step>
+</Steps>
+
+<Note>
+Possible reference analysis finds numeric values that fall within memory ranges, but requires manual verification to avoid false positives.
+</Note>
+
+## Reference Validation
+
+### Offcut References
+
+References to middle of instructions/data:
+- Detected by `OffcutReferencesValidator`
+- May indicate:
+  - Obfuscation
+  - Incorrect disassembly
+  - Data in code section
+  - Analysis errors
+
+<Steps>
+  <Step title="Review Offcut">
+    Examine the reference:
+    - Check source instruction
+    - Verify target address
+    - Determine if intentional
+  </Step>
+  
+  <Step title="Resolve Issue">
+    Fix if incorrect:
+    - Re-disassemble with correct mode
+    - Delete invalid reference
+    - Create reference to correct address
+  </Step>
+</Steps>
+
+## Special Reference Types
+
+### Switch Tables
+
+Switch statement jump tables:
+
+<Steps>
+  <Step title="Identify Switch">
+    Recognize switch pattern:
+    - Computed jump instruction
+    - Table of addresses
+    - Index calculation
+  </Step>
+  
+  <Step title="Create References">
+    Build switch references:
+    - Use `AddReferencesInSwitchTable.java`
+    - Or manually add each case
+    - Links switch to case blocks
+  </Step>
+  
+  <Step title="Verify Table">
+    Check completeness:
+    - All cases referenced
+    - Default case identified
+    - Table boundaries correct
+  </Step>
+</Steps>
+
+### Indirect References
+
+Computed or register-based references:
+- Function pointer calls
+- Virtual method calls
+- Callback tables
+- Computed jumps
+
+<Tip>
+For complex indirect references, use the decompiler to understand the computation, then create references manually.
+</Tip>
+
+## Reference Propagation
+
+### Constant References
+
+Propagate references through constants:
+
+<Steps>
+  <Step title="Identify Pattern">
+    Find constant propagation:
+    - Value loaded into register
+    - Used in later instruction
+    - Should create reference
+  </Step>
+  
+  <Step title="Propagate">
+    Apply propagation:
+    - Use `PropagateConstantReferences.java`
+    - Or platform-specific versions
+    - `PropagateX86ConstantReferences.java` for x86
+  </Step>
+</Steps>
+
+## Reference Navigation Workflows
+
+### Tracing Data Flow
+
+<Steps>
+  <Step title="Start at Data">
+    Begin at data of interest:
+    - Global variable
+    - String constant
+    - Configuration data
+  </Step>
+  
+  <Step title="Find Readers">
+    Show references to data:
+    - `Ctrl + Shift + F` for XRefs
+    - See all code that accesses
+    - Identify read vs write
+  </Step>
+  
+  <Step title="Analyze Usage">
+    Understand data usage:
+    - Navigate to each reference
+    - Check context in decompiler
+    - Document findings
+  </Step>
+</Steps>
+
+### Tracing Control Flow
+
+<Steps>
+  <Step title="Start at Function">
+    Begin at function of interest
+  </Step>
+  
+  <Step title="Find Callers">
+    Show call references:
+    - Right-click > `References` > `Show Call Trees to...`
+    - See all callers
+    - Multi-level call hierarchy
+  </Step>
+  
+  <Step title="Find Callees">
+    Show called functions:
+    - Right-click > `References` > `Show Call Trees from...`
+    - Map dependencies
+    - Analyze call depth
+  </Step>
+</Steps>
+
+## Reference Display Options
+
+### XRef Field Configuration
+
+<Steps>
+  <Step title="Access Options">
+    Configure XRef display:
+    - `Edit` > `Tool Options` > `Listing Fields` > `XRef`
+  </Step>
+  
+  <Step title="Set Display">
+    Customize appearance:
+    - Show/hide reference count
+    - Display reference types
+    - Color coding
+    - Maximum references shown
+  </Step>
+</Steps>
+
+### Reference Hover
+
+Quick reference preview:
+- Hover over reference indicator
+- Shows reference details
+- Click to navigate
+- Implemented by hover plugins
+
+## Advanced Reference Analysis
+
+### Reference Search
+
+Find specific reference patterns:
+
+<Steps>
+  <Step title="Program Text Search">
+    Search for references:
+    - `Search` > `Program Text`
+    - Can search XRef fields
+    - Filter by reference type
+  </Step>
+  
+  <Step title="Memory Search">
+    Search memory for values:
+    - `Search` > `Memory`
+    - Find potential pointers
+    - Verify and create references
+  </Step>
+</Steps>
+
+### Reference Statistics
+
+Analyze reference patterns:
+- Count references per function
+- Find heavily-referenced data
+- Identify unreferenced code
+- Detect dead code
+
+<Tip>
+Use the `SelectFunctionsScript.java` to select functions based on reference criteria for bulk operations.
+</Tip>
+
+## External Reference Management
+
+### Associating Symbols
+
+<Steps>
+  <Step title="Link External">
+    Connect to external symbol:
+    - Use `AssociateSymbolCmd`
+    - Links internal reference to external library
+    - Enables signature import
+  </Step>
+  
+  <Step title="Resolve Externals">
+    Auto-resolve external symbols:
+    - Run `ExternalSymbolResolverAnalyzer`
+    - Matches import names to libraries
+    - Creates proper external references
+  </Step>
+</Steps>
+
+### External Program References
+
+References across programs:
+- Shared library analysis
+- Multi-binary projects
+- Version comparison
+- Component interaction
+
+<Note>
+Proper external reference setup is crucial for accurate analysis of programs using shared libraries.
+</Note>

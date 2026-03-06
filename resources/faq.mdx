@@ -1,0 +1,313 @@
+---
+title: Frequently Asked Questions
+description: Common questions about Ghidra
+---
+
+Find answers to commonly asked questions about Ghidra.
+
+## General Questions
+
+<AccordionGroup>
+  <Accordion title="What is Ghidra?">
+    Ghidra is a software reverse engineering (SRE) framework created and maintained by the National Security Agency Research Directorate. It includes a suite of full-featured, high-end software analysis tools that enable users to analyze compiled code on a variety of platforms including Windows, macOS, and Linux.
+    
+    Key capabilities include:
+    - Disassembly
+    - Assembly
+    - Decompilation
+    - Graphing
+    - Scripting
+    - And hundreds of other features
+  </Accordion>
+
+  <Accordion title="What platforms does Ghidra support?">
+    **Host Platforms (where Ghidra runs):**
+    - Windows
+    - macOS
+    - Linux
+    
+    **Target Platforms (what Ghidra can analyze):**
+    - x86/x64
+    - ARM/ARM64 (AARCH64)
+    - MIPS
+    - PowerPC
+    - And many other processor architectures
+    
+    Ghidra supports a wide variety of processor instruction sets and executable formats, and can be run in both user-interactive and automated modes.
+  </Accordion>
+
+  <Accordion title="Is Ghidra free and open source?">
+    Yes! Ghidra is released under the Apache License 2.0, making it free and open source software. You can:
+    - Use it for any purpose (commercial or personal)
+    - Modify the source code
+    - Distribute it
+    - Contribute improvements back to the project
+  </Accordion>
+
+  <Accordion title="Can I use Ghidra for commercial purposes?">
+    Yes, the Apache License 2.0 allows commercial use. You can use Ghidra in commercial environments, including for security research, malware analysis, vulnerability research, and reverse engineering.
+  </Accordion>
+</AccordionGroup>
+
+## Installation and Setup
+
+<AccordionGroup>
+  <Accordion title="What are the system requirements for Ghidra?">
+    **Minimum Requirements:**
+    - JDK 21 64-bit
+    - 4 GB RAM (8 GB or more recommended)
+    - 1 GB free disk space for installation
+    - Additional space for projects and analysis databases
+    
+    **Operating Systems:**
+    - Windows 10 or later
+    - macOS 10.14 or later
+    - Modern Linux distributions
+  </Accordion>
+
+  <Accordion title="How do I install Ghidra?">
+    1. Install JDK 21 64-bit from [Eclipse Temurin](https://adoptium.net/temurin/releases)
+    2. Download a Ghidra release from [GitHub Releases](https://github.com/NationalSecurityAgency/ghidra/releases)
+    3. Extract the release file (don't extract on top of an existing installation)
+    4. Launch Ghidra:
+       - Linux/macOS: `./ghidraRun`
+       - Windows: `ghidraRun.bat`
+    
+    For detailed instructions, see the Getting Started document included with Ghidra.
+  </Accordion>
+
+  <Accordion title="Why does Ghidra require Java 21?">
+    Ghidra is a Java-based application that leverages modern Java features for performance, security, and functionality. JDK 21 is the current Long-Term Support (LTS) version required by Ghidra.
+    
+    <Tip>
+    Make sure to install a 64-bit version of the JDK, as Ghidra requires it for analyzing large binaries.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Can I run multiple versions of Ghidra?">
+    Yes, you can have multiple Ghidra versions installed simultaneously. Each version should be extracted to its own directory. However, be aware that:
+    - Projects created in newer versions may not be compatible with older versions
+    - Extensions may need to be reinstalled for each version
+  </Accordion>
+</AccordionGroup>
+
+## Development and Building
+
+<AccordionGroup>
+  <Accordion title="How do I build Ghidra from source?">
+    See the [Building Ghidra](/community/building) guide for complete instructions. In summary:
+    
+    1. Install build tools: JDK 21, Gradle 8.5+, Python 3.9-3.13
+    2. Clone or download the source
+    3. Run `gradle -I gradle/support/fetchDependencies.gradle`
+    4. Run `gradle prepdev`
+    5. Run `gradle buildGhidra`
+    
+    The build will be in `build/dist/`.
+  </Accordion>
+
+  <Accordion title="What IDE should I use for Ghidra development?">
+    **For Core Ghidra Development:**
+    - Eclipse IDE is highly recommended (the development process is customized for Eclipse)
+    
+    **For Scripts and Extensions:**
+    - GhidraDev Eclipse plugin
+    - Visual Studio Code (with Ghidra integration)
+    
+    Both options support writing custom scripts and extensions against a built Ghidra installation.
+  </Accordion>
+
+  <Accordion title="Can I use Gradle wrapper instead of installing Gradle?">
+    Yes! If you have an Internet connection, you can use the Gradle wrapper included in the repository:
+    
+    - Linux/macOS: `./gradlew <task>`
+    - Windows: `.\gradlew.bat <task>`
+    
+    The wrapper will automatically download the correct Gradle version.
+  </Accordion>
+
+  <Accordion title="How do I develop offline?">
+    To prepare for offline development:
+    
+    ```bash
+    gradle -I gradle/support/fetchDependencies.gradle
+    gradle -g dependencies/gradle prepdev
+    ```
+    
+    Then move the entire repository (including the `dependencies/gradle` directory) to your offline system. See the [Building Ghidra](/community/building#offline-development) guide for details.
+  </Accordion>
+</AccordionGroup>
+
+## Scripting and Extensions
+
+<AccordionGroup>
+  <Accordion title="What scripting languages does Ghidra support?">
+    Ghidra supports scripting in:
+    - **Java** - Full access to Ghidra API
+    - **Python 3** - Via PyGhidra for modern Python scripting
+    - **Jython 2.7** - Legacy Python support within Ghidra GUI
+    
+    Scripts can be created and managed through the Script Manager in the Ghidra GUI.
+  </Accordion>
+
+  <Accordion title="How do I create a custom script?">
+    1. Open Ghidra and launch the Script Manager (Window → Script Manager)
+    2. Click the "Create New Script" button
+    3. Choose your language (Java or Python)
+    4. Write your script using the Ghidra API
+    5. Save and run it from the Script Manager
+    
+    For IDE support, use the GhidraDev Eclipse plugin or VS Code integration.
+  </Accordion>
+
+  <Accordion title="What is PyGhidra?">
+    PyGhidra is a Python 3 package that enables native Python 3 scripting for Ghidra, outside of the Jython-based scripting within the GUI. It allows you to:
+    - Use modern Python 3 features and libraries
+    - Run Ghidra in headless mode from Python
+    - Integrate Ghidra analysis into Python workflows
+    
+    Launch PyGhidra with:
+    - Linux/macOS: `./support/pyGhidraRun`
+    - Windows: `support\pyGhidraRun.bat`
+  </Accordion>
+
+  <Accordion title="How do I install extensions?">
+    1. Download or build the extension (`.zip` file)
+    2. Open Ghidra
+    3. Go to **File → Install Extensions...**
+    4. Click the green "+" button
+    5. Select the extension `.zip` file
+    6. Click OK and restart Ghidra
+  </Accordion>
+</AccordionGroup>
+
+## Debugger
+
+<AccordionGroup>
+  <Accordion title="What debuggers does Ghidra support?">
+    Ghidra includes built-in support for:
+    - **GDB** (GNU Debugger) - Linux, macOS, Windows
+    - **LLDB** - macOS, Linux, Windows
+    - **WinDbg** (via dbgeng.dll) - Windows
+    
+    The debugger uses a Trace RMI architecture that allows for extensibility.
+  </Accordion>
+
+  <Accordion title="How does Ghidra's debugger work?">
+    Ghidra's debugger uses a Trace RMI (Remote Method Invocation) protocol:
+    - The debugger back-end runs in a separate process
+    - It connects to Ghidra via a protobuf-based TCP connection
+    - Machine state is recorded in a Trace database
+    - The UI displays and allows interaction with the recorded state
+    
+    This architecture prevents crashes in native code from affecting the Ghidra UI.
+  </Accordion>
+
+  <Accordion title="Can I use QEMU with Ghidra?">
+    Yes! Ghidra provides out-of-the-box QEMU integration via GDB. You can:
+    - Launch QEMU with GDB remote debugging enabled
+    - Connect Ghidra to QEMU through the GDB connector
+    - Debug emulated systems and architectures
+  </Accordion>
+
+  <Accordion title="Can I develop my own debugger connector?">
+    Yes! The Trace RMI architecture is designed to be extensible. You can develop connectors for other debuggers by:
+    - Using existing connectors (GDB, dbgeng) as templates
+    - Implementing the Trace RMI client protocol
+    - Mapping the debugger's model to Ghidra's trace database
+    
+    See the [Development Setup](/community/development-setup#debugger-development) guide for details.
+  </Accordion>
+</AccordionGroup>
+
+## Multi-User and Collaboration
+
+<AccordionGroup>
+  <Accordion title="Does Ghidra support team collaboration?">
+    Yes! Ghidra includes a server component that allows:
+    - Multiple users to work on the same project simultaneously
+    - Shared analysis databases
+    - Conflict resolution for concurrent edits
+    - Version control for project data
+    
+    The Ghidra Server can be set up to enable team-based reverse engineering.
+  </Accordion>
+
+  <Accordion title="How do I set up Ghidra Server?">
+    The Ghidra Server is included in the distribution:
+    - Linux/macOS: `server/svrInstall`
+    - Windows: `server\svrInstall.bat`
+    
+    Follow the server administration documentation included with Ghidra for detailed setup instructions.
+  </Accordion>
+</AccordionGroup>
+
+## Security and Updates
+
+<AccordionGroup>
+  <Accordion title="Are there known security vulnerabilities in Ghidra?">
+    Ghidra includes security advisories for known vulnerabilities. Before using Ghidra:
+    - Read through [Ghidra's Security Advisories](https://github.com/NationalSecurityAgency/ghidra/security/advisories)
+    - Keep your installation up to date
+    - Apply security updates promptly
+  </Accordion>
+
+  <Accordion title="How do I stay updated with new releases?">
+    - Watch the [GitHub repository](https://github.com/NationalSecurityAgency/ghidra) for releases
+    - Subscribe to release notifications
+    - Check the [Releases page](https://github.com/NationalSecurityAgency/ghidra/releases) regularly
+    - Follow Ghidra on social media for announcements
+  </Accordion>
+</AccordionGroup>
+
+## Contributing
+
+<AccordionGroup>
+  <Accordion title="How can I contribute to Ghidra?">
+    There are many ways to contribute:
+    - Submit bug reports
+    - Propose new features
+    - Submit pull requests with fixes or improvements
+    - Review other pull requests
+    - Answer questions from other users
+    - Improve documentation
+    - Share your scripts and extensions
+    
+    See the [Contributing Guide](/community/contributing) for details.
+  </Accordion>
+
+  <Accordion title="What should I know before submitting a pull request?">
+    Key guidelines:
+    - Keep changes focused and minimal
+    - Ensure the code compiles and runs
+    - Avoid unnecessary refactoring or style changes
+    - Squash commits before submission
+    - Be prepared to answer reviewer questions
+    - Be patient - reviews may take time
+    
+    See the [Contributing Guide](/community/contributing#submitting-pull-requests) for complete submission guidelines.
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+<AccordionGroup>
+  <Accordion title="Where can I get help with Ghidra?">
+    - **GitHub Issues:** For bug reports and feature requests
+    - **GitHub Discussions:** For questions and community discussion
+    - **Documentation:** Included with Ghidra installation
+    - **Source Code:** Read the code for detailed implementation information
+    - **Community:** Connect with other users online
+  </Accordion>
+
+  <Accordion title="How do I report a bug?">
+    1. Search [existing issues](https://github.com/NationalSecurityAgency/ghidra/issues) to avoid duplicates
+    2. Use the bug report template when creating a new issue
+    3. Provide:
+       - Ghidra version
+       - Operating system
+       - Steps to reproduce
+       - Expected vs actual behavior
+       - Any relevant error messages or logs
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,267 @@
+---
+title: Building Ghidra
+description: Complete guide to building Ghidra from source
+---
+
+This guide covers how to build Ghidra from source code for development purposes.
+
+## Prerequisites
+
+### Required Build Tools
+
+Before building Ghidra, ensure you have the following tools installed:
+
+<AccordionGroup>
+  <Accordion title="Java Development Kit (JDK)">
+    - **Version:** JDK 21 64-bit
+    - **Download:** [Eclipse Temurin](https://adoptium.net/temurin/releases)
+    - **Verify installation:** `java -version`
+  </Accordion>
+
+  <Accordion title="Gradle Build System">
+    - **Version:** Gradle 8.5 or later
+    - **Download:** [Gradle releases](https://gradle.org/releases/)
+    - **Alternative:** Use the provided Gradle wrapper if Internet connection is available
+    - **Verify installation:** `gradle --version`
+  </Accordion>
+
+  <Accordion title="Python 3">
+    - **Version:** 3.9 to 3.13 with bundled pip
+    - **Download:** [Python downloads](https://www.python.org/downloads/)
+    - **Verify installation:** `python3 --version` and `pip3 --version`
+  </Accordion>
+</AccordionGroup>
+
+### Platform-Specific Requirements
+
+<Tabs>
+  <Tab title="Linux">
+    Required native build tools:
+    - GCC or Clang compiler
+    - make
+    
+    Install on Ubuntu/Debian:
+    ```bash
+    sudo apt-get install build-essential
+    ```
+    
+    Install on Fedora/RHEL:
+    ```bash
+    sudo dnf groupinstall "Development Tools"
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    Required native build tools:
+    - GCC or Clang (included with Xcode Command Line Tools)
+    - make
+    
+    Install Xcode Command Line Tools:
+    ```bash
+    xcode-select --install
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    Required:
+    - [Microsoft Visual Studio 2017+](https://visualstudio.microsoft.com/vs/community/) OR
+    - [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+    
+    The following components must be installed:
+    - MSVC (Microsoft Visual C++ compiler)
+    - Windows SDK
+    - C++ ATL (Active Template Library)
+  </Tab>
+</Tabs>
+
+## Getting the Source Code
+
+### Option 1: Download ZIP Archive
+
+```bash
+# Download the latest source from GitHub
+wget https://github.com/NationalSecurityAgency/ghidra/archive/refs/heads/master.zip
+
+# Extract the archive
+unzip ghidra-master.zip
+cd ghidra-master
+```
+
+### Option 2: Clone the Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/NationalSecurityAgency/ghidra.git
+cd ghidra
+```
+
+<Tip>
+Cloning the repository is recommended if you plan to contribute changes back to the project.
+</Tip>
+
+## Build Process
+
+### Step 1: Download Dependencies
+
+Download non-Maven Central dependencies. This creates a `dependencies` directory in the repository root:
+
+```bash
+gradle -I gradle/support/fetchDependencies.gradle
+```
+
+<Note>
+If you didn't install Gradle system-wide, you can use the Gradle wrapper instead:
+- Linux/macOS: `./gradlew -I gradle/support/fetchDependencies.gradle`
+- Windows: `.\gradlew.bat -I gradle/support/fetchDependencies.gradle`
+</Note>
+
+### Step 2: Prepare Development Environment
+
+Download Maven Central dependencies and setup the repository for development. By default, these will be stored at `$HOME/.gradle/`:
+
+```bash
+gradle prepdev
+```
+
+### Step 3: Build Ghidra
+
+Create a compressed development build:
+
+```bash
+gradle buildGhidra
+```
+
+The compressed development build will be located at `build/dist/`.
+
+<Warning>
+The build created this way is intended only to run on the platform on which it was built.
+</Warning>
+
+## Alternative Build Options
+
+### Build Uncompressed Distribution
+
+Build Ghidra to `build/dist` in an uncompressed form:
+
+```bash
+gradle assembleAll
+```
+
+### Build Native Components Only
+
+Build native components for your current platform (requires native tool chains):
+
+```bash
+gradle buildNatives
+```
+
+### Compile Sleigh Files
+
+Manually compile sleigh files (Ghidra will also do this at runtime when necessary):
+
+```bash
+gradle sleighCompile
+```
+
+### Build Documentation
+
+Generate Javadoc documentation:
+
+```bash
+gradle createJavadocs
+```
+
+### Build Python Packages
+
+Build Python3 packages for PyGhidra and the Debugger:
+
+```bash
+gradle buildPyPackage
+```
+
+## Common Gradle Commands
+
+### Clean Build Files
+
+Clean up repository build files (may be necessary after a `git pull` to fix unexplainable compilation errors):
+
+```bash
+gradle clean
+```
+
+### Skip Specific Tasks
+
+You can skip certain Gradle tasks to speed up your build using the `-x <task>` argument:
+
+```bash
+# Example: Skip IP header checks
+gradle buildGhidra -x ip
+```
+
+### Generate Eclipse Project Files
+
+Generate nested Eclipse project files for import:
+
+```bash
+gradle cleanEclipse eclipse
+```
+
+## Offline Development
+
+To move the Ghidra repository to an offline network and continue development:
+
+```bash
+# 1. Fetch dependencies
+gradle -I gradle/support/fetchDependencies.gradle
+
+# 2. Download Maven dependencies to local directory
+gradle -g dependencies/gradle prepdev
+
+# 3. Move ghidra directory to offline system
+
+# 4. Build on offline system
+gradle -g dependencies/gradle buildGhidra
+```
+
+<Note>
+The `-g` flag specifies the Gradle user home directory. Overriding it to be inside the Ghidra repository ensures all Maven Central dependencies are moved with the rest of the repository.
+</Note>
+
+## Testing Your Build
+
+### Run Unit Tests
+
+```bash
+gradle unitTestReport
+```
+
+### Run Integration Tests
+
+```bash
+gradle integrationTest
+```
+
+### Run All Tests and Generate Report
+
+```bash
+gradle combinedTestReport
+```
+
+### Headless Testing (CI/Docker)
+
+For running tests in headless mode on Linux, in a CI environment, or in Docker:
+
+```bash
+Xvfb :99 -nolisten tcp &
+export DISPLAY=:99
+```
+
+This is required to make AWT happy in headless environments.
+
+## Next Steps
+
+After successfully building Ghidra:
+
+1. See the [Development Setup](/community/development-setup) guide to configure your IDE
+2. Review the [Contributing Guide](/community/contributing) to learn how to submit changes
+3. Check the [Troubleshooting](/resources/troubleshooting) guide if you encounter issues

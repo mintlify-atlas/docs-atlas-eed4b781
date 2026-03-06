@@ -1,0 +1,407 @@
+---
+title: Troubleshooting
+description: Solutions to common Ghidra issues
+---
+
+This guide helps you resolve common issues when building, developing, or using Ghidra.
+
+## Build Issues
+
+### Gradle Cannot Find Native Toolchains (Linux)
+
+**Problem:** Gradle fails to discover native toolchains when using a non-English system locale.
+
+**Solution:** Set the following environment variable before running Gradle tasks:
+
+```bash
+export LC_MESSAGES=en_US.UTF-8
+gradle buildGhidra
+```
+
+This is a known issue in Gradle that affects toolchain discovery on Linux systems with non-English locales.
+
+### Python Build Issues - No pip Access
+
+**Problem:** The Ghidra build only finds Python versions that don't have access to `pip`.
+
+**Solution:** Perform the build from a Python virtual environment:
+
+```bash
+# Create a virtual environment
+python3 -m venv ghidra-build-env
+
+# Activate it
+source ghidra-build-env/bin/activate  # Linux/macOS
+ghidra-build-env\Scripts\activate      # Windows
+
+# Verify pip is available
+pip --version
+
+# Run the build
+gradle buildGhidra
+```
+
+### Unexpected Compilation Errors After git pull
+
+**Problem:** After pulling the latest changes, you get compilation errors that don't make sense.
+
+**Solution:** Clean the build and regenerate project files:
+
+```bash
+gradle clean
+gradle -I gradle/support/fetchDependencies.gradle
+gradle prepdev cleanEclipse eclipse buildNatives
+```
+
+If using Eclipse, reimport the projects after running these commands.
+
+### Dependencies Not Downloading
+
+**Problem:** Gradle fails to download dependencies.
+
+**Solution:** Ensure you're running the dependency fetch before other tasks:
+
+```bash
+# Fetch non-Maven dependencies first
+gradle -I gradle/support/fetchDependencies.gradle
+
+# Then prepare development environment
+gradle prepdev
+```
+
+If behind a proxy, configure Gradle's proxy settings in `~/.gradle/gradle.properties`:
+
+```properties
+systemProp.http.proxyHost=proxy.example.com
+systemProp.http.proxyPort=8080
+systemProp.https.proxyHost=proxy.example.com
+systemProp.https.proxyPort=8080
+```
+
+## Eclipse Issues
+
+### Eclipse Compilation Errors After Sync
+
+**Problem:** After pulling or syncing with the latest Ghidra source repository, Eclipse shows compilation errors.
+
+**Solution:** Reset Eclipse projects:
+
+<Steps>
+  <Step title="Collapse All Projects">
+    In the Package Explorer or Project Explorer, click the collapse icon (⊟) to collapse all projects.
+  </Step>
+
+  <Step title="Delete Orphaned Projects">
+    1. Locate projects with `?` icons (no longer in source control)
+    2. Right-click on them and select **Delete**
+    3. **CHECK** "Delete project contents on disk"
+    4. Click **OK**
+    5. Verify git shows no unstaged deletions
+  </Step>
+
+  <Step title="Remove All Projects from Eclipse">
+    1. Select all projects in the Package Explorer
+    2. Right-click and select **Delete**
+    3. **Leave UNCHECKED** "Delete project contents on disk"
+    4. Click **OK**
+    
+    You should now have an empty Package Explorer.
+  </Step>
+
+  <Step title="Rebuild and Reimport">
+    ```bash
+    gradle -I gradle/support/fetchDependencies.gradle
+    gradle prepdev cleanEclipse eclipse buildNatives
+    ```
+  </Step>
+
+  <Step title="Import Projects">
+    1. **File → Import...**
+    2. **General | Existing Projects into Workspace**
+    3. Select root directory: your Ghidra source repository
+    4. **Check** "Search for nested projects"
+    5. Click **Finish**
+  </Step>
+</Steps>
+
+<Warning>
+Never manually import run configurations via **File → Import... → Run/Debug → Launch Configurations**. This causes duplicate run configurations.
+</Warning>
+
+### Missing Ghidra Run Configurations
+
+**Problem:** The Ghidra run configurations (launchers) are missing from Eclipse.
+
+**Solution:** 
+
+Run configurations are stored in various modules' `.launch/` directories (e.g., `Ghidra/Features/Base/.launch/`).
+
+1. Ensure the corresponding module project is imported (e.g., "Features Base")
+2. Check **Run → Run Configurations...** for the configurations
+3. If missing, try closing and reopening Eclipse
+4. Sometimes you need to launch Ghidra once via **Run → Run Configurations...** for it to appear in the favorites menu
+
+<Note>
+Run configurations should automatically appear when their parent projects are imported. If they don't, this indicates an import issue.
+</Note>
+
+### GhidraDev Plugin Compilation Errors (PyDev/CDT)
+
+**Problem:** Getting compilation errors related to PyDev and CDT when developing the GhidraDev plugin.
+
+**Solution:** Activate the correct target platform:
+
+1. Go to Eclipse preferences
+2. Navigate to **Plug-in Development → Target Platform**
+3. Activate `/Eclipse GhidraDevPlugin/GhidraDev.target`
+4. Click **Apply and Close**
+
+## Runtime Issues
+
+### Ghidra Won't Start - Java Version Error
+
+**Problem:** Ghidra fails to start with a Java version error.
+
+**Solution:** 
+
+1. Verify you have JDK 21 64-bit installed:
+   ```bash
+   java -version
+   ```
+
+2. If you have multiple Java versions, set `JAVA_HOME`:
+   ```bash
+   # Linux/macOS
+   export JAVA_HOME=/path/to/jdk-21
+   
+   # Windows
+   set JAVA_HOME=C:\Path\To\jdk-21
+   ```
+
+3. Or modify `support/launch.properties` to specify the Java installation:
+   ```properties
+   JAVA_HOME_OVERRIDE=/path/to/jdk-21
+   ```
+
+### Ghidra Runs Out of Memory
+
+**Problem:** Ghidra crashes or slows down with large binaries.
+
+**Solution:** Increase heap size in `support/launch.properties`:
+
+```properties
+# Default is usually 1-4 GB, increase as needed
+MAXMEM=8G
+```
+
+For very large binaries, you may need 16 GB or more.
+
+### PyGhidra Import Errors
+
+**Problem:** PyGhidra fails to import or can't find Ghidra modules.
+
+**Solution:** 
+
+1. Ensure you're using the bundled PyGhidra launcher:
+   ```bash
+   ./support/pyGhidraRun  # Linux/macOS
+   support\pyGhidraRun.bat  # Windows
+   ```
+
+2. If installing as a package, ensure it's installed correctly:
+   ```bash
+   pip install ./Ghidra/Features/PyGhidra
+   ```
+
+3. Verify Python version (3.9-3.13 required):
+   ```bash
+   python3 --version
+   ```
+
+## Multi-User / Server Issues
+
+### Certificate Errors with Ghidra Server (JDK 21.0.10+)
+
+**Problem:** Cannot connect to Ghidra Server due to hostname verification failures after upgrading to JDK 21.0.10 or later.
+
+**Solution:** 
+
+**Server-side (Recommended):**
+Upgrade the Ghidra Server to version 12.0.3 or later, which includes updated certificate generation with proper subject alternative names.
+
+**Client-side (Workaround):**
+Add this line to `support/launch.properties`:
+
+```properties
+VMARGS=-Djdk.rmi.ssl.client.enableEndpointIdentification=false
+```
+
+<Warning>
+The client-side workaround reduces security. Upgrading the server is strongly recommended.
+</Warning>
+
+### Merge Conflicts with Non-Packed Structures
+
+**Problem:** Multi-user merge issues related to non-packed structures affect merge results.
+
+**Solution:** This is a known issue fixed in Ghidra 12.0.3+. Update to the latest version.
+
+## Debugger Issues
+
+### Debugger Deadlock When Saving Traces
+
+**Problem:** Deadlock occurs when saving Traces from the Close Project dialog.
+
+**Solution:** This is a known issue fixed in Ghidra 12.0.4+. Update to the latest version.
+
+Workaround: Save traces manually before closing the project.
+
+### GDB Connection Issues
+
+**Problem:** Cannot connect to GDB or target.
+
+**Solution:**
+
+1. Ensure GDB 13 or later is installed:
+   ```bash
+   gdb --version
+   ```
+
+2. Check that the Trace RMI server is running in Ghidra
+
+3. Verify GDB can connect to the target independently:
+   ```bash
+   gdb ./target-binary
+   ```
+
+4. Check firewall settings if using remote debugging
+
+### LLDB/WinDbg Connector Issues
+
+**Problem:** LLDB or WinDbg connector fails to start or connect.
+
+**Solution:**
+
+1. Verify the debugger is installed and in PATH:
+   ```bash
+   lldb --version  # macOS/Linux
+   ```
+
+2. For WinDbg on Windows, ensure Windows SDK is installed
+
+3. Check that Python 3 is available and accessible by the connector
+
+4. Review the Ghidra console for error messages
+
+## Performance Issues
+
+### Slow Analysis Performance
+
+**Problem:** Analysis takes a very long time or seems stuck.
+
+**Solution:**
+
+1. Increase heap memory (see "Ghidra Runs Out of Memory" above)
+
+2. Disable unnecessary analyzers:
+   - **Analysis → Auto Analyze...**
+   - Uncheck analyzers you don't need
+   - Click **Analyze**
+
+3. Use a faster disk (SSD recommended) for project storage
+
+4. Close unnecessary tools and windows in Ghidra
+
+### UI Freezing or Hanging
+
+**Problem:** Ghidra UI becomes unresponsive.
+
+**Solution:**
+
+1. Check if analysis is running in the background (bottom-right corner)
+
+2. Try canceling long-running operations
+
+3. Increase memory allocation
+
+4. On Linux, ensure X server is configured properly for Java applications
+
+## Headless Analysis Issues
+
+### Headless Mode Fails on Linux
+
+**Problem:** Headless analysis fails with AWT errors on Linux.
+
+**Solution:** Set up a virtual display:
+
+```bash
+# Start Xvfb
+Xvfb :99 -nolisten tcp &
+
+# Set DISPLAY environment variable
+export DISPLAY=:99
+
+# Run headless analysis
+./support/analyzeHeadless ...
+```
+
+This is required for CI environments and Docker containers.
+
+## Platform-Specific Issues
+
+### macOS: "Ghidra is damaged and can't be opened"
+
+**Problem:** macOS Gatekeeper prevents Ghidra from opening.
+
+**Solution:**
+
+```bash
+# Remove quarantine attribute
+xattr -rc /path/to/ghidra
+```
+
+Or allow in System Preferences:
+1. **System Preferences → Security & Privacy**
+2. Click **Open Anyway** when prompted
+
+### Windows: Native Build Failures
+
+**Problem:** Native components fail to build on Windows.
+
+**Solution:**
+
+1. Ensure Microsoft Visual Studio 2017+ or Build Tools are installed
+
+2. Verify these components are installed:
+   - MSVC (C++ compiler)
+   - Windows SDK
+   - C++ ATL (Active Template Library)
+
+3. Run Gradle from "Developer Command Prompt for VS"
+
+4. Check that the MSVC compiler is in PATH:
+   ```cmd
+   cl.exe /?
+   ```
+
+## Getting Additional Help
+
+If your issue isn't covered here:
+
+1. **Check Known Issues:** Review the [Known Issues](/resources/known-issues) page
+
+2. **Search GitHub Issues:** See if others have reported the problem
+   - [Ghidra Issues](https://github.com/NationalSecurityAgency/ghidra/issues)
+
+3. **Ask the Community:** Post in [GitHub Discussions](https://github.com/NationalSecurityAgency/ghidra/discussions)
+
+4. **Report a Bug:** If you've found a new bug, [create an issue](https://github.com/NationalSecurityAgency/ghidra/issues/new/choose)
+
+<Tip>
+When asking for help, always include:
+- Ghidra version
+- Operating system and version
+- JDK version
+- Steps to reproduce the issue
+- Full error messages or stack traces
+</Tip>

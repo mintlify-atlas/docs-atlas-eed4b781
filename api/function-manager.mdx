@@ -1,0 +1,532 @@
+---
+title: FunctionManager API
+description: API reference for managing functions in Ghidra programs
+---
+
+## Overview
+
+The FunctionManager interface provides methods for creating, retrieving, and managing functions within a Ghidra program. It handles function creation, deletion, iteration, and querying.
+
+## Interface
+
+**Package:** `ghidra.program.model.listing`  
+**Location:** `Ghidra/Framework/SoftwareModeling/src/main/java/ghidra/program/model/listing/FunctionManager.java`
+
+```java
+public interface FunctionManager extends ManagerDB
+```
+
+## Basic Methods
+
+### getProgram()
+
+Returns this manager's program.
+
+```java
+public Program getProgram();
+```
+
+**Returns:** The program associated with this manager
+
+---
+
+### getFunctionCount()
+
+Returns the total number of functions in the program, including external functions.
+
+```java
+public int getFunctionCount();
+```
+
+**Returns:** The total count of functions
+
+---
+
+## Function Creation
+
+### createFunction() - Basic
+
+Creates a function with the given body at entry point within the global namespace.
+
+```java
+public Function createFunction(String name, Address entryPoint, AddressSetView body,
+        SourceType source) throws InvalidInputException, OverlappingFunctionException;
+```
+
+**Parameters:**
+- `name` - The name of the new function or null for default name
+- `entryPoint` - Entry point of the function
+- `body` - Addresses contained in the function body
+- `source` - The source of this function (e.g., `SourceType.USER_DEFINED`, `SourceType.ANALYSIS`)
+
+**Returns:** New function or null if functions overlap the specified body address set
+
+**Throws:**
+- `InvalidInputException` - If the name has invalid characters
+- `OverlappingFunctionException` - If the address set overlaps an existing function
+
+---
+
+### createFunction() - With Namespace
+
+Creates a function with the given body at entry point in a specific namespace.
+
+```java
+public Function createFunction(String name, Namespace nameSpace, Address entryPoint,
+        AddressSetView body, SourceType source)
+        throws InvalidInputException, OverlappingFunctionException;
+```
+
+**Parameters:**
+- `name` - The name of the new function or null for default name
+- `nameSpace` - The namespace in which to create the function
+- `entryPoint` - Entry point of the function
+- `body` - Addresses contained in the function body
+- `source` - The source of this function
+
+**Returns:** New function or null if functions overlap
+
+**Throws:**
+- `InvalidInputException` - If the name has invalid characters
+- `OverlappingFunctionException` - If the address set overlaps an existing function
+
+---
+
+### createThunkFunction()
+
+Creates a thunk function with the given body at entry point.
+
+```java
+public Function createThunkFunction(String name, Namespace nameSpace, Address entryPoint,
+        AddressSetView body, Function thunkedFunction, SourceType source)
+        throws OverlappingFunctionException;
+```
+
+**Parameters:**
+- `name` - The name of the new function or null for default name
+- `nameSpace` - The namespace in which to create the function
+- `entryPoint` - Entry point of the function
+- `body` - Addresses contained in the function body
+- `thunkedFunction` - Referenced function (required when creating a thunk)
+- `source` - The source of this function
+
+**Returns:** New thunk function
+
+**Throws:**
+- `OverlappingFunctionException` - If the address set overlaps an existing function
+- `UnsupportedOperationException` - If invoked on an external entryPoint address
+
+---
+
+## Function Deletion
+
+### removeFunction()
+
+Removes the function defined at the specified entry point.
+
+```java
+public boolean removeFunction(Address entryPoint);
+```
+
+**Parameters:**
+- `entryPoint` - The entry point of the function to remove
+
+**Returns:** `true` if the function was removed
+
+---
+
+## Function Retrieval
+
+### getFunctionAt()
+
+Returns the function at the specified entry point.
+
+```java
+public Function getFunctionAt(Address entryPoint);
+```
+
+**Parameters:**
+- `entryPoint` - The entry point address
+
+**Returns:** Function at the entry point or null if none exists
+
+---
+
+### getReferencedFunction()
+
+Returns the function which resides at or is referenced from the specified address.
+
+```java
+public Function getReferencedFunction(Address address);
+```
+
+**Parameters:**
+- `address` - Function address or address of pointer to a function
+
+**Returns:** Referenced function or null
+
+---
+
+### getFunctionContaining()
+
+Returns the function containing the specified address.
+
+```java
+public Function getFunctionContaining(Address addr);
+```
+
+**Parameters:**
+- `addr` - Address within the function
+
+**Returns:** Function containing this address, or null
+
+---
+
+### getFunction()
+
+Returns a function by its unique key.
+
+```java
+public Function getFunction(long key);
+```
+
+**Parameters:**
+- `key` - Function symbol key
+
+**Returns:** Function object or null if not found
+
+---
+
+## Function Iteration
+
+### getFunctions() - All Functions
+
+Returns an iterator over all non-external functions in address (entry point) order.
+
+```java
+public FunctionIterator getFunctions(boolean forward);
+```
+
+**Parameters:**
+- `forward` - `true` to iterate in ascending address order
+
+**Returns:** Function iterator
+
+---
+
+### getFunctions() - Starting at Address
+
+Returns an iterator over non-external functions starting at an address.
+
+```java
+public FunctionIterator getFunctions(Address start, boolean forward);
+```
+
+**Parameters:**
+- `start` - Starting address
+- `forward` - `true` to iterate in ascending address order
+
+**Returns:** Function iterator
+
+---
+
+### getFunctions() - Address Set
+
+Returns an iterator over functions with entry points in the specified address set.
+
+```java
+public FunctionIterator getFunctions(AddressSetView asv, boolean forward);
+```
+
+**Parameters:**
+- `asv` - Address set to iterate over
+- `forward` - `true` to iterate in ascending address order
+
+**Returns:** Function iterator
+
+---
+
+### getFunctionsNoStubs()
+
+Returns an iterator over REAL functions (functions with instructions, not stubs).
+
+```java
+public FunctionIterator getFunctionsNoStubs(boolean forward);
+```
+
+**Parameters:**
+- `forward` - `true` to iterate in ascending address order
+
+**Returns:** Function iterator excluding stubs
+
+---
+
+### getFunctionsNoStubs() - Starting at Address
+
+Returns an iterator over REAL functions starting at an address.
+
+```java
+public FunctionIterator getFunctionsNoStubs(Address start, boolean forward);
+```
+
+**Parameters:**
+- `start` - Starting address
+- `forward` - `true` to iterate in ascending address order
+
+**Returns:** Function iterator excluding stubs
+
+---
+
+### getFunctionsNoStubs() - Address Set
+
+Returns an iterator over REAL functions in the specified address set.
+
+```java
+public FunctionIterator getFunctionsNoStubs(AddressSetView asv, boolean forward);
+```
+
+**Parameters:**
+- `asv` - Address set to iterate over
+- `forward` - `true` to iterate in ascending address order
+
+**Returns:** Function iterator excluding stubs
+
+---
+
+### getExternalFunctions()
+
+Returns an iterator over all external functions.
+
+```java
+public FunctionIterator getExternalFunctions();
+```
+
+**Returns:** Iterator over external functions (no particular order)
+
+---
+
+### getFunctionsOverlapping()
+
+Returns an iterator over functions that overlap the given address set.
+
+```java
+public Iterator<Function> getFunctionsOverlapping(AddressSetView set);
+```
+
+**Parameters:**
+- `set` - Address set of interest
+
+**Returns:** Iterator over overlapping functions
+
+---
+
+## Query Methods
+
+### isInFunction()
+
+Checks if an address is contained within a function.
+
+```java
+public boolean isInFunction(Address addr);
+```
+
+**Parameters:**
+- `addr` - Address to check
+
+**Returns:** `true` if the address is contained in a function
+
+---
+
+## Calling Convention Methods
+
+### getCallingConventionNames()
+
+Returns the ordered list of defined calling convention names.
+
+```java
+public Collection<String> getCallingConventionNames();
+```
+
+**Returns:** Collection of calling convention names
+
+<Note>
+The reserved names "unknown" and "default" are not included. This set is limited to those defined by the compiler specification.
+</Note>
+
+---
+
+### getDefaultCallingConvention()
+
+Returns the default calling convention's prototype model.
+
+```java
+public PrototypeModel getDefaultCallingConvention();
+```
+
+**Returns:** The default calling convention prototype model or null
+
+---
+
+### getCallingConvention()
+
+Returns the prototype model of the specified calling convention.
+
+```java
+public PrototypeModel getCallingConvention(String name);
+```
+
+**Parameters:**
+- `name` - The calling convention name
+
+**Returns:** The named function calling convention prototype model or null
+
+---
+
+## Variable Methods
+
+### getReferencedVariable()
+
+Determines which local function variable is referenced by a specific reference.
+
+```java
+public Variable getReferencedVariable(Address instrAddr, Address storageAddr, int size,
+        boolean isRead);
+```
+
+**Parameters:**
+- `instrAddr` - The instruction address
+- `storageAddr` - The storage address
+- `size` - Varnode size in bytes (1 is assumed if value is less than or equal to 0)
+- `isRead` - `true` if the reference is a read reference
+
+**Returns:** Referenced variable or null if not found
+
+---
+
+## Tag Management
+
+### getFunctionTagManager()
+
+Returns the function tag manager.
+
+```java
+public FunctionTagManager getFunctionTagManager();
+```
+
+**Returns:** The function tag manager
+
+---
+
+## Usage Examples
+
+### Creating a Function
+
+```java
+import ghidra.program.model.listing.*;
+import ghidra.program.model.address.*;
+import ghidra.program.model.symbol.SourceType;
+import ghidra.util.exception.*;
+
+public void createSimpleFunction(Program program) {
+    FunctionManager funcMgr = program.getFunctionManager();
+    
+    try {
+        // Get entry point address
+        Address entryPoint = program.getAddressFactory()
+            .getAddress("0x401000");
+        
+        // Create address set for function body
+        AddressSet body = new AddressSet(entryPoint, 
+            entryPoint.add(0x50));
+        
+        // Create the function
+        Function func = funcMgr.createFunction(
+            "myFunction",
+            entryPoint,
+            body,
+            SourceType.USER_DEFINED
+        );
+        
+        System.out.println("Created function: " + func.getName());
+        
+    } catch (InvalidInputException e) {
+        System.err.println("Invalid function name: " + e.getMessage());
+    } catch (OverlappingFunctionException e) {
+        System.err.println("Function overlaps existing: " + e.getMessage());
+    }
+}
+```
+
+### Iterating Over Functions
+
+```java
+public void listAllFunctions(Program program) {
+    FunctionManager funcMgr = program.getFunctionManager();
+    
+    // Get all functions in forward order
+    FunctionIterator iter = funcMgr.getFunctions(true);
+    
+    System.out.println("Total functions: " + funcMgr.getFunctionCount());
+    
+    while (iter.hasNext()) {
+        Function func = iter.next();
+        System.out.println(func.getName() + " @ " + 
+                         func.getEntryPoint());
+    }
+}
+```
+
+### Finding Functions
+
+```java
+public void findFunctionsInRange(Program program, 
+                                 Address start, Address end) {
+    FunctionManager funcMgr = program.getFunctionManager();
+    
+    // Create address set for the range
+    AddressSet range = new AddressSet(start, end);
+    
+    // Get functions in this range
+    FunctionIterator iter = funcMgr.getFunctions(range, true);
+    
+    System.out.println("Functions in range:");
+    while (iter.hasNext()) {
+        Function func = iter.next();
+        System.out.println("  " + func.getName());
+    }
+    
+    // Check if a specific address is in a function
+    Address testAddr = start.add(0x10);
+    if (funcMgr.isInFunction(testAddr)) {
+        Function containing = funcMgr.getFunctionContaining(testAddr);
+        System.out.println(testAddr + " is in " + containing.getName());
+    }
+}
+```
+
+### Working with Calling Conventions
+
+```java
+public void showCallingConventions(Program program) {
+    FunctionManager funcMgr = program.getFunctionManager();
+    
+    // Get all calling convention names
+    Collection<String> conventions = funcMgr.getCallingConventionNames();
+    
+    System.out.println("Available calling conventions:");
+    for (String name : conventions) {
+        PrototypeModel model = funcMgr.getCallingConvention(name);
+        System.out.println("  " + name + ": " + model.toString());
+    }
+    
+    // Get default calling convention
+    PrototypeModel defaultConv = funcMgr.getDefaultCallingConvention();
+    System.out.println("Default: " + defaultConv.getName());
+}
+```
+
+## See Also
+
+- [Decompiler](/api/decompiler) - Decompiling functions
+- [Reference Manager](/api/reference-manager) - Managing references to/from functions
+- [Analyzers](/api/analyzers) - Creating analyzers that work with functions

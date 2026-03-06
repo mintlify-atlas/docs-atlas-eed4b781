@@ -1,0 +1,539 @@
+---
+title: Python Scripts (Jython)
+description: Write Ghidra scripts using Python with Jython integration
+---
+
+## Introduction
+
+Ghidra supports Python scripting through Jython, a Java implementation of Python 2.7. Python scripts provide a more concise syntax compared to Java while still offering full access to the Ghidra API.
+
+<Note>
+For modern Python 3 support, see [PyGhidra](/scripting/pyghidra) which uses native CPython.
+</Note>
+
+## Python Script Structure
+
+### Basic Template
+
+```python
+## ###
+# Script description
+# @category Examples
+# @runtime Jython
+
+from ghidra.app.script import GhidraScript
+from ghidra.program.model.listing import CodeUnit
+
+# Global state variables available:
+# - currentProgram
+# - currentAddress
+# - currentLocation
+# - currentSelection
+# - currentHighlight
+# - monitor
+
+def main():
+    # Your script code here
+    println("Hello from Python!")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Script Metadata
+
+Use comment directives for metadata:
+
+```python
+## Description of what this script does
+# @category Analysis
+# @author Your Name
+# @keybinding F6
+# @menupath Tools.Python Scripts.My Script
+# @runtime Jython
+```
+
+## Accessing the Ghidra API
+
+### State Variables
+
+Python scripts automatically have access to these variables:
+
+```python
+# Program access
+program = currentProgram
+if program is None:
+    println("No program is open")
+    exit()
+
+# Current location
+addr = currentAddress
+if addr:
+    println("Current address: " + addr.toString())
+
+# Selection
+if currentSelection and not currentSelection.isEmpty():
+    println("Selection exists")
+
+# Task monitor
+if monitor.isCancelled():
+    println("User cancelled")
+    exit()
+```
+
+### Importing Ghidra Classes
+
+```python
+# Address operations
+from ghidra.program.model.address import Address, AddressSet
+
+# Listing operations
+from ghidra.program.model.listing import (
+    CodeUnit, Function, Instruction, Data, Listing
+)
+
+# Symbol operations
+from ghidra.program.model.symbol import (
+    Symbol, SymbolTable, SourceType, RefType
+)
+
+# Memory operations
+from ghidra.program.model.mem import Memory, MemoryBlock
+
+# Data types
+from ghidra.program.model.data import (
+    DataType, StringDataType, PointerDataType
+)
+```
+
+## Common Operations
+
+### Address Manipulation
+
+```python
+# Create address from offset
+addr = toAddr(0x401000)
+addr = toAddr("0x401000")
+
+# Address arithmetic
+next_addr = addr.add(4)
+prev_addr = addr.subtract(4)
+offset = addr.getOffset()
+
+# Get program bounds
+min_addr = currentProgram.getMinAddress()
+max_addr = currentProgram.getMaxAddress()
+```
+
+### Memory Access
+
+```python
+mem = currentProgram.getMemory()
+
+# Read bytes
+bytes_array = getBytes(addr, 16)
+for b in bytes_array:
+    print("%02x" % (b & 0xff))
+
+# Read integers
+value = getInt(addr)
+qword = getLong(addr)
+word = getShort(addr)
+byte_val = getByte(addr)
+
+# Write data (requires transaction)
+tx_id = currentProgram.startTransaction("Write Data")
+try:
+    setByte(addr, 0x90)
+    setInt(addr, 0x12345678)
+    currentProgram.endTransaction(tx_id, True)
+except:
+    currentProgram.endTransaction(tx_id, False)
+    raise
+```
+
+### Listing Operations
+
+```python
+listing = currentProgram.getListing()
+
+# Get code unit
+cu = listing.getCodeUnitAt(addr)
+if cu:
+    println("Code unit: " + str(cu))
+
+# Iterate instructions
+instruction_iter = listing.getInstructions(addr, True)
+while instruction_iter.hasNext():
+    if monitor.isCancelled():
+        break
+    instr = instruction_iter.next()
+    println("%s: %s" % (instr.getAddress(), instr.getMnemonicString()))
+
+# Get data
+data = listing.getDataAt(addr)
+if data:
+    println("Data type: " + data.getDataType().getName())
+```
+
+### Function Operations
+
+```python
+# Get function
+func = getFunctionAt(addr)
+func = getFunctionContaining(addr)
+
+if func:
+    # Function properties
+    name = func.getName()
+    entry = func.getEntryPoint()
+    body = func.getBody()
+    
+    println("Function: " + name)
+    println("Entry: " + entry.toString())
+    
+    # Parameters
+    params = func.getParameters()
+    for param in params:
+        println("%s: %s" % (param.getName(), param.getDataType()))
+    
+    # Return type
+    ret_type = func.getReturnType()
+    println("Returns: " + ret_type.getName())
+
+# Iterate all functions
+func_iter = listing.getFunctions(True)
+while func_iter.hasNext():
+    f = func_iter.next()
+    println("%s @ %s" % (f.getName(), f.getEntryPoint()))
+```
+
+### Symbol Operations
+
+```python
+sym_table = currentProgram.getSymbolTable()
+
+# Get symbols at address
+symbols = sym_table.getSymbols(addr)
+for sym in symbols:
+    println("%s - %s" % (sym.getName(), sym.getSymbolType()))
+
+# Get primary symbol
+primary = sym_table.getPrimarySymbol(addr)
+if primary:
+    println("Primary: " + primary.getName())
+
+# Create label (requires transaction)
+tx_id = currentProgram.startTransaction("Create Label")
+try:
+    createLabel(addr, "my_label", True)
+    currentProgram.endTransaction(tx_id, True)
+except:
+    currentProgram.endTransaction(tx_id, False)
+    raise
+
+# Find symbols by name
+sym_iter = sym_table.getSymbolIterator("main", True)
+while sym_iter.hasNext():
+    sym = sym_iter.next()
+    println("Found: %s @ %s" % (sym.getName(), sym.getAddress()))
+```
+
+### Comments
+
+```python
+cu = listing.getCodeUnitAt(addr)
+
+# Set comments (requires transaction)
+tx_id = currentProgram.startTransaction("Add Comments")
+try:
+    cu.setComment(CodeUnit.EOL_COMMENT, "End of line comment")
+    cu.setComment(CodeUnit.PRE_COMMENT, "Pre comment")
+    cu.setComment(CodeUnit.POST_COMMENT, "Post comment")
+    cu.setComment(CodeUnit.PLATE_COMMENT, "Plate comment")
+    currentProgram.endTransaction(tx_id, True)
+except:
+    currentProgram.endTransaction(tx_id, False)
+    raise
+
+# Read comments
+eol_comment = cu.getComment(CodeUnit.EOL_COMMENT)
+pre_comment = cu.getComment(CodeUnit.PRE_COMMENT)
+```
+
+## Real Script Examples
+
+### Example 1: Locate Memory Address for File Offset
+
+Source: `LocateMemoryAddressesForFileOffset.py`
+
+```python
+## ###
+# Locate memory address for a file offset
+# @category Examples   
+# @runtime Jython
+
+import sys
+from ghidra.program.model.address import Address
+from ghidra.program.model.listing import CodeUnit
+
+def getFileOffset():
+    userFileOffset = askString('File offset', 
+        'Please provide a hexadecimal file offset')
+    try:
+        int(userFileOffset, 16)
+    except ValueError:
+        raise ValueError('Please provide a hexadecimal file offset.')
+    myFileOffset = long(userFileOffset, 16)
+    if myFileOffset < 0:
+        raise ValueError('Offset cannot be a negative value.')
+    return myFileOffset
+
+def processAddress(addr, memBlockName, fileOffset):
+    println('File offset ' + hex(fileOffset) + 
+        ' is associated with memory block:address ' + 
+        memBlockName + ':' + addr.toString())
+    
+    myCodeUnit = currentProgram.getListing().getCodeUnitContaining(addr)
+    comment = myCodeUnit.getComment(0)
+    
+    new_comment = (getScriptName() + ': File offset: ' + hex(fileOffset) + 
+        ', Memory block:address ' + memBlockName + ':' + addr.toString())
+    
+    if not comment:
+        myCodeUnit.setComment(0, new_comment)
+    else:
+        myCodeUnit.setComment(0, comment + ' ' + new_comment)
+
+myFileOffset = getFileOffset()
+mem = currentProgram.getMemory()
+addressList = mem.locateAddressesForFileOffset(myFileOffset)
+
+if addressList.isEmpty():
+    println('No memory address found for: ' + hex(myFileOffset))
+elif addressList.size() == 1:
+    address = addressList.get(0)
+    processAddress(address, mem.getBlock(address).getName(), myFileOffset)
+else:
+    println('Possible memory block:address are:')
+    for addr in addressList:
+        println(mem.getBlock(addr).getName() + ":" + addr.toString())
+```
+
+### Example 2: Find Strings in Called Functions
+
+Source: `RecursiveStringFinder.py` (simplified)
+
+```python
+## ###
+# Find all strings used within a function and its callees
+# @category: Functions
+# @runtime Jython
+
+import ghidra.app.script.GhidraScript
+import ghidra.program.model.data.StringDataType as StringDataType
+
+def getStringAtAddr(addr):
+    """Get string at an address, if present"""
+    data = getDataAt(addr)
+    if data is not None:
+        dt = data.getDataType()
+        if isinstance(dt, StringDataType):
+            return str(data)
+    return None
+
+def getStringReferences(insn):
+    """Get strings referenced in instruction operands"""
+    numOperands = insn.getNumOperands()
+    found = []
+    
+    for i in range(numOperands):
+        opRefs = insn.getOperandReferences(i)
+        for o in opRefs:
+            if o.getReferenceType().isData():
+                string = getStringAtAddr(o.getToAddress())
+                if string is not None:
+                    found.append((insn.getMinAddress(), 
+                        o.getToAddress(), string))
+    return found
+
+def getFunctionReferences(insn):
+    """Return functions referenced in the instruction"""
+    numOperands = insn.getNumOperands()
+    lst = []
+    
+    for i in range(numOperands):
+        opRefs = insn.getOperandReferences(i)
+        for o in opRefs:
+            if o.getReferenceType().isCall():
+                lst.append((insn.getMinAddress(), o.getToAddress()))
+    return lst
+
+# Main logic
+bigfunc = getFunctionContaining(currentAddress)
+if bigfunc is None:
+    println("Please place the cursor within a function!")
+else:
+    AddrSetView = bigfunc.getBody()
+    addresses = AddrSetView.getAddresses(True)
+    
+    strings_found = []
+    while addresses.hasNext():
+        addr = addresses.next()
+        insn = getInstructionAt(addr)
+        if insn is not None:
+            strings = getStringReferences(insn)
+            strings_found.extend(strings)
+    
+    println("Strings found:")
+    for from_addr, to_addr, string in strings_found:
+        println("  %s -> %s: %s" % (from_addr, to_addr, string))
+    
+    println("Done!")
+```
+
+## User Interaction
+
+### Ask Methods
+
+```python
+# Ask for string
+name = askString("Input", "Enter name:")
+if name is None:
+    exit()  # User cancelled
+
+# Ask for integer
+count = askInt("Count", "Enter count:")
+
+# Ask for address
+addr = askAddress("Address", "Enter address:")
+
+# Ask for file
+file_obj = askFile("Output File", "Choose:")
+
+# Ask for directory
+dir_obj = askDirectory("Directory", "Choose:")
+
+# Ask yes/no
+proceed = askYesNo("Confirm", "Continue processing?")
+
+# Ask choice
+from java.util import Arrays
+choice = askChoice("Selection", "Choose option:",
+    ["Option1", "Option2", "Option3"], "Option1")
+```
+
+### Output Methods
+
+```python
+# Print to console
+println("Message")
+print("No newline")
+
+# Print errors
+printerr("Error occurred!")
+
+# Format output
+println("Address: 0x%x, Value: %d" % (addr.getOffset(), value))
+```
+
+## Python-Specific Features
+
+### List Comprehensions
+
+```python
+# Get all function names
+func_iter = listing.getFunctions(True)
+func_names = [f.getName() for f in func_iter]
+
+# Filter functions by prefix
+my_funcs = [f for f in listing.getFunctions(True) 
+            if f.getName().startswith("my_")]
+```
+
+### Dictionary Usage
+
+```python
+# Build function address map
+func_map = {}
+for func in listing.getFunctions(True):
+    func_map[func.getName()] = func.getEntryPoint()
+
+# Lookup
+if "main" in func_map:
+    println("main @ " + func_map["main"].toString())
+```
+
+### Exception Handling
+
+```python
+try:
+    # Risky operation
+    value = getInt(addr)
+except Exception as e:
+    printerr("Error: " + str(e))
+    import traceback
+    traceback.print_exc()
+finally:
+    println("Cleanup")
+```
+
+## Limitations
+
+### Jython 2.7
+
+Jython is based on Python 2.7, which has several limitations:
+
+- No Python 3 syntax (print is a statement, not function)
+- No f-strings
+- Limited standard library
+- No recent Python packages
+
+### Java Integration
+
+Some Python idioms don't work with Java objects:
+
+```python
+# This doesn't work
+for i in range(instruction.getNumOperands()):
+    # Java arrays aren't iterable in Jython
+
+# Use this instead
+for i in xrange(instruction.getNumOperands()):
+    op = instruction.getOperand(i)
+```
+
+### Performance
+
+Jython scripts are generally slower than Java scripts due to interpretation overhead.
+
+## Migrating to PyGhidra
+
+For modern Python 3 support, consider [PyGhidra](/scripting/pyghidra):
+
+```python
+# PyGhidra example (Python 3)
+import pyghidra
+pyghidra.start()
+
+with pyghidra.open_program("binary.exe") as flat_api:
+    program = flat_api.getCurrentProgram()
+    listing = program.getListing()
+    
+    for func in listing.getFunctions(True):
+        print(f"{func.getName()} @ {func.getEntryPoint()}")
+```
+
+## Best Practices
+
+1. **Check for None** - Always validate objects before use
+2. **Use transactions** - Wrap modifications in transactions
+3. **Monitor cancellation** - Check `monitor.isCancelled()` in loops
+4. **Handle exceptions** - Use try/except for robustness
+5. **Import at top** - Import all Ghidra classes at script start
+
+## Related Topics
+
+- [Java Scripts](/scripting/java-scripts)
+- [PyGhidra](/scripting/pyghidra)
+- [Headless Analyzer](/scripting/headless)

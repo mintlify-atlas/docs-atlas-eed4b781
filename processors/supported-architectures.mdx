@@ -1,0 +1,223 @@
+---
+title: Supported Architectures
+description: Complete list of processor architectures supported by Ghidra
+---
+
+Ghidra provides comprehensive support for a wide range of processor architectures through its Sleigh language specification system. Each processor module includes instruction set definitions, register specifications, and p-code translations.
+
+## Processor Architectures
+
+Ghidra supports the following processor architectures:
+
+### x86/x64 Family
+
+- **x86** - Intel/AMD 32-bit x86 architecture with full instruction set support
+  - Includes AVX, AVX2, AVX-512 extensions
+  - SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2 support
+  - BMI1, BMI2, SHA, MPX, CET extensions
+  - Location: `Ghidra/Processors/x86/`
+
+- **x86-64** - AMD64/Intel 64 architecture
+  - Full 64-bit extension support
+  - Advanced vector extensions
+  - Location: `Ghidra/Processors/x86/`
+
+### ARM Family
+
+- **ARM** - ARM 32-bit architectures
+  - ARM4, ARM4t (Thumb)
+  - ARM5, ARM5t
+  - ARM6, ARM7, ARM8
+  - ARM8m (Cortex-M)
+  - Both little-endian and big-endian variants
+  - Location: `Ghidra/Processors/ARM/`
+
+- **AARCH64** - ARM 64-bit architecture
+  - ARMv8-A 64-bit instruction set
+  - NEON SIMD support
+  - Location: `Ghidra/Processors/AARCH64/`
+
+### RISC Architectures
+
+- **RISC-V** - Open-source RISC-V ISA
+  - RV32I, RV64I base integer instruction sets
+  - LP64D and ILP32D ABI variants
+  - AndeSTAR v5 extensions
+  - Location: `Ghidra/Processors/RISCV/`
+
+- **MIPS** - MIPS architectures
+  - MIPS I through MIPS V
+  - MIPS32, MIPS64
+  - Both endianness variants
+  - Location: `Ghidra/Processors/MIPS/`
+
+- **SPARC** - Sun/Oracle SPARC
+  - SPARC v9 32-bit and 64-bit
+  - Location: `Ghidra/Processors/Sparc/`
+
+### PowerPC Family
+
+- **PowerPC** - IBM PowerPC architecture
+  - 32-bit and 64-bit variants
+  - AltiVec/VMX support
+  - VLE (Variable Length Encoding)
+  - QUICC III engine support
+  - Both endianness variants
+  - Location: `Ghidra/Processors/PowerPC/`
+
+### Embedded Processors
+
+- **AVR** (Atmel)
+  - AVR8, AVR8e, AVR8eind, AVR8xmega
+  - AVR32a
+  - Location: `Ghidra/Processors/Atmel/`
+
+- **PIC** - Microchip PIC microcontrollers
+  - Multiple PIC variants
+  - Location: `Ghidra/Processors/PIC/`
+
+- **8051** - Intel 8051 microcontroller
+  - Classic 8051 instruction set
+  - Location: `Ghidra/Processors/8051/`
+
+- **MSP430** - Texas Instruments MSP430
+  - MSP430 and MSP430X
+  - Location: `Ghidra/Processors/TI_MSP430/`
+
+- **68000** - Motorola 68k family
+  - 68020, 68030, 68040
+  - Location: `Ghidra/Processors/68000/`
+
+### 8-bit Processors
+
+- **6502** - MOS Technology 6502
+  - Original 6502
+  - 65C02 CMOS variant
+  - Location: `Ghidra/Processors/6502/`
+
+- **8085** - Intel 8085
+  - Location: `Ghidra/Processors/8085/`
+
+- **8048** - Intel 8048
+  - Location: `Ghidra/Processors/8048/`
+
+- **Z80** - Zilog Z80
+  - Z80 and Z180 variants
+  - Location: `Ghidra/Processors/Z80/`
+
+- **MC6800** - Motorola 6800 family
+  - 6805, 6809, H6309
+  - Location: `Ghidra/Processors/MC6800/`
+
+### Motorola/Freescale
+
+- **HCS08** - Freescale HCS08
+  - HC05, HC08, HCS08
+  - Location: `Ghidra/Processors/HCS08/`
+
+- **HCS12** - Freescale HCS12
+  - HC12, HCS12, HCS12X
+  - Location: `Ghidra/Processors/HCS12/`
+
+### Specialized Architectures
+
+- **Dalvik** - Android Dalvik VM
+  - DEX bytecode (KitKat through Android 12)
+  - ODEX format
+  - Location: `Ghidra/Processors/Dalvik/`
+
+- **JVM** - Java Virtual Machine
+  - Java bytecode
+  - Location: `Ghidra/Processors/JVM/`
+
+- **BPF/eBPF** - Berkeley Packet Filter
+  - Classic BPF
+  - Extended BPF (eBPF)
+  - Both endianness variants
+  - Location: `Ghidra/Processors/BPF/`, `Ghidra/Processors/eBPF/`
+
+### Other Architectures
+
+- **PA-RISC** - HP Precision Architecture
+  - Location: `Ghidra/Processors/PA-RISC/`
+
+- **SuperH** - Renesas SuperH
+  - SH-1, SH-2, SH-2A (legacy)
+  - SH-4 (both endianness)
+  - Location: `Ghidra/Processors/SuperH/`, `Ghidra/Processors/SuperH4/`
+
+- **Xtensa** - Tensilica Xtensa
+  - Both endianness variants
+  - Location: `Ghidra/Processors/Xtensa/`
+
+- **TriCore** - Infineon TriCore
+  - Location: `Ghidra/Processors/tricore/`
+
+- **Loongarch** - LoongArch architecture
+  - 32-bit and 64-bit variants
+  - F32 and F64 floating-point
+  - Location: `Ghidra/Processors/Loongarch/`
+
+- **CR16** - CompactRISC 16-bit
+  - CR16B, CR16C
+  - Location: `Ghidra/Processors/CR16/`
+
+- **V850** - NEC/Renesas V850
+  - Location: `Ghidra/Processors/V850/`
+
+- **M16C** - Renesas M16C
+  - M16C/60, M16C/80
+  - Location: `Ghidra/Processors/M16C/`
+
+- **M8C** - Cypress M8C
+  - Location: `Ghidra/Processors/M8C/`
+
+- **MCS96** - Intel MCS-96
+  - Location: `Ghidra/Processors/MCS96/`
+
+- **CP1600** - General Instrument CP1600
+  - Location: `Ghidra/Processors/CP1600/`
+
+- **NDS32** - Andes NDS32
+  - Location: `Ghidra/Processors/NDS32/`
+
+### Special Purpose
+
+- **DATA** - Raw data processor
+  - 64-bit data interpretation
+  - Both endianness variants
+  - Location: `Ghidra/Processors/DATA/`
+
+- **Toy** - Educational/testing processor
+  - Various configurations for development
+  - Location: `Ghidra/Processors/Toy/`
+
+## Processor Variants
+
+Many processors support multiple variants including:
+
+- **Endianness**: Little-endian (LE) and big-endian (BE) versions
+- **Bit width**: 16-bit, 32-bit, and 64-bit variants
+- **Extensions**: Instruction set extensions (SIMD, floating-point, etc.)
+- **Versions**: Different ISA versions (e.g., ARMv4 through ARMv8)
+
+## Language Definition Files
+
+Each processor has associated files:
+
+- **`.slaspec`** - Sleigh specification file defining instruction semantics
+- **`.ldefs`** - Language definition XML file
+- **`.pspec`** - Processor specification file
+- **`.cspec`** - Compiler specification file
+- **`.opinion`** - Loader opinion files for binary format recognition
+
+## Adding Custom Processors
+
+Ghidra's modular architecture allows adding support for new processors by:
+
+1. Creating Sleigh specification files (`.slaspec`)
+2. Defining language definitions (`.ldefs`)
+3. Specifying processor details (`.pspec`)
+4. Adding compiler specifications (`.cspec`)
+
+See the [Sleigh Language](/processors/sleigh-language) documentation for details on creating processor specifications.

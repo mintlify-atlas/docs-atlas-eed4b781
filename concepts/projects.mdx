@@ -1,0 +1,494 @@
+---
+title: Projects
+description: Project structure, repositories, versioning, and collaborative workflows in Ghidra
+---
+
+## Project Fundamentals
+
+A Ghidra project serves as a container for organizing reverse engineering work. Projects manage collections of domain files, tool configurations, and optional repository connections for collaboration.
+
+```java
+// From ghidra/framework/model/Project.java:26-48
+public interface Project extends AutoCloseable, Iterable<DomainFile> {
+    String getName();
+    ProjectLocator getProjectLocator();
+    ProjectData getProjectData();
+    ToolManager getToolManager();
+    ToolChest getLocalToolChest();
+    RepositoryAdapter getRepository();
+    void save();
+    void close();
+}
+```
+
+## Project Structure
+
+### Physical Layout
+
+A Ghidra project consists of several directories:
+
+```
+MyProject/
+├── MyProject.gpr          # Project properties file
+├── MyProject.rep/         # Project repository (if shared)
+└── data/                  # Domain file storage
+    ├── _projectState      # Project metadata
+    ├── ~index.bak         # Index backup
+    ├── ~index.dat         # File index
+    └── [folders]/         # User-created folder hierarchy
+        └── *.gbf          # Ghidra binary files (programs)
+```
+
+### Domain Files
+
+Domain files are the primary data artifacts in a project:
+
+```java
+// From ghidra/framework/model/DomainFile.java
+public interface DomainFile {
+    String getName();
+    String getPathname();
+    DomainFolder getParent();
+    boolean isCheckedOut();
+    boolean isVersioned();
+    int getLatestVersion();
+    DomainObject getDomainObject(Object consumer, boolean okToUpgrade);
+}
+```
+
+**Common Domain File Types:**
+
+<CardGroup cols={2}>
+  <Card title="Program" icon="microchip">
+    Binary executables with analysis data (*.gzf)
+  </Card>
+  <Card title="Data Type Archive" icon="database">
+    Shared data type definitions (*.gdt)
+  </Card>
+  <Card title="Tool" icon="wrench">
+    Saved tool configurations (*.tool)
+  </Card>
+  <Card title="Folder Link" icon="link">
+    Links to external project folders
+  </Card>
+</CardGroup>
+
+## Project Types
+
+Ghidra supports different project configurations:
+
+### Local Projects
+
+Standalone projects stored on the local file system:
+
+- No version control
+- No collaboration features
+- Fastest performance
+- Ideal for personal analysis
+
+### Shared Projects
+
+Projects connected to a Ghidra Server repository:
+
+- Version control for all files
+- Multi-user collaboration
+- Check-out/check-in workflow
+- Merge conflict resolution
+- User access control
+
+```java
+public RepositoryAdapter getRepository() {
+    // Returns null for local projects
+    // Returns RepositoryAdapter for shared projects
+}
+```
+
+From `ghidra/framework/model/Project.java:76-80`
+
+## ProjectData Interface
+
+The `ProjectData` interface provides access to the project's file system:
+
+```java
+// From ghidra/framework/model/ProjectData.java:30-38
+public interface ProjectData extends Iterable<DomainFile> {
+    DomainFolder getRootFolder();
+    DomainFolder getFolder(String path);
+    DomainFile getFile(String path);
+    int getFileCount();
+}
+```
+
+### Folder Hierarchy
+
+Projects organize files in a folder tree:
+
+```java
+public interface DomainFolder {
+    String getName();
+    String getPathname();
+    DomainFolder getParent();
+    DomainFolder[] getFolders();
+    DomainFile[] getFiles();
+    DomainFolder createFolder(String name);
+    DomainFile createFile(String name, DomainObject obj);
+}
+```
+
+<Tip>
+  Use meaningful folder hierarchies to organize your analysis:
+  
+  ```
+  /firmware/
+      /bootloader/
+      /kernel/
+      /drivers/
+  /malware/
+      /samples/
+      /unpacked/
+  ```
+</Tip>
+
+## Version Control
+
+Shared projects provide full version control capabilities.
+
+### File Versioning
+
+Each save creates a new version:
+
+```java
+public interface DomainFile {
+    boolean isVersioned();
+    int getLatestVersion();
+    Version[] getVersionHistory();
+    DomainObject getReadOnlyVersion(int version, Object consumer);
+    DomainObject getImmutableDomainObject(Object consumer, int version);
+}
+```
+
+**Version History:**
+
+```java
+public class Version {
+    int getVersion();              // Version number
+    long getCreateTime();          // Timestamp
+    String getUser();              // Who created this version
+    String getComment();           // Version comment
+}
+```
+
+### Check-Out Model
+
+Shared projects use an exclusive check-out model:
+
+<Steps>
+  <Step title="Request Check-Out">
+    User requests exclusive write access to a file
+    
+    ```java
+    boolean checkout(boolean exclusive, TaskMonitor monitor);
+    ```
+  </Step>
+  
+  <Step title="Make Changes">
+    User modifies the checked-out file locally
+  </Step>
+  
+  <Step title="Check In">
+    User commits changes back to the repository
+    
+    ```java
+    void checkin(CheckinHandler handler, TaskMonitor monitor);
+    ```
+  </Step>
+</Steps>
+
+**Check-Out States:**
+
+- **Not Versioned** - Local file, no repository
+- **Checked In** - Latest version in repository
+- **Checked Out (Exclusive)** - User has write lock
+- **Checked Out (Non-Exclusive)** - Read-only checkout
+- **Hijacked** - Local changes on checked-in file
+
+### Merging Changes
+
+When checking in files that are out of date:
+
+```java
+public interface CheckinHandler {
+    boolean keepCheckedOut();
+    String getComment();
+    boolean createKeepFile();
+    boolean merge(DomainObject resultObj, DomainObject sourceObj);
+}
+```
+
+Ghidra provides automatic and manual merge strategies:
+
+- **Auto-merge** - Combines non-conflicting changes
+- **Manual merge** - User resolves conflicts interactively
+- **Keep file** - Save pre-merge version as backup
+
+From `ghidra/framework/data/CheckinHandler.java`
+
+## Project Views
+
+Projects can include views of other projects:
+
+```java
+// From ghidra/framework/model/Project.java:83-94
+public ProjectData addProjectView(URL projectURL, boolean visible) 
+        throws IOException {
+    // Add read-only view of another project
+}
+
+public void removeProjectView(URL projectURL);
+
+public ProjectLocator[] getProjectViews();
+```
+
+**Use Cases:**
+
+- Reference shared libraries across projects
+- Access central data type archives
+- Compare related programs
+- Organize large analysis efforts
+
+<Note>
+  Project views are read-only. Changes must be made in the owning project.
+</Note>
+
+## Tool Management
+
+Projects manage tool instances and configurations:
+
+```java
+public interface ToolManager {
+    ToolTemplate[] getToolTemplates();
+    PluginTool[] getRunningTools();
+    Workspace getActiveWorkspace();
+    PluginTool createTool(ToolTemplate template);
+}
+```
+
+From `ghidra/framework/model/ToolManager.java`
+
+### Tool Templates
+
+Templates define tool configurations:
+
+```java
+public interface ToolTemplate {
+    String getName();
+    String getToolName();
+    Set<String> getSupportedDataTypes();
+    PluginInfo[] getPluginInfos();
+}
+```
+
+**Built-in Tools:**
+
+- **CodeBrowser** - Primary analysis interface
+- **VersionTracking** - Compare program versions
+- **FunctionGraphTool** - Visualize control flow
+
+### Workspaces
+
+Workspaces organize running tool windows:
+
+```java
+public interface Workspace {
+    String getName();
+    ToolTemplate[] getToolTemplates();
+    void save();
+}
+```
+
+## Storage Implementation
+
+Understanding the storage layer helps with troubleshooting and administration.
+
+### File System Types
+
+**Indexed File System** (Current):
+- Uses `~index.dat` for fast lookups
+- Supports large projects efficiently
+- Required for file count queries
+
+**Mangled File System** (Legacy):
+- Encodes paths in file names
+- Slower for large projects
+- No file count support
+
+```java
+public interface ProjectData {
+    Class<? extends LocalFileSystem> getLocalStorageClass();
+    int getFileCount(); // Returns -1 for mangled file system
+}
+```
+
+From `ghidra/framework/model/ProjectData.java:40-96`
+
+### Database Files
+
+Domain files are stored as database files:
+
+```
+program.gbf/
+├── ~index.dat         # Property index
+├── program.gzf       # Compressed program data
+└── user0.gvf         # User-specific data
+```
+
+<Warning>
+  Never manually modify files in the project directory. Always use Ghidra's
+  API or UI to manipulate domain files.
+</Warning>
+
+## Project Lifecycle
+
+### Creating Projects
+
+```java
+public interface ProjectManager {
+    Project createProject(ProjectLocator projectLocator, 
+                         RepositoryAdapter repository,
+                         boolean remember);
+    
+    Project openProject(ProjectLocator projectLocator,
+                       boolean doRestore,
+                       boolean resetOwner);
+}
+```
+
+### Closing Projects
+
+```java
+public void close() {
+    // Saves project state
+    // Closes all tools
+    // Releases all domain objects
+    // Disconnects from repository
+}
+```
+
+From `ghidra/framework/model/Project.java:108-111`
+
+### Project Locking
+
+Only one Ghidra instance can open a project at a time:
+
+```java
+public class ProjectLock {
+    // Prevents concurrent access
+    // Lock file: [project].lock
+}
+```
+
+From `ghidra/framework/data/ProjectLock.java`
+
+## Repository Server
+
+Shared projects connect to a Ghidra Server:
+
+### Server Architecture
+
+- **Central Repository** - Stores all versioned files
+- **User Management** - Authentication and access control
+- **File Locking** - Manages check-out/check-in
+- **Event Notification** - Notifies clients of changes
+
+### Repository Adapter
+
+```java
+public interface RepositoryAdapter {
+    String getName();
+    ServerInfo getServerInfo();
+    User getUser();
+    RepositoryItem[] getItemList(String folderPath);
+    void connect() throws IOException;
+    void disconnect();
+}
+```
+
+From `ghidra/framework/client/RepositoryAdapter.java`
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Project Organization">
+    - Use descriptive project names
+    - Create folder hierarchies for related files
+    - Separate projects by architecture or product
+    - Archive completed analysis projects
+  </Accordion>
+  
+  <Accordion title="Version Control">
+    - Check in frequently with meaningful comments
+    - Review version history before checking in
+    - Resolve conflicts promptly
+    - Use keep files for major changes
+  </Accordion>
+  
+  <Accordion title="Collaboration">
+    - Communicate with team about check-outs
+    - Establish naming conventions
+    - Share data type archives
+    - Document analysis decisions
+  </Accordion>
+  
+  <Accordion title="Performance">
+    - Keep project file counts reasonable
+    - Clean up unused files
+    - Backup regularly
+    - Monitor repository connection status
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Lock File Issues">
+    If project won't open due to lock:
+    
+    1. Ensure no other Ghidra instances are running
+    2. Check for zombie processes
+    3. Manually remove `.lock` file (use caution)
+  </Accordion>
+  
+  <Accordion title="Repository Connection">
+    If repository connection fails:
+    
+    - Verify server address and port
+    - Check firewall settings
+    - Confirm user credentials
+    - Test network connectivity
+  </Accordion>
+  
+  <Accordion title="Merge Conflicts">
+    If merge fails:
+    
+    - Create a keep file
+    - Manually merge in separate project
+    - Check in resolved version
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Programs" icon="microchip" href="/concepts/programs">
+    Learn about the program model
+  </Card>
+  <Card title="Analysis" icon="microscope" href="/concepts/analysis">
+    Understand analysis workflows
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Explore framework architecture
+  </Card>
+  <Card title="Overview" icon="book" href="/concepts/overview">
+    Return to framework overview
+  </Card>
+</CardGroup>

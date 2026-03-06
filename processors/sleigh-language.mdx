@@ -1,0 +1,517 @@
+---
+title: Sleigh Language Specification
+description: Understanding Sleigh, Ghidra's processor specification language
+---
+
+Sleigh is Ghidra's powerful language for formally describing processor instruction sets. It translates machine code into human-readable assembly language and Ghidra's intermediate representation (p-code).
+
+## Overview
+
+Sleigh is a domain-specific language designed for rapid processor specification. It provides a formal method to describe:
+
+- Instruction encoding and decoding
+- Assembly language syntax
+- Instruction semantics via p-code translation
+- Register definitions and address spaces
+- Context-dependent instruction behavior
+
+## P-Code: Ghidra's Intermediate Representation
+
+P-code is a low-level intermediate representation that captures the semantics of machine instructions in a processor-independent format.
+
+### Key Concepts
+
+#### Address Spaces
+
+Address spaces represent different memory regions and storage areas:
+
+- **RAM space**: Main memory
+- **Register space**: Processor registers
+- **Unique space**: Temporary variables
+- **Constant space**: Immediate values
+- **User-defined spaces**: Custom memory regions
+
+#### Varnodes
+
+Varnodes are the fundamental data objects in p-code:
+
+- Represent values at specific locations
+- Defined by address space, offset, and size
+- Can reference registers, memory, or temporary values
+
+Example: `RSP` register = varnode in register space at specific offset
+
+#### Operations
+
+P-code uses a RISC-like instruction set with operations like:
+
+- Arithmetic: `INT_ADD`, `INT_SUB`, `INT_MULT`, `INT_DIV`
+- Logic: `INT_AND`, `INT_OR`, `INT_XOR`, `INT_NOT`
+- Comparison: `INT_EQUAL`, `INT_LESS`, `INT_SLESS`
+- Memory: `LOAD`, `STORE`
+- Control flow: `BRANCH`, `CBRANCH`, `CALL`, `RETURN`
+- Floating-point: `FLOAT_ADD`, `FLOAT_MULT`, etc.
+
+## Sleigh Specification Structure
+
+A Sleigh specification (`.slaspec` file) consists of several key sections:
+
+### 1. Basic Definitions
+
+```sleigh
+# Endianness
+define endian=little;
+
+# Alignment
+define alignment=1;
+
+# Address space definitions
+define space ram type=ram_space size=4 default;
+define space register type=register_space size=4;
+```
+
+### 2. Register Definitions
+
+Registers are defined with names, locations, and sizes:
+
+```sleigh
+define register offset=0x00 size=4 [
+    EAX ECX EDX EBX ESP EBP ESI EDI
+];
+
+define register offset=0x00 size=2 [
+    AX CX DX BX SP BP SI DI
+];
+
+define register offset=0x00 size=1 [
+    AL CL DL BL AH CH DH BH
+];
+```
+
+### 3. Token Definitions
+
+Tokens describe how instruction bytes are parsed:
+
+```sleigh
+define token instr(8)
+    op0_7=(0,7)
+    op0_4=(0,4)
+    reg3_5=(3,5)
+    mod6_7=(6,7)
+;
+```
+
+### 4. Constructors
+
+Constructors are the heart of Sleigh specifications. Each constructor describes:
+
+1. **Display section**: Assembly syntax
+2. **Bit pattern**: Instruction encoding
+3. **Semantic section**: P-code translation
+
+Example constructor:
+
+```sleigh
+:ADD reg1, reg2 is op=0x01 & reg1 & reg2 {
+    reg1 = reg1 + reg2;
+}
+```
+
+Breakdown:
+- `:ADD reg1, reg2` - Display pattern (assembly syntax)
+- `is op=0x01 & reg1 & reg2` - Bit pattern matching
+- `{ reg1 = reg1 + reg2; }` - Semantic action (p-code)
+
+### 5. Tables
+
+Tables organize constructors into logical groups:
+
+- **Root table**: Top-level instruction table
+- **Subtables**: Operand types, addressing modes, etc.
+
+```sleigh
+with : instruction
+{
+    :ADD EA, Reg is opcode=0x01 & EA & Reg { ... }
+    :SUB EA, Reg is opcode=0x29 & EA & Reg { ... }
+}
+```
+
+## Advanced Features
+
+### Context Variables
+
+Context variables handle mode changes and conditional instruction decoding:
+
+```sleigh
+define context contextreg
+    mode=(0,0)      # Thumb mode bit
+    TMode=(5,5)     # Thumb state
+;
+
+:instruction is TMode=1 & ... {  # Thumb instructions
+    ...
+}
+
+:instruction is TMode=0 & ... {  # ARM instructions
+    ...
+}
+```
+
+Example from ARM processor:
+- ARM/Thumb mode switching
+- 16-bit vs 32-bit instruction decoding
+- Conditional execution
+
+### Macros
+
+P-code macros encapsulate common operations:
+
+```sleigh
+macro push(val) {
+    ESP = ESP - 4;
+    *:4 ESP = val;
+}
+
+macro pop(dest) {
+    dest = *:4 ESP;
+    ESP = ESP + 4;
+}
+```
+
+### Build Directives
+
+Control instruction assembly:
+
+```sleigh
+build ea { ... }          # Build address calculation
+build instruction { ... } # Build instruction semantics
+```
+
+### Delay Slot Directives
+
+Handle delayed branches (MIPS, SPARC):
+
+```sleigh
+:BRANCH target is op=0x10 & target [delayslot=1;] {
+    delayslot(1);
+    goto target;
+}
+```
+
+## Preprocessing
+
+Sleigh supports preprocessing directives:
+
+### File Inclusion
+
+```sleigh
+@include "ia.sinc"          # Include base instruction set
+@include "avx.sinc"         # Include AVX extensions
+@include "avx512.sinc"      # Include AVX-512
+```
+
+Example from x86.slaspec:
+```sleigh
+@include "ia.sinc"
+@include "lockable.sinc"
+with : lockprefx=0 {
+    @include "avx.sinc"
+    @include "avx2.sinc"
+    @include "avx512.sinc"
+}
+```
+
+### Macros and Conditionals
+
+```sleigh
+@define BITS_64 "1"
+
+@ifdef BITS_64
+    # 64-bit specific definitions
+@else
+    # 32-bit specific definitions
+@endif
+```
+
+## Real-World Examples
+
+### x86 Processor
+
+Location: `Ghidra/Processors/x86/data/languages/`
+
+The x86 specification uses modular includes:
+- `ia.sinc` - Base IA-32 instruction set
+- `avx.sinc`, `avx2.sinc` - SIMD extensions
+- `bmi1.sinc`, `bmi2.sinc` - Bit manipulation
+- `sha.sinc` - SHA extensions
+- `mpx.sinc` - Memory Protection Extensions
+
+### ARM Processor
+
+Location: `Ghidra/Processors/ARM/data/languages/`
+
+ARM specifications handle:
+- Multiple architecture versions (ARMv4-ARMv8)
+- ARM/Thumb mode switching via context
+- Conditional execution on most instructions
+- NEON SIMD extensions
+- Both endianness variants
+
+### RISC-V
+
+Location: `Ghidra/Processors/RISCV/data/languages/`
+
+RISC-V demonstrates:
+- Clean RISC instruction encoding
+- Modular extension support (M, A, F, D, C)
+- 32-bit and 64-bit variants
+- Compressed instruction set (C extension)
+
+### Dalvik (Android)
+
+Location: `Ghidra/Processors/Dalvik/data/languages/`
+
+Dalvik shows virtual machine instruction handling:
+- Base specification: `Dalvik_Base.slaspec`
+- Version-specific variants (KitKat through Android 12)
+- Bytecode instruction semantics
+- Register-based VM operations
+
+## Sleigh Compilation
+
+Sleigh specifications are compiled into `.sla` files:
+
+1. **Sleigh compiler** parses `.slaspec` files
+2. Resolves includes and macros
+3. Validates constructor patterns
+4. Generates decision trees for instruction matching
+5. Produces binary `.sla` output
+
+## Language Definition Files
+
+### .ldefs Files
+
+XML files that define language properties:
+
+```xml
+<?xml version="1.1" encoding="UTF-8"?>
+<language_definitions>
+  <language processor="ARM"
+            endian="little"
+            size="32"
+            variant="v8"
+            version="1.108"
+            slafile="ARM8_le.sla"
+            processorspec="ARMt.pspec"
+            id="ARM:LE:32:v8">
+    <description>Generic ARM/Thumb v8 little endian</description>
+    <compiler name="default" spec="ARM.cspec" id="default"/>
+    <compiler name="APCS" spec="ARM_apcs.cspec" id="apcs"/>
+    <external_name tool="gnu" name="armv8-a"/>
+    <external_name tool="DWARF.register.mapping.file" name="ARMneon.dwarf"/>
+  </language>
+</language_definitions>
+```
+
+### .pspec Files
+
+Processor specifications define:
+- Memory organization
+- Default memory spaces
+- Context register definitions
+- Prototype evaluators
+- Calling conventions
+
+### .cspec Files
+
+Compiler specifications define:
+- Calling conventions
+- Stack frame layout
+- Parameter passing
+- Return value handling
+- Register usage conventions
+
+### .opinion Files
+
+Loader opinion files map binary formats to processors:
+
+```xml
+<opinions>
+  <constraint loader="Executable and Linking Format (ELF)" compilerSpecID="default">
+    <constraint primary="188" processor="ARM" size="64" variant="v8"/>
+  </constraint>
+</opinions>
+```
+
+## Creating Custom Processors
+
+To add a new processor to Ghidra:
+
+### 1. Create Directory Structure
+
+```
+Ghidra/Processors/YourProcessor/
+├── data/
+│   ├── languages/
+│   │   ├── yourprocessor.slaspec
+│   │   ├── yourprocessor.ldefs
+│   │   ├── yourprocessor.pspec
+│   │   ├── yourprocessor.cspec
+│   │   └── yourprocessor.opinion
+│   └── manuals/
+└── src/
+```
+
+### 2. Write Sleigh Specification
+
+Define the instruction set in `.slaspec`:
+- Endianness and alignment
+- Address spaces
+- Register definitions
+- Token fields
+- Instruction constructors
+
+### 3. Define Language Properties
+
+Create `.ldefs` file specifying:
+- Processor name and variant
+- Endianness and word size
+- Sleigh file reference
+- Compiler specifications
+
+### 4. Specify Processor Details
+
+Create `.pspec` file for:
+- Memory maps
+- Context registers
+- Default assumptions
+
+### 5. Add Compiler Specifications
+
+Create `.cspec` files for:
+- Calling conventions (cdecl, stdcall, etc.)
+- Register roles (parameters, returns, preserved)
+- Stack pointer conventions
+
+### 6. Configure Loader Opinions
+
+Create `.opinion` file to map:
+- Binary formats to your processor
+- Default compiler specs
+- Architecture detection rules
+
+## Best Practices
+
+### Modular Design
+
+- Use `@include` for instruction set extensions
+- Separate base ISA from optional features
+- Share common patterns via includes
+
+### Clear Naming
+
+- Use descriptive constructor names
+- Follow assembly syntax conventions
+- Document complex patterns
+
+### Testing
+
+- Test with real binary samples
+- Verify disassembly accuracy
+- Validate p-code generation
+- Check decompiler output
+
+### Performance
+
+- Minimize constructor ambiguity
+- Order patterns from specific to general
+- Use context efficiently
+
+## Documentation Resources
+
+### Official Ghidra Documentation
+
+Location: `GhidraDocs/languages/html/`
+
+- **sleigh.html** - Complete Sleigh manual
+- **sleigh_constructors.html** - Constructor syntax
+- **sleigh_tokens.html** - Token definitions
+- **sleigh_context.html** - Context variables
+- **pcoderef.html** - P-code reference
+- **pcodedescription.html** - Detailed p-code operations
+
+### Key Sections
+
+1. **Introduction to P-Code** - Fundamental concepts
+2. **Basic Specification Layout** - File structure
+3. **Preprocessing** - Includes and macros
+4. **Basic Definitions** - Endianness, spaces, registers
+5. **Tokens and Fields** - Instruction parsing
+6. **Constructors** - Pattern matching and semantics
+7. **Using Context** - Mode-dependent behavior
+8. **P-code Tables** - Operation reference
+
+## Common Patterns
+
+### Instruction Variants
+
+```sleigh
+# Immediate variant
+:ADD dest, #imm is op=0x05 & dest & imm {
+    dest = dest + imm;
+}
+
+# Register variant
+:ADD dest, src is op=0x01 & dest & src {
+    dest = dest + src;
+}
+```
+
+### Conditional Execution
+
+```sleigh
+# ARM conditional instructions
+:ADD^cc dest, src1, src2 is cc & op=0x04 & dest & src1 & src2 {
+    if (cc) goto <skip>;
+    dest = src1 + src2;
+    <skip>
+}
+```
+
+### Addressing Modes
+
+```sleigh
+# Base + offset
+EA: [Base + #off] is Base & off {
+    export *[ram]:4 (Base + off);
+}
+
+# Base + index
+EA: [Base + Index] is Base & Index {
+    export *[ram]:4 (Base + Index);
+}
+```
+
+## Debugging Sleigh Specifications
+
+### Common Issues
+
+1. **Pattern Conflicts**: Multiple constructors match same bits
+2. **Missing Context**: Context not properly set for mode switches
+3. **Incorrect Semantics**: P-code doesn't match instruction behavior
+4. **Field Overlap**: Token fields defined incorrectly
+
+### Tools
+
+- Ghidra's Sleigh compiler error messages
+- Disassembly testing in Ghidra
+- P-code viewer in decompiler
+- Instruction pattern debugger
+
+## Related Documentation
+
+- [Supported Architectures](/processors/supported-architectures)
+- [File Format Support](/processors/file-formats)
+- Ghidra API documentation
+- P-code emulator documentation

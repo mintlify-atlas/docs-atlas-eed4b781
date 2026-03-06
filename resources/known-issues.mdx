@@ -1,0 +1,397 @@
+---
+title: Known Issues
+description: Known issues and limitations in Ghidra
+---
+
+This page documents known issues, limitations, and workarounds for Ghidra.
+
+## Build and Development Issues
+
+### Gradle Toolchain Discovery on Linux
+
+**Issue:** Gradle fails to discover native toolchains on Linux when using a non-English system locale.
+
+**Affected Versions:** All versions
+
+**Impact:** Native component build fails
+
+**Workaround:** Set the locale environment variable before running Gradle:
+
+```bash
+export LC_MESSAGES=en_US.UTF-8
+```
+
+**Reference:** DevGuide.md - Known Issues section
+
+---
+
+### Python Build Without pip
+
+**Issue:** If the Ghidra build only finds versions of Python that do not have access to `pip`, the build may fail.
+
+**Affected Versions:** All versions
+
+**Impact:** Python package builds fail
+
+**Workaround:** Perform the build from a Python [virtual environment](https://docs.python.org/3/tutorial/venv.html):
+
+```bash
+python3 -m venv build-env
+source build-env/bin/activate  # Linux/macOS
+# OR
+build-env\Scripts\activate      # Windows
+```
+
+**Reference:** DevGuide.md - Known Issues section
+
+---
+
+### Interactive Git Commands Not Supported
+
+**Issue:** Git commands with interactive flags (like `git rebase -i` or `git add -i`) are not supported in the Ghidra build process.
+
+**Affected Versions:** All versions
+
+**Impact:** Interactive git operations fail
+
+**Workaround:** Use non-interactive alternatives or run git commands outside the build system.
+
+---
+
+## Eclipse Integration Issues
+
+### Missing Run Configurations
+
+**Issue:** Ghidra run configurations may not appear in Eclipse after importing projects.
+
+**Affected Versions:** All versions
+
+**Impact:** Cannot launch Ghidra from Eclipse
+
+**Workaround:** 
+1. Close and reopen Eclipse
+2. Navigate to **Run → Run Configurations...** to manually access configurations
+3. Launch Ghidra once through the Run Configurations window for it to appear in favorites
+
+**Note:** Do not manually import launch configurations as this can cause duplicates.
+
+---
+
+### Compilation Errors After Repository Update
+
+**Issue:** After pulling or syncing with the latest source, Eclipse may show unexplainable compilation errors.
+
+**Affected Versions:** All versions
+
+**Impact:** Cannot build in Eclipse
+
+**Workaround:** Clean and regenerate Eclipse projects:
+
+```bash
+gradle prepdev cleanEclipse eclipse buildNatives
+```
+
+Then reimport projects into Eclipse. See the [Troubleshooting](/resources/troubleshooting#eclipse-compilation-errors-after-sync) guide for detailed steps.
+
+---
+
+### GhidraDev Plugin - PyDev/CDT Errors
+
+**Issue:** When developing the GhidraDev Eclipse plugin, compilation errors related to PyDev and CDT may occur.
+
+**Affected Versions:** All versions
+
+**Impact:** Cannot build GhidraDev plugin
+
+**Workaround:** In Eclipse preferences, under **Target Platform**, activate `/Eclipse GhidraDevPlugin/GhidraDev.target`.
+
+---
+
+## Runtime and Application Issues
+
+### Multi-User Certificate Hostname Verification (JDK 21.0.10+)
+
+**Issue:** Ghidra Server self-signed certificates fail hostname verification with JDK 21.0.10 or later.
+
+**Affected Versions:** Ghidra 12.0.2 and earlier
+
+**Impact:** Cannot connect to Ghidra Server
+
+**Resolution:** 
+- **Server:** Upgrade to Ghidra 12.0.3+ (certificates now include all FQDNs and IP addresses as subject alternative names)
+- **Client:** Add to `support/launch.properties`:
+  ```properties
+  VMARGS=-Djdk.rmi.ssl.client.enableEndpointIdentification=false
+  ```
+
+**Reference:** GP-6426, Issue #8940 (Fixed in 12.0.3)
+
+---
+
+### Auto Comment Annotation Security Risk
+
+**Issue:** Auto comments could render annotations as valid annotation links, posing a potential security risk.
+
+**Affected Versions:** Ghidra 12.0.2 and earlier
+
+**Impact:** Potential security vulnerability
+
+**Resolution:** Fixed in Ghidra 12.0.3. Auto comments no longer render annotations as valid links. Normal comments continue to work as usual.
+
+**Reference:** GP-6414 (Fixed in 12.0.3)
+
+---
+
+### @execute Annotation Deprecated
+
+**Issue:** The `@execute` annotation in comments is no longer supported due to security concerns.
+
+**Affected Versions:** Ghidra 12.0.3+
+
+**Impact:** Scripts using `@execute` annotation will not work
+
+**Workaround:** Use alternative mechanisms for executing code from comments.
+
+**Reference:** GP-6413 (Changed in 12.0.3)
+
+---
+
+## Debugger Issues
+
+### Trace Save Deadlock
+
+**Issue:** Deadlock can occur when saving Traces from the **Close Project** dialog.
+
+**Affected Versions:** Ghidra 12.0.3 and earlier
+
+**Impact:** Application hangs when closing projects with traces
+
+**Resolution:** Fixed in Ghidra 12.0.4
+
+**Workaround:** Save traces manually before closing the project.
+
+**Reference:** GP-6392 (Fixed in 12.0.4)
+
+---
+
+### NullPointerException on Debugger Close
+
+**Issue:** A `NullPointerException` can occur when closing the Debugger.
+
+**Affected Versions:** Ghidra 12.0.2 and earlier
+
+**Impact:** Error when closing Debugger tool
+
+**Resolution:** Fixed in Ghidra 12.0.3
+
+**Reference:** GP-6376 (Fixed in 12.0.3)
+
+---
+
+### Duplicate Breakpoints After Target Restart
+
+**Issue:** Restarting a target (e.g., using the `run` command from GDB's CLI) causes duplicate breakpoint entries and GUI glitches.
+
+**Affected Versions:** Ghidra 12.0.2 and earlier
+
+**Impact:** Confusing UI state with duplicate breakpoints
+
+**Resolution:** Fixed in Ghidra 12.0.3
+
+**Reference:** GP-6027 (Fixed in 12.0.3)
+
+---
+
+### Memory Viewer Multiple Address Space Bug
+
+**Issue:** Bug in the Memory viewer when looking at multiple address spaces.
+
+**Affected Versions:** Ghidra 12.0.3 and earlier
+
+**Impact:** Incorrect memory display
+
+**Resolution:** Fixed in Ghidra 12.0.4
+
+**Reference:** GP-6449, Issue #8982 (Fixed in 12.0.4)
+
+---
+
+## Decompiler Issues
+
+### "PTRSUB off of non structured pointer type" Exceptions
+
+**Issue:** Decompiler throws exceptions when dealing with `void *` data types.
+
+**Affected Versions:** Ghidra 12.0.2 and earlier
+
+**Impact:** Decompilation fails for certain functions
+
+**Resolution:** Fixed in Ghidra 12.0.3
+
+**Reference:** GP-6388, Issue #8887 (Fixed in 12.0.3)
+
+---
+
+### "Forced merge caused intersection" Exceptions
+
+**Issue:** Decompiler throws exceptions when decompiling optimized string copies.
+
+**Affected Versions:** Ghidra 12.0.2 and earlier
+
+**Impact:** Decompilation fails for certain optimized code
+
+**Resolution:** Fixed in Ghidra 12.0.3
+
+**Reference:** GP-6393, Issue #8651 (Fixed in 12.0.3)
+
+---
+
+## Analysis Issues
+
+### Constants Propagating to Wrong Function
+
+**Issue:** Constants from one function can find their way into another function when a jump is converted to a call during constant propagation.
+
+**Affected Versions:** Ghidra 12.0.3 and earlier
+
+**Impact:** Incorrect constant analysis
+
+**Resolution:** Fixed in Ghidra 12.0.4
+
+**Reference:** GP-6442 (Fixed in 12.0.4)
+
+---
+
+### Thunk Function Linking in EXTERNAL Block
+
+**Issue:** Analysis fails to properly link thunk functions in the EXTERNAL memory block to existing External library symbols, creating new external functions in the unknown external library instead.
+
+**Affected Versions:** Ghidra 12.0.3 and earlier
+
+**Impact:** Incorrect external function references
+
+**Resolution:** Fixed in Ghidra 12.0.4
+
+**Reference:** GP-6465 (Fixed in 12.0.4)
+
+---
+
+### RTTI Class Name Demangling
+
+**Issue:** When RTTI class names cannot be demangled correctly, class members end up in global namespace instead of being grouped.
+
+**Affected Versions:** Ghidra 12.0.3 and earlier
+
+**Impact:** Poor organization of class members
+
+**Resolution:** Fixed in Ghidra 12.0.4. Now creates a class namespace with the mangled name so items can be correctly grouped.
+
+**Reference:** GP-6431, Issue #8944 (Fixed in 12.0.4)
+
+---
+
+## Data Type Issues
+
+### Multi-User Merge - Non-Packed Structures
+
+**Issue:** Multi-user merge issues related to non-packed structures can negatively affect merge results.
+
+**Affected Versions:** Ghidra 12.0.2 and earlier
+
+**Impact:** Incorrect merge results in collaborative environments
+
+**Resolution:** Fixed in Ghidra 12.0.3
+
+**Reference:** GP-6320, Issue #8776 (Fixed in 12.0.3)
+
+---
+
+## Processor-Specific Issues
+
+The following processor-specific issues have been identified and fixed in recent releases:
+
+### AARCH64
+
+- **ldpsw instruction semantics** - Fixed in 12.0.4 (GP-5590, Issues #6469, #8008)
+- **ldar instruction semantics** - Fixed in 12.0.4 (GP-6473, Issues #6467, #8014)
+- **sha1h instruction** - Fixed in 12.0.3 (GP-4501, Issue #6398)
+- **CSSC instructions support** - Added in 12.0.4 (GP-6448, Issues #8973, #8979)
+
+### MIPS
+
+- **sdbbp16 disassembly** - Fixed in 12.0.4 (GP-6489)
+- **save and restore instructions** - Added in 12.0.4 (GP-6501)
+- **MIPS16e2 lui instruction** - Fixed in 12.0.3 (GP-6419)
+
+### PIC-18
+
+- **Double increment/decrement issue** - Fixed in 12.0.4 (GP-6004, Issues #3342, #8501)
+
+### PowerPC
+
+- **Altivec vadduws instruction** - Added in 12.0.4 (GP-6268, Issue #8821)
+
+### Other Processors
+
+- **Xtensa slapsec token** - Fixed in 12.0.4 (GP-6080)
+- **CR16 tbit instruction** - Fixed in 12.0.4 (GP-6181, Issue #8716)
+- **eBPF atomic compare-and-exchange** - Fixed in 12.0.4 (GP-6182, Issue #8721)
+- **80251 SPX register references** - Fixed in 12.0.3 (GP-5905, Issue #8395)
+
+---
+
+## Security Advisories
+
+<Warning>
+For the most up-to-date security information, always check [Ghidra's Security Advisories](https://github.com/NationalSecurityAgency/ghidra/security/advisories) before using any version of Ghidra.
+</Warning>
+
+### Zip Path Traversal in Theme Import
+
+**Issue:** Potential zip path traversal vulnerability when importing Ghidra theme zip files.
+
+**Affected Versions:** Ghidra 12.0.3 and earlier
+
+**Impact:** Security vulnerability
+
+**Resolution:** Fixed in Ghidra 12.0.4
+
+**Reference:** GP-6455 (Fixed in 12.0.4)
+
+---
+
+## API Changes
+
+These are breaking API changes that may affect extension and script developers:
+
+### AddressRangeTableModel Constructor (12.0.4)
+
+**Change:** The `resultsLimit` and `minLength` parameters have been removed from the AddressRangeTableModel constructor.
+
+**Impact:** Code using this constructor must be updated.
+
+**Reference:** GP-6480 (Changed in 12.0.4)
+
+---
+
+## Reporting New Issues
+
+If you encounter an issue not listed here:
+
+1. **Search existing issues:** Check if it's already reported at [GitHub Issues](https://github.com/NationalSecurityAgency/ghidra/issues)
+
+2. **Check recent releases:** The issue may be fixed in a newer version
+
+3. **Report the issue:** Use the [bug report template](https://github.com/NationalSecurityAgency/ghidra/issues/new/choose) to create a new issue
+
+4. **Include details:**
+   - Ghidra version
+   - Operating system and version
+   - JDK version
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Error messages or stack traces
+
+<Tip>
+Before reporting, try reproducing the issue with the latest Ghidra release to ensure it hasn't already been fixed.
+</Tip>

@@ -1,0 +1,389 @@
+---
+title: DecompInterface API
+description: API reference for the Ghidra decompiler interface
+---
+
+## Overview
+
+DecompInterface is a self-contained interface to the Ghidra decompiler process. It provides a persistent connection suitable for an open-ended number of function decompilations for a single program. The interface automatically handles process crashes by respawning and reinitializing as needed.
+
+## Interface
+
+**Package:** `ghidra.app.decompiler`  
+**Location:** `Ghidra/Features/Decompiler/src/main/java/ghidra/app/decompiler/DecompInterface.java`
+
+```java
+public class DecompInterface
+```
+
+## Constructor
+
+### DecompInterface()
+
+Creates a new decompiler interface instance.
+
+```java
+public DecompInterface()
+```
+
+## Initialization Methods
+
+### openProgram()
+
+Initializes the decompiler process for a specific program. This method only needs to be called once per program.
+
+```java
+public synchronized boolean openProgram(Program prog)
+```
+
+**Parameters:**
+- `prog` - The program on which to perform decompilations
+
+**Returns:** `true` if the decompiler process is successfully initialized
+
+<Note>
+Even if the underlying decompiler process crashes, the interface will automatically restart and reinitialize when needed. You do not need to call openProgram again.
+</Note>
+
+---
+
+### closeProgram()
+
+Shutdown the decompiler process and free resources. The interface cannot be used again until openProgram is called.
+
+```java
+public synchronized void closeProgram()
+```
+
+---
+
+## Configuration Methods
+
+### setOptions()
+
+Sets the global options used by the decompiler.
+
+```java
+public synchronized boolean setOptions(DecompileOptions options)
+```
+
+**Parameters:**
+- `options` - The new (or changed) option object
+
+**Returns:** `true` if the decompiler process accepted the new options
+
+<Note>
+This method does NOT need to be called repeatedly if options don't change. Even after recovering from a process crash, the interface keeps the options and automatically sends them to the new process.
+</Note>
+
+---
+
+### setSimplificationStyle()
+
+Sets the type of analysis performed by the decompiler.
+
+```java
+public synchronized boolean setSimplificationStyle(String actionstring)
+```
+
+**Parameters:**
+- `actionstring` - Analysis style name (see below)
+
+**Returns:** `true` if the decompiler process was successfully configured
+
+**Available Styles:**
+- `"decompile"` - Default style, performs all analysis steps suitable for producing C code
+- `"normalize"` - Omits type recovery and some final clean-up steps, suitable for normalized pcode syntax trees
+- `"firstpass"` - No analysis, produces unmodified syntax tree of dataflow from raw pcode
+- `"register"` - Register-focused analysis
+- `"paramid"` - Required decompilation followed by parameter measure analysis
+
+---
+
+### toggleSyntaxTree()
+
+Toggles whether the decompiler produces a syntax tree.
+
+```java
+public synchronized boolean toggleSyntaxTree(boolean val)
+```
+
+**Parameters:**
+- `val` - `true` to produce a syntax tree, `false` otherwise
+
+**Returns:** `true` if the decompiler process accepted the change
+
+---
+
+### toggleCCode()
+
+Toggles whether the decompiler produces C code.
+
+```java
+public synchronized boolean toggleCCode(boolean val)
+```
+
+**Parameters:**
+- `val` - `true` to produce C code, `false` otherwise
+
+**Returns:** `true` if the decompiler process accepted the change
+
+---
+
+### toggleParamMeasures()
+
+Toggles whether the decompiler produces parameter measures.
+
+```java
+public synchronized boolean toggleParamMeasures(boolean val)
+```
+
+**Parameters:**
+- `val` - `true` to produce parameter measures, `false` otherwise
+
+**Returns:** `true` if the decompiler process accepted the change
+
+---
+
+### toggleJumpLoads()
+
+Toggles whether the decompiler returns information about jump tables used for switch statements.
+
+```java
+public synchronized boolean toggleJumpLoads(boolean val)
+```
+
+**Parameters:**
+- `val` - `true` to return jump table info, `false` otherwise
+
+**Returns:** `true` if the decompiler process accepted the change
+
+---
+
+## Decompilation Methods
+
+### decompileFunction()
+
+Decompiles a function and returns the results.
+
+```java
+public synchronized DecompileResults decompileFunction(Function func, int timeoutSecs,
+        TaskMonitor monitor)
+```
+
+**Parameters:**
+- `func` - Function to be decompiled
+- `timeoutSecs` - Timeout in seconds (returns null if exceeded)
+- `monitor` - Optional task monitor for cancellation (may be null)
+
+**Returns:** `DecompileResults` object containing decompiled function information
+
+---
+
+### flushCache()
+
+Clears cached function and symbol information.
+
+```java
+public synchronized int flushCache()
+```
+
+**Returns:** -1 (return value currently has no meaning)
+
+<Note>
+It's recommended to call this after each decompileFunction call, as the decompiler caches and reuses data without explicit synchronization with the database.
+</Note>
+
+---
+
+## Information Methods
+
+### getProgram()
+
+Returns the currently open program.
+
+```java
+public Program getProgram()
+```
+
+**Returns:** The active Program or null
+
+---
+
+### getLastMessage()
+
+Returns the last message produced by the decompiler process.
+
+```java
+public String getLastMessage()
+```
+
+**Returns:** The message string or null
+
+<Note>
+If the message is non-null, it's probably an error message. Use DecompileResults.getErrorMessage() instead.
+</Note>
+
+---
+
+### getSimplificationStyle()
+
+Returns the current simplification style identifier.
+
+```java
+public String getSimplificationStyle()
+```
+
+**Returns:** The identifier as a String
+
+---
+
+### getMajorVersion()
+
+Returns the major version number of the decompiler.
+
+```java
+public synchronized short getMajorVersion()
+```
+
+**Returns:** Major version number
+
+---
+
+### getMinorVersion()
+
+Returns the minor version number of the decompiler.
+
+```java
+public synchronized short getMinorVersion()
+```
+
+**Returns:** Minor version number
+
+---
+
+## Advanced Methods
+
+### generateSignatures()
+
+Generates a signature for a function using current signature settings.
+
+```java
+public synchronized SignatureResult generateSignatures(Function func, boolean keepcalllist,
+        int timeoutSecs, TaskMonitor monitor)
+```
+
+**Parameters:**
+- `func` - The function to generate signatures for
+- `keepcalllist` - `true` if direct call addresses should be collected
+- `timeoutSecs` - Maximum time to spend decompiling
+- `monitor` - TaskMonitor for cancellation
+
+**Returns:** Feature vector as a SignatureResult
+
+---
+
+### stopProcess()
+
+Stops the decompiler process immediately.
+
+```java
+public void stopProcess()
+```
+
+<Warning>
+Subsequent calls from another thread may fail since the decompiler process is being terminated.
+</Warning>
+
+---
+
+### resetDecompiler()
+
+Resets the native decompiler process. Call this when the decompiler's view of a program has been invalidated.
+
+```java
+public void resetDecompiler()
+```
+
+---
+
+### dispose()
+
+Cleans up resources and terminates the decompiler process.
+
+```java
+public void dispose()
+```
+
+---
+
+## Usage Example
+
+Here's a complete example of using the DecompInterface:
+
+```java
+import ghidra.app.decompiler.*;
+import ghidra.program.model.listing.*;
+import ghidra.util.task.TaskMonitor;
+
+public class DecompilerExample {
+    
+    public void decompileFunctions(Program program) {
+        // Instantiate the interface
+        DecompInterface decompiler = new DecompInterface();
+        
+        try {
+            // Setup options (optional)
+            DecompileOptions options = new DecompileOptions();
+            decompiler.setOptions(options);
+            
+            // Optional: Configure what to produce
+            // decompiler.toggleSyntaxTree(false);  // Don't produce syntax trees
+            // decompiler.toggleCCode(false);       // Don't produce C code
+            // decompiler.setSimplificationStyle("normalize"); // Alternate style
+            
+            // Initialize for the program
+            if (!decompiler.openProgram(program)) {
+                System.err.println("Failed to open program: " + 
+                                 decompiler.getLastMessage());
+                return;
+            }
+            
+            // Decompile each function
+            FunctionIterator iter = program.getFunctionManager().getFunctions(true);
+            for (Function func : iter) {
+                // Decompile with 30 second timeout
+                DecompileResults res = decompiler.decompileFunction(
+                    func, 30, TaskMonitor.DUMMY);
+                
+                // Check for errors
+                if (!res.decompileCompleted()) {
+                    System.err.println("Error: " + res.getErrorMessage());
+                    continue;
+                }
+                
+                // Get C code
+                ClangTokenGroup tokgroup = res.getCCodeMarkup();
+                System.out.println("C Code for " + func.getName() + ":");
+                System.out.println(tokgroup.toString());
+                
+                // Get the function object/syntax tree
+                HighFunction hfunc = res.getHighFunction();
+                if (hfunc != null) {
+                    System.out.println("Variables: " + 
+                                     hfunc.getLocalSymbolMap().getSymbols().size());
+                }
+            }
+            
+        } finally {
+            // Clean up
+            decompiler.dispose();
+        }
+    }
+}
+```
+
+## See Also
+
+- [Function Manager](/api/function-manager) - Managing functions in a program
+- [Analyzers](/api/analyzers) - Creating custom analyzers

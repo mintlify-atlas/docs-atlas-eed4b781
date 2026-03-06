@@ -1,0 +1,291 @@
+---
+title: Analyzer API
+description: API reference for creating custom Ghidra analyzers
+---
+
+## Overview
+
+The Analyzer interface allows you to create custom analysis plugins that automatically analyze programs based on specific events or conditions. Analyzers are triggered when code, data, or functions are added or modified in a Ghidra program.
+
+## Interface
+
+**Package:** `ghidra.app.services`  
+**Location:** `Ghidra/Features/Base/src/main/java/ghidra/app/services/Analyzer.java`
+
+```java
+public interface Analyzer extends ExtensionPoint
+```
+
+<Note>
+All analyzer classes MUST end in "Analyzer" for the ClassSearcher to find them.
+</Note>
+
+## Core Methods
+
+### getName()
+
+Returns the name of the analyzer.
+
+```java
+public String getName();
+```
+
+**Returns:** Analyzer name as a String
+
+---
+
+### getAnalysisType()
+
+Returns the type of analysis this analyzer performs.
+
+```java
+public AnalyzerType getAnalysisType();
+```
+
+**Returns:** One of the following analyzer types:
+- `BYTE_ANALYZER` - Triggered when bytes are added (memory block added)
+- `INSTRUCTION_ANALYZER` - Triggered when instructions are created
+- `FUNCTION_ANALYZER` - Triggered when functions are created
+- `FUNCTION_MODIFIERS_ANALYZER` - Triggered when a function's modifiers change
+- `FUNCTION_SIGNATURES_ANALYZER` - Triggered when a function's signature changes
+- `DATA_ANALYZER` - Triggered when data is created
+
+---
+
+### getDefaultEnablement()
+
+Determines if this analyzer should be enabled by default.
+
+```java
+public boolean getDefaultEnablement(Program program);
+```
+
+**Parameters:**
+- `program` - The program being analyzed
+
+**Returns:** `true` if the analyzer should be enabled by default, `false` for specialized analyzers
+
+---
+
+### canAnalyze()
+
+Checks if this analyzer can work on the given program.
+
+```java
+public boolean canAnalyze(Program program);
+```
+
+**Parameters:**
+- `program` - Program to be analyzed
+
+**Returns:** `true` if this analyzer can analyze this program
+
+---
+
+### added()
+
+Called when the requested information type has been added (e.g., when a function is added).
+
+```java
+public boolean added(Program program, AddressSetView set, TaskMonitor monitor, MessageLog log)
+        throws CancelledException;
+```
+
+**Parameters:**
+- `program` - Program to analyze
+- `set` - AddressSet of locations that have been added
+- `monitor` - Task monitor that indicates progress and cancellation status
+- `log` - Message log to record analysis information
+
+**Returns:** `true` if the analysis succeeded
+
+**Throws:** `CancelledException` if the analysis is cancelled
+
+---
+
+### removed()
+
+Called when the requested information type has been removed (e.g., when a function is removed).
+
+```java
+public boolean removed(Program program, AddressSetView set, TaskMonitor monitor, MessageLog log)
+        throws CancelledException;
+```
+
+**Parameters:**
+- `program` - Program to analyze
+- `set` - AddressSet of locations that have been removed
+- `monitor` - Task monitor that indicates progress and cancellation status
+- `log` - Message log to record analysis information
+
+**Returns:** `true` if the analysis succeeded
+
+**Throws:** `CancelledException` if the analysis is cancelled
+
+---
+
+### registerOptions()
+
+Registers analyzer options with default values, help content, and descriptions.
+
+```java
+public void registerOptions(Options options, Program program);
+```
+
+**Parameters:**
+- `options` - The program options/property list that contains the options
+- `program` - Program to be analyzed
+
+---
+
+### optionsChanged()
+
+Initializes analyzer options from the values in the given Options object.
+
+```java
+public void optionsChanged(Options options, Program program);
+```
+
+**Parameters:**
+- `options` - The program options/property list that contains the options
+- `program` - Program to be analyzed
+
+---
+
+### analysisEnded()
+
+Called when an auto-analysis session ends, allowing cleanup of resources.
+
+```java
+public void analysisEnded(Program program);
+```
+
+**Parameters:**
+- `program` - The program that was just completed being analyzed
+
+---
+
+### getPriority()
+
+Returns the priority that this analyzer should run at.
+
+```java
+public AnalysisPriority getPriority();
+```
+
+**Returns:** Analyzer priority level
+
+---
+
+### getDescription()
+
+Returns a longer description of what this analyzer does.
+
+```java
+public String getDescription();
+```
+
+**Returns:** Analyzer description
+
+---
+
+### supportsOneTimeAnalysis()
+
+Indicates if this analyzer can be directly invoked on an address or address set.
+
+```java
+public boolean supportsOneTimeAnalysis();
+```
+
+**Returns:** `true` if the analyzer supports one-time analysis
+
+<Note>
+The AutoAnalyzer plugin will automatically create an action for each analyzer that returns `true`.
+</Note>
+
+---
+
+### isPrototype()
+
+Indicates if this analyzer is a prototype.
+
+```java
+public boolean isPrototype();
+```
+
+**Returns:** `true` if this analyzer is a prototype
+
+---
+
+## Example Implementation
+
+Here's an example analyzer that condenses filler bytes between functions:
+
+```java
+package ghidra.app.analyzers;
+
+import ghidra.app.services.*;
+import ghidra.app.util.importer.MessageLog;
+import ghidra.framework.options.Options;
+import ghidra.program.model.address.*;
+import ghidra.program.model.listing.*;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
+
+public class CondenseFillerBytesAnalyzer extends AbstractAnalyzer {
+    private static final String NAME = "Condense Filler Bytes";
+    private static final String DESCRIPTION =
+        "This analyzer finds filler bytes between functions and collapses them";
+    
+    public CondenseFillerBytesAnalyzer() {
+        super(NAME, DESCRIPTION, AnalyzerType.BYTE_ANALYZER);
+        setPriority(AnalysisPriority.DATA_TYPE_PROPOGATION.after());
+        setPrototype();
+    }
+    
+    @Override
+    public boolean canAnalyze(Program program) {
+        return true;
+    }
+    
+    @Override
+    public boolean added(Program program, AddressSetView set, 
+                        TaskMonitor monitor, MessageLog log)
+            throws CancelledException {
+        
+        Listing listing = program.getListing();
+        FunctionIterator iterator = listing.getFunctions(true);
+        
+        while (iterator.hasNext()) {
+            monitor.checkCancelled();
+            
+            Function function = iterator.next();
+            Address maxAddress = function.getBody().getMaxAddress();
+            Data undefinedData = listing.getUndefinedDataAt(maxAddress.next());
+            
+            if (undefinedData != null) {
+                // Process filler bytes
+                log.appendMsg("Found filler bytes at " + undefinedData.getAddress());
+            }
+        }
+        
+        return true;
+    }
+    
+    @Override
+    public void registerOptions(Options options, Program program) {
+        options.registerOption("Min Bytes", 1, null,
+            "Minimum number of filler bytes to condense");
+    }
+    
+    @Override
+    public void optionsChanged(Options options, Program program) {
+        int minBytes = options.getInt("Min Bytes", 1);
+    }
+}
+```
+
+## See Also
+
+- [Function Manager](/api/function-manager) - Managing functions in a program
+- [Reference Manager](/api/reference-manager) - Managing references between code units
