@@ -1,0 +1,180 @@
+{
+  "projectType": "framework",
+  "projectName": "Ghidra",
+  "projectDescription": "A comprehensive software reverse engineering framework with disassembly, decompilation, and analysis capabilities",
+  "theme": "aspen",
+  "primaryColor": "#e1c8ab",
+  "lightColor": "#475961",
+  "darkColor": "#93bac7",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/architecture",
+              "concepts/projects",
+              "concepts/programs",
+              "concepts/analysis"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "guide/interface",
+              "guide/disassembly",
+              "guide/decompiler",
+              "guide/data-types",
+              "guide/functions",
+              "guide/references",
+              "guide/symbols",
+              "guide/search"
+            ]
+          },
+          {
+            "group": "Advanced Features",
+            "pages": [
+              "features/debugger",
+              "features/bsim",
+              "features/server",
+              "features/version-tracking",
+              "features/graphing",
+              "features/diff"
+            ]
+          },
+          {
+            "group": "Scripting & Automation",
+            "pages": [
+              "scripting/overview",
+              "scripting/java-scripts",
+              "scripting/python-scripts",
+              "scripting/pyghidra",
+              "scripting/headless"
+            ]
+          },
+          {
+            "group": "Extension Development",
+            "pages": [
+              "development/overview",
+              "development/setup",
+              "development/plugins",
+              "development/analyzers",
+              "development/loaders",
+              "development/sleigh"
+            ]
+          },
+          {
+            "group": "Processors & Formats",
+            "pages": [
+              "processors/supported-architectures",
+              "processors/file-formats",
+              "processors/sleigh-language"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/program",
+              "api/listing",
+              "api/memory",
+              "api/symbol-table",
+              "api/data-types"
+            ]
+          },
+          {
+            "group": "Analysis API",
+            "pages": [
+              "api/analyzers",
+              "api/decompiler",
+              "api/function-manager",
+              "api/reference-manager"
+            ]
+          },
+          {
+            "group": "Scripting API",
+            "pages": [
+              "api/ghidra-script",
+              "api/flat-api",
+              "api/pyghidra"
+            ]
+          },
+          {
+            "group": "Plugin API",
+            "pages": [
+              "api/plugin-development",
+              "api/services",
+              "api/events"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "community/contributing",
+              "community/building",
+              "community/development-setup"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/faq",
+              "resources/troubleshooting",
+              "resources/known-issues",
+              "resources/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-platform disassembly and decompilation",
+    "Support for 40+ processor architectures",
+    "Advanced program analysis and auto-analysis",
+    "Interactive debugging with multiple backend agents",
+    "BSim (Behavioral Similarity) for function matching",
+    "Collaborative project server support",
+    "Python and Java scripting capabilities",
+    "Extensible plugin architecture",
+    "Version tracking across binaries",
+    "Graph visualization and program diff"
+  ],
+  "publicApiSurface": [
+    "Program API (ghidra.program.model.listing.Program)",
+    "Function API (ghidra.program.model.listing.Function)",
+    "Memory API (ghidra.program.model.mem.Memory)",
+    "SymbolTable API (ghidra.program.model.symbol.SymbolTable)",
+    "Decompiler API (ghidra.app.decompiler.DecompInterface)",
+    "GhidraScript base class",
+    "FlatProgramAPI for scripting",
+    "PyGhidra Python library",
+    "Analyzer interface (ghidra.app.services.Analyzer)",
+    "Plugin interface (ghidra.framework.plugintool.Plugin)",
+    "Loader interface (ghidra.app.util.opinion.Loader)",
+    "Sleigh processor language specification",
+    "Headless analyzer command-line interface",
+    "Server administration tools",
+    "BSim database and query API"
+  ]
+}
